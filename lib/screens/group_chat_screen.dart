@@ -1,0 +1,372 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import '../providers/groups_provider.dart';
+import '../models/group.dart';
+import '../models/chat_message.dart';
+
+class GroupChatScreen extends StatefulWidget {
+  final Group group;
+
+  const GroupChatScreen({super.key, required this.group});
+
+  @override
+  State<GroupChatScreen> createState() => _GroupChatScreenState();
+}
+
+class _GroupChatScreenState extends State<GroupChatScreen> {
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _addMemberController = TextEditingController();
+  final FocusNode _messageFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    _addMemberController.dispose();
+    _messageFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.group.displayName),
+            Text(
+              '${widget.group.members.length} members',
+              style: const TextStyle(fontSize: 12, color: Colors.white70),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF2196F3),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            onPressed: _showAddMemberDialog,
+            icon: const Icon(Icons.person_add),
+            tooltip: 'Add member',
+          ),
+          IconButton(
+            onPressed: _showGroupInfo,
+            icon: const Icon(Icons.info),
+            tooltip: 'Group info',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Messages list
+          Expanded(
+            child: Consumer<GroupsProvider>(
+              builder: (context, groupsProvider, child) {
+                final messages = groupsProvider.getGroupMessages(
+                  widget.group.id,
+                );
+
+                if (messages.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No messages yet. Start the conversation!',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    return ChatBubble(message: message);
+                  },
+                );
+              },
+            ),
+          ),
+
+          // Message input
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    focusNode: _messageFocusNode,
+                    decoration: InputDecoration(
+                      hintText: 'Type a message...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                    onSubmitted: (text) => _sendMessage(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                CircleAvatar(
+                  backgroundColor: const Color(0xFF2196F3),
+                  child: IconButton(
+                    onPressed: _sendMessage,
+                    icon: const Icon(Icons.send, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+
+    _messageController.clear();
+
+    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+    final success = await groupsProvider.sendMessageToGroup(
+      widget.group.id,
+      text,
+    );
+
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to send message. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+
+    // Refocus the input field and scroll to bottom
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _messageFocusNode.requestFocus();
+      }
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _showAddMemberDialog() {
+    _addMemberController.clear();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Member'),
+        content: TextField(
+          controller: _addMemberController,
+          decoration: const InputDecoration(
+            labelText: 'Enter atSign (e.g., @alice)',
+            hintText: '@alice',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final atSign = _addMemberController.text.trim();
+              if (atSign.isNotEmpty) {
+                _addMember(atSign);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addMember(String memberAtSign) {
+    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+
+    // Ensure atSign starts with @
+    final formattedAtSign = memberAtSign.startsWith('@')
+        ? memberAtSign
+        : '@$memberAtSign';
+
+    // Add member to group
+    final updatedMembers = Set<String>.from(widget.group.members)
+      ..add(formattedAtSign);
+    groupsProvider.createOrUpdateGroup(
+      updatedMembers,
+      instanceId: widget.group.id,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Added $formattedAtSign to the group')),
+    );
+  }
+
+  void _showGroupInfo() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(widget.group.displayName),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Members (${widget.group.members.length}):'),
+            const SizedBox(height: 8),
+            ...widget.group.members.map(
+              (member) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundColor: Colors.grey[300],
+                      child: Text(
+                        member.substring(1, 2).toUpperCase(),
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(member)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ChatBubble extends StatelessWidget {
+  final ChatMessage message;
+
+  const ChatBubble({super.key, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final isMe = message.isFromMe;
+    final timeFormat = DateFormat('HH:mm');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        children: [
+          if (!isMe) ...[
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.grey[300],
+              child: Text(
+                (message.fromAtSign.startsWith('@')
+                        ? message.fromAtSign.substring(1, 2)
+                        : message.fromAtSign.substring(0, 1))
+                    .toUpperCase(),
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.7,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: isMe ? const Color(0xFF2196F3) : Colors.grey[200],
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!isMe) ...[
+                    Text(
+                      message.fromAtSign.startsWith('@')
+                          ? message.fromAtSign.substring(1) // Remove @ symbol
+                          : message.fromAtSign,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2196F3),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  Text(
+                    message.text,
+                    style: TextStyle(
+                      color: isMe ? Colors.white : Colors.black87,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    timeFormat.format(message.timestamp),
+                    style: TextStyle(
+                      color: isMe ? Colors.white70 : Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isMe) ...[
+            const SizedBox(width: 8),
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: const Color(0xFF2196F3),
+              child: Text(
+                (message.fromAtSign.startsWith('@')
+                        ? message.fromAtSign.substring(1, 2)
+                        : message.fromAtSign.substring(0, 1))
+                    .toUpperCase(),
+                style: const TextStyle(fontSize: 12, color: Colors.white),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
