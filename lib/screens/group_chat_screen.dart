@@ -19,6 +19,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _addMemberController = TextEditingController();
   final FocusNode _messageFocusNode = FocusNode();
+  bool _shouldMaintainFocus = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Request focus when the screen first loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _messageFocusNode.requestFocus();
+      _shouldMaintainFocus = true;
+    });
+  }
 
   @override
   void dispose() {
@@ -67,6 +78,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 final messages = groupsProvider.getGroupMessages(
                   widget.group.id,
                 );
+
+                // Maintain focus after widget rebuilds due to new messages
+                if (_shouldMaintainFocus && !_messageFocusNode.hasFocus) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _shouldMaintainFocus) {
+                      _messageFocusNode.requestFocus();
+                    }
+                  });
+                }
 
                 if (messages.isEmpty) {
                   return const Center(
@@ -123,6 +143,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       ),
                     ),
                     onSubmitted: (text) => _sendMessage(),
+                    onTap: () {
+                      // User intentionally tapped the text field, ensure focus maintenance is enabled
+                      _shouldMaintainFocus = true;
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -162,7 +186,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       );
     }
 
-    // Refocus the input field and scroll to bottom
+    // Ensure focus maintenance is enabled and refocus the input field
+    _shouldMaintainFocus = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _messageFocusNode.requestFocus();
@@ -178,6 +203,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _showAddMemberDialog() {
+    _shouldMaintainFocus = false; // Disable focus maintenance during dialog
     _addMemberController.clear();
     showDialog(
       context: context,
@@ -193,7 +219,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(context);
+              // Re-enable focus maintenance after dialog closes
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _shouldMaintainFocus = true;
+                _messageFocusNode.requestFocus();
+              });
+            },
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -202,6 +235,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               if (atSign.isNotEmpty) {
                 _addMember(atSign);
                 Navigator.pop(context);
+                // Re-enable focus maintenance after dialog closes
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _shouldMaintainFocus = true;
+                  _messageFocusNode.requestFocus();
+                });
               }
             },
             child: const Text('Add'),
@@ -233,6 +271,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _showGroupInfo() {
+    _shouldMaintainFocus = false; // Disable focus maintenance during dialog
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -266,7 +305,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(context);
+              // Re-enable focus maintenance after dialog closes
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _shouldMaintainFocus = true;
+                _messageFocusNode.requestFocus();
+              });
+            },
             child: const Text('Close'),
           ),
         ],
