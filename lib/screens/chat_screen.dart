@@ -35,7 +35,7 @@ class _ChatScreenState extends State<ChatScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('AtTalk - Group Chat'),
+                const Text('atTalk - Group Chat'),
                 if (groupMembers.isNotEmpty)
                   Text(
                     'Group: ${groupMembers.join(', ')}',
