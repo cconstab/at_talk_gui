@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/groups_provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/at_talk_service.dart';
 import '../models/group.dart';
 import 'group_chat_screen.dart';
 
@@ -35,9 +36,11 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentAtSign = AtTalkService.instance.currentAtSign ?? 'Unknown';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('atTalk Groups'),
+        title: Text('atTalk - $currentAtSign'),
         backgroundColor: const Color(0xFF2196F3),
         foregroundColor: Colors.white,
         actions: [
@@ -318,7 +321,8 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
     if (group != null) {
       // Show success message
       final memberCount = members.length - 1; // Exclude current user from count
-      final groupDisplayName = group.displayName;
+      final currentAtSign = AtTalkService.instance.currentAtSign;
+      final groupDisplayName = group.getDisplayName(currentAtSign);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -363,10 +367,12 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
   }
 
   void _showGroupInfo(Group group) {
+    final currentAtSign = AtTalkService.instance.currentAtSign;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(group.displayName),
+        title: Text(group.getDisplayName(currentAtSign)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,12 +408,14 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
   }
 
   void _deleteGroup(Group group) {
+    final currentAtSign = AtTalkService.instance.currentAtSign;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Group'),
         content: Text(
-          'Are you sure you want to delete "${group.displayName}"?',
+          'Are you sure you want to delete "${group.getDisplayName(currentAtSign)}"?',
         ),
         actions: [
           TextButton(
@@ -483,11 +491,13 @@ class GroupListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentAtSign = AtTalkService.instance.currentAtSign;
+
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: const Color(0xFF2196F3),
         child: Text(
-          group.displayName.substring(0, 1).toUpperCase(),
+          group.getDisplayName(currentAtSign).substring(0, 1).toUpperCase(),
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -495,7 +505,7 @@ class GroupListTile extends StatelessWidget {
         ),
       ),
       title: Text(
-        group.displayName,
+        group.getDisplayName(currentAtSign),
         style: const TextStyle(fontWeight: FontWeight.w500),
       ),
       subtitle: group.lastMessage != null

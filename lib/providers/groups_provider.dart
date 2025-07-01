@@ -583,6 +583,7 @@ class GroupsProvider extends ChangeNotifier {
           (jsonData['group'] as List<dynamic>?)?.cast<String>() ?? [];
       final newGroupName = jsonData['groupName'] as String?;
       final instanceId = jsonData['instanceId'] as String?;
+      final fromAtSign = jsonData['from'] as String?;
 
       if (groupMembers.isEmpty) return;
 
@@ -601,20 +602,26 @@ class GroupsProvider extends ChangeNotifier {
         final group = _groups[groupId]!;
         _groups[groupId] = group.copyWith(name: newGroupName);
 
-        // Add a system message about the rename
+        // Add a system message about the rename, showing who did it
         final displayName = newGroupName?.isNotEmpty == true
             ? newGroupName!
             : 'Unnamed Group';
+
+        // Use the actual sender's atSign (like TUI format) instead of 'System'
+        final currentAtSign = AtTalkService.instance.currentAtSign;
+        final isFromCurrentUser =
+            currentAtSign != null && fromAtSign == currentAtSign;
+
         final systemMessage = ChatMessage(
           text: 'Group renamed to "$displayName"',
-          fromAtSign: 'System',
+          fromAtSign: fromAtSign ?? 'System',
           timestamp: DateTime.now(),
-          isFromMe: false,
+          isFromMe: isFromCurrentUser,
         );
         addMessageToGroup(groupId, systemMessage);
 
         notifyListeners();
-        print('Group $groupId renamed to "$displayName"');
+        print('Group $groupId renamed to "$displayName" by $fromAtSign');
       }
     } catch (e) {
       print('Error handling group rename: $e');
@@ -627,6 +634,7 @@ class GroupsProvider extends ChangeNotifier {
           (jsonData['group'] as List<dynamic>?)?.cast<String>() ?? [];
       final groupName = jsonData['groupName'] as String?;
       final instanceId = jsonData['instanceId'] as String?;
+      final fromAtSign = jsonData['from'] as String?;
 
       if (newMembers.isEmpty) return;
 
@@ -660,6 +668,11 @@ class GroupsProvider extends ChangeNotifier {
           name: groupName,
         );
 
+        // Use the actual sender's atSign (like TUI format) instead of 'System'
+        final currentAtSign = AtTalkService.instance.currentAtSign;
+        final isFromCurrentUser =
+            currentAtSign != null && fromAtSign == currentAtSign;
+
         // Add system messages for member changes
         final added = newMembersSet.difference(oldMembers);
         final removed = oldMembers.difference(newMembersSet);
@@ -667,9 +680,9 @@ class GroupsProvider extends ChangeNotifier {
         for (final member in added) {
           final systemMessage = ChatMessage(
             text: '$member joined the group',
-            fromAtSign: 'System',
+            fromAtSign: fromAtSign ?? 'System',
             timestamp: DateTime.now(),
-            isFromMe: false,
+            isFromMe: isFromCurrentUser,
           );
           addMessageToGroup(groupId, systemMessage);
         }
@@ -677,9 +690,9 @@ class GroupsProvider extends ChangeNotifier {
         for (final member in removed) {
           final systemMessage = ChatMessage(
             text: '$member left the group',
-            fromAtSign: 'System',
+            fromAtSign: fromAtSign ?? 'System',
             timestamp: DateTime.now(),
-            isFromMe: false,
+            isFromMe: isFromCurrentUser,
           );
           addMessageToGroup(groupId, systemMessage);
         }

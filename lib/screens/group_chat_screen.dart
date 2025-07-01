@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/groups_provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/at_talk_service.dart';
 import '../models/group.dart';
 import '../models/chat_message.dart';
 
@@ -43,17 +44,29 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentAtSign = AtTalkService.instance.currentAtSign;
+
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.group.displayName),
-            Text(
-              '${widget.group.members.length} members',
-              style: const TextStyle(fontSize: 12, color: Colors.white70),
-            ),
-          ],
+        title: Consumer<GroupsProvider>(
+          builder: (context, groupsProvider, child) {
+            // Get the updated group from the provider
+            final updatedGroup =
+                groupsProvider.groups[widget.group.id] ?? widget.group;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${updatedGroup.getDisplayName(currentAtSign)} - ${currentAtSign ?? 'Unknown'}',
+                ),
+                Text(
+                  '${updatedGroup.members.length} members',
+                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ],
+            );
+          },
         ),
         backgroundColor: const Color(0xFF2196F3),
         foregroundColor: Colors.white,
@@ -243,7 +256,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   void _showRenameGroupDialog() {
     _shouldMaintainFocus = false; // Disable focus maintenance during dialog
-    final currentName = widget.group.name ?? '';
+    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+
+    // Get the updated group from the provider
+    final updatedGroup = groupsProvider.groups[widget.group.id] ?? widget.group;
+    final currentName = updatedGroup.name ?? '';
     final renameController = TextEditingController(text: currentName);
 
     showDialog(
@@ -461,28 +478,36 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   void _showGroupInfo() {
     _shouldMaintainFocus = false; // Disable focus maintenance during dialog
+    final currentAtSign = AtTalkService.instance.currentAtSign;
+    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+
+    // Get the updated group from the provider
+    final updatedGroup = groupsProvider.groups[widget.group.id] ?? widget.group;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(widget.group.displayName),
+        title: Text(
+          '${updatedGroup.getDisplayName(currentAtSign)} - ${currentAtSign ?? 'Unknown'}',
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (widget.group.name != null && widget.group.name!.isNotEmpty) ...[
+            if (updatedGroup.name != null && updatedGroup.name!.isNotEmpty) ...[
               const Text(
                 'Group Name:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              Text(widget.group.name!),
+              Text(updatedGroup.name!),
               const SizedBox(height: 12),
             ],
             Text(
-              'Members (${widget.group.members.length}):',
+              'Members (${updatedGroup.members.length}):',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            ...widget.group.members.map(
+            ...updatedGroup.members.map(
               (member) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Row(
@@ -501,14 +526,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 ),
               ),
             ),
-            if (widget.group.id.isNotEmpty) ...[
+            if (updatedGroup.id.isNotEmpty) ...[
               const SizedBox(height: 12),
               const Text(
                 'Group ID:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(
-                widget.group.id,
+                updatedGroup.id,
                 style: const TextStyle(fontSize: 10, color: Colors.grey),
               ),
             ],
