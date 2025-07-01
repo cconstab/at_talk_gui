@@ -15,6 +15,7 @@ class GroupsListScreen extends StatefulWidget {
 
 class _GroupsListScreenState extends State<GroupsListScreen> {
   final TextEditingController _newGroupController = TextEditingController();
+  final TextEditingController _groupNameController = TextEditingController();
 
   @override
   void initState() {
@@ -28,6 +29,7 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
   @override
   void dispose() {
     _newGroupController.dispose();
+    _groupNameController.dispose();
     super.dispose();
   }
 
@@ -140,25 +142,48 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
 
   void _showNewGroupDialog() {
     _newGroupController.clear();
+    _groupNameController.clear();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('New Group'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter the first member\'s atSign:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _newGroupController,
-              decoration: const InputDecoration(
-                labelText: 'atSign (e.g., @alice)',
-                hintText: '@alice',
-                border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Group Name (optional):'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _groupNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Group name',
+                  hintText: 'My awesome group',
+                  border: OutlineInputBorder(),
+                ),
+                textCapitalization: TextCapitalization.words,
               ),
-              autofocus: true,
-            ),
-          ],
+              const SizedBox(height: 16),
+              const Text('Members (comma-separated):'),
+              const SizedBox(height: 8),
+              const Text(
+                'Example: @alice, @bob, @charlie',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _newGroupController,
+                decoration: const InputDecoration(
+                  labelText: 'atSigns (e.g., @alice, @bob)',
+                  hintText: '@alice, @bob',
+                  border: OutlineInputBorder(),
+                ),
+                autofocus: true,
+                maxLines: 3,
+                minLines: 1,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -167,9 +192,10 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final atSign = _newGroupController.text.trim();
-              if (atSign.isNotEmpty) {
-                _createNewGroup(atSign);
+              final members = _newGroupController.text.trim();
+              final groupName = _groupNameController.text.trim();
+              if (members.isNotEmpty) {
+                _createNewGroup(members, groupName);
                 Navigator.pop(context);
               }
             },
@@ -180,23 +206,60 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
     );
   }
 
-  void _createNewGroup(String memberAtSign) {
+  void _createNewGroup(String input, String? groupName) {
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-    // Ensure atSign starts with @
-    final formattedAtSign = memberAtSign.startsWith('@')
-        ? memberAtSign
-        : '@$memberAtSign';
     final currentAtSign = authProvider.currentAtSign;
 
-    if (currentAtSign != null) {
-      final members = {currentAtSign, formattedAtSign};
-      final group = groupsProvider.createOrUpdateGroup(members);
+    if (currentAtSign == null) return;
 
-      if (group != null) {
-        _openGroupChat(group);
-      }
+    // Parse multiple atSigns from comma-separated input
+    final inputAtSigns = input
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .map((atSign) => atSign.startsWith('@') ? atSign : '@$atSign')
+        .toSet();
+
+    // Add current user to the group
+    final members = {currentAtSign, ...inputAtSigns};
+
+    // Ensure we have at least 2 members (current user + at least 1 other)
+    if (members.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter at least one valid atSign'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Generate a unique instance ID for the new group to avoid overwriting existing groups
+    // This ensures compatibility with TUI behavior where /new creates new group instances
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final sortedMembers = members.toList()..sort();
+    final baseId = sortedMembers.join('_');
+    final uniqueInstanceId = '${baseId}_$timestamp';
+
+    final group = groupsProvider.createOrUpdateGroup(
+      members,
+      instanceId: uniqueInstanceId,
+      name: groupName?.isNotEmpty == true ? groupName : null,
+    );
+
+    if (group != null) {
+      // Show success message
+      final memberCount = members.length - 1; // Exclude current user from count
+      final groupDisplayName = group.displayName;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Created group "$groupDisplayName" with $memberCount member${memberCount == 1 ? '' : 's'}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      _openGroupChat(group);
     }
   }
 

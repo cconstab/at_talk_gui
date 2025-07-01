@@ -117,6 +117,7 @@ class GroupsProvider extends ChangeNotifier {
           message: message,
           groupMembers: groupMembersList,
           groupInstanceId: groupId,
+          groupName: group.name,
         );
         if (!success) allSuccess = false;
       }
@@ -167,28 +168,51 @@ class GroupsProvider extends ChangeNotifier {
           if (jsonData is Map<String, dynamic>) {
             final isGroupMessage = jsonData['isGroup'] == true;
             final jsonGroupMembers = jsonData['group'] as List<dynamic>?;
+            final instanceId = jsonData['instanceId'] as String?;
+            final groupName = jsonData['groupName'] as String?;
 
             if (isGroupMessage && jsonGroupMembers != null) {
               groupMembers = jsonGroupMembers.cast<String>().toSet();
 
-              // Always use the normalized group ID regardless of instanceId
-              // This ensures messages from TUI and GUI go to the same group
-              groupId = _generateGroupId(groupMembers);
-
-              // Find existing group by members instead of instanceId
-              final existingGroup = _findGroupByMembers(groupMembers);
-              if (existingGroup != null) {
-                groupId = existingGroup.id;
+              // If we have an instanceId, try to use it first
+              if (instanceId != null && _groups.containsKey(instanceId)) {
+                groupId = instanceId;
+                // Update group name if provided and different
+                final existingGroup = _groups[instanceId];
+                if (existingGroup != null && groupName != null && groupName.isNotEmpty) {
+                  if (existingGroup.name != groupName) {
+                    _groups[instanceId] = existingGroup.copyWith(name: groupName);
+                    notifyListeners();
+                  }
+                }
                 print(
-                  'Found existing group: ${existingGroup.id} for members: $groupMembers',
+                  'Using existing group by instanceId: $instanceId for members: $groupMembers',
                 ); // DEBUG
               } else {
-                // Create new group with normalized ID
-                groupId = _generateGroupId(groupMembers);
-                createOrUpdateGroup(groupMembers, instanceId: groupId);
-                print(
-                  'Created new group: $groupId for members: $groupMembers',
-                ); // DEBUG
+                // Fall back to finding existing group by members
+                final existingGroup = _findGroupByMembers(groupMembers);
+                if (existingGroup != null) {
+                  groupId = existingGroup.id;
+                  // Update group name if provided and different
+                  if (groupName != null && groupName.isNotEmpty && existingGroup.name != groupName) {
+                    _groups[existingGroup.id] = existingGroup.copyWith(name: groupName);
+                    notifyListeners();
+                  }
+                  print(
+                    'Found existing group by members: ${existingGroup.id} for members: $groupMembers',
+                  ); // DEBUG
+                } else {
+                  // Create new group with instanceId if provided, otherwise generate one
+                  groupId = instanceId ?? _generateGroupId(groupMembers);
+                  createOrUpdateGroup(
+                    groupMembers,
+                    instanceId: groupId,
+                    name: groupName,
+                  );
+                  print(
+                    'Created new group: $groupId for members: $groupMembers with name: $groupName',
+                  ); // DEBUG
+                }
               }
             }
           }
@@ -242,14 +266,24 @@ class GroupsProvider extends ChangeNotifier {
   }
 
   // Find an existing group that has the same members
+  // If multiple groups exist with the same members, return the most recent one
   Group? _findGroupByMembers(Set<String> members) {
+    Group? foundGroup;
+    DateTime? latestTime;
+    
     for (final group in _groups.values) {
       if (group.members.length == members.length &&
           group.members.containsAll(members)) {
-        return group;
+        // If this is the first match or it's more recent, use it
+        if (foundGroup == null || 
+            (group.lastMessageTime != null && 
+             (latestTime == null || group.lastMessageTime!.isAfter(latestTime)))) {
+          foundGroup = group;
+          latestTime = group.lastMessageTime;
+        }
       }
     }
-    return null;
+    return foundGroup;
   }
 
   String _generateGroupId(Set<String> members) {

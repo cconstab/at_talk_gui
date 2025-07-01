@@ -104,6 +104,7 @@ class AtTalkService {
     required String message,
     required List<String> groupMembers,
     required String groupInstanceId,
+    String? groupName,
   }) async {
     try {
       final client = atClient;
@@ -115,6 +116,7 @@ class AtTalkService {
         'isGroup': true,
         'group': groupMembers,
         'instanceId': groupInstanceId,
+        if (groupName != null && groupName.isNotEmpty) 'groupName': groupName,
       };
 
       final jsonMessage = jsonEncode(groupMessageData);

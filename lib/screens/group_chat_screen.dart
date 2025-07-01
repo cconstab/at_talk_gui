@@ -263,6 +263,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     groupsProvider.createOrUpdateGroup(
       updatedMembers,
       instanceId: widget.group.id,
+      name: widget.group.name, // Preserve existing group name
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -280,7 +281,18 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Members (${widget.group.members.length}):'),
+            if (widget.group.name != null && widget.group.name!.isNotEmpty) ...[
+              const Text(
+                'Group Name:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(widget.group.name!),
+              const SizedBox(height: 12),
+            ],
+            Text(
+              'Members (${widget.group.members.length}):',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             ...widget.group.members.map(
               (member) => Padding(
@@ -301,6 +313,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 ),
               ),
             ),
+            if (widget.group.id.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Group ID:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                widget.group.id,
+                style: const TextStyle(fontSize: 10, color: Colors.grey),
+              ),
+            ],
           ],
         ),
         actions: [
