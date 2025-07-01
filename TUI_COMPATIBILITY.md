@@ -1,8 +1,100 @@
-# AtTalk GUI - TUI Compatibility Implementation
+# AtTalk GUI - TUI Compatibility Implementati**4. TUI-Style Unique Group Creation:**
+```dart
+String createNewGroupWithUniqueId(Set<String> members, {String? name}) {
+  // Force unique ID generation for new groups to prevent overwrites
+  final groupId = _generateTUICompatibleGroupId(members, forceUniqueForGroup: true);
+  // Creates groups with timestamp suffixes like: "@alice,@bob,@charlie#1735689123456"
+}
+```
 
-## Status: ✅ COMPLETE - Full TUI Compatibility Achieved
+**5. Smart Group Creation Logic:**
+- Individual chats: Use standard TUI session keys
+- New group chats (3+ members): **Always** use timestamp suffixes to prevent overwrites
+- Existing group updates: Preserve existing IDs when possible
 
-This document outlines the completed implementation ensuring full compatibility between the AtTalk GUI app and the TUI (Terminal User Interface) at_talk app from https://github.com/atsign-foundation/at_talk.
+### 🛡️ Preventing Group Overwrites
+
+The enhanced implementation now includes several layers of protection:
+
+1. **Forced Unique IDs**: When creating new groups from UI, always generates unique timestamps
+2. **Smart Conflict Detection**: Checks existing groups before creating new ones  
+3. **TUI-Style Disambiguation**: Uses `groupId#timestamp` format exactly like TUI
+4. **Safe Session Migration**: Only migrates compatible sessions, preserves others
+
+### 📨 Message Routing Improvements  
+
+**New Routing Logic:**
+```dart
+if (groupMembers.length > 2) {
+  // For new group chats (3+ members), create with unique timestamp to avoid overwrites
+  groupId = _generateTUICompatibleGroupId(groupMembers, forceUniqueForGroup: true);
+} else {
+  // For individual chats, use standard session key  
+  groupId = sessionKey;
+}
+```
+
+This ensures that:
+- ✅ New group chats never overwrite existing ones
+- ✅ Individual chats maintain consistent IDs with TUI
+- ✅ Message routing is deterministic and conflict-free: ✅ ENHANCED - Full TUI Compatibility with Advanced Group ID Logic
+
+This document outlines the enhanced implementation ensuring full compatibility between the AtTalk GUI app and the TUI (Terminal User Interface) at_talk app from https://github.com/atsign-foundation/at_talk.
+
+## 🔧 LATEST UPDATES: TUI-Compatible Group Identification
+
+After deep analysis of the TUI implementation, we've updated the GUI to use **exactly the same group identification logic** as the TUI. This ensures perfect cross-client compatibility.
+
+### Key TUI Implementation Insights
+
+**TUI Group ID Logic (from `tui_chat.dart`):**
+- **Individual chats (2 participants)**: Uses the other person's atSign as the session key
+- **Group chats (3+ participants)**: Uses comma-separated sorted participant list as the session key  
+- **Disambiguation**: Adds timestamp suffix: `${sortedParticipants.join(',')}#$timestamp`
+
+**TUI Message Protocol (from `bin/at_talk.dart`):**
+```json
+{
+  "group": ["@alice", "@bob", "@charlie"],  // ALL participants including sender
+  "from": "@alice", 
+  "msg": "Hello everyone!",
+  "instanceId": "uuid-v4",
+  "isGroup": true,
+  "groupName": "My Group"
+}
+```
+
+### 🚀 Implementation Changes
+
+**1. New TUI-Compatible Group ID Generation:**
+```dart
+String _generateTUICompatibleGroupId(Set<String> members) {
+  if (sortedMembers.length == 2 && sortedMembers.contains(currentAtSign)) {
+    // Individual chat: use the other person's atSign as the key (TUI style)
+    groupId = sortedMembers.firstWhere((m) => m != currentAtSign);
+  } else {
+    // Group chat: use comma-separated sorted list (TUI style)  
+    groupId = sortedMembers.join(',');
+  }
+  // Add timestamp suffix for conflicts: groupId#timestamp
+}
+```
+
+**2. TUI-Compatible Message Routing:**
+- Uses `findSessionWithParticipants()` approach like TUI
+- Migrates sessions safely using TUI logic
+- Preserves individual chats vs group chats correctly
+
+**3. Session Key Logic (matches TUI exactly):**
+```dart
+String sessionKey;
+if (!isGroupMessage && groupMembers.length == 2 && groupMembers.contains(currentAtSign)) {
+  sessionKey = groupMembers.firstWhere((p) => p != currentAtSign);
+} else {
+  final sortedParticipants = groupMembers.toList()..sort();
+  sessionKey = sortedParticipants.join(',');
+}
+```
 
 ## ✅ Implemented Features
 

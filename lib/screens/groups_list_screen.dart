@@ -299,21 +299,16 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
       return;
     }
 
-    // Generate a unique instance ID for the new group to avoid overwriting existing groups
-    // This ensures compatibility with TUI behavior where /new creates new group instances
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final sortedMembers = members.toList()..sort();
-    final baseId = sortedMembers.join('_');
-    final uniqueInstanceId = '${baseId}_$timestamp';
-
-    final group = groupsProvider.createOrUpdateGroup(
+    // Use TUI-compatible unique group creation to prevent overwrites
+    final groupId = groupsProvider.createNewGroupWithUniqueId(
       members,
-      instanceId: uniqueInstanceId,
       name: groupName?.isNotEmpty == true ? groupName : null,
     );
 
-    print('🆕 Created new group: ID=$uniqueInstanceId, members=$members');
+    print('🆕 Created new group: ID=$groupId, members=$members');
 
+    // Get the created group
+    final group = groupsProvider.groups[groupId];
     if (group != null) {
       // Show success message
       final memberCount = members.length - 1; // Exclude current user from count
