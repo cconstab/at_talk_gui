@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/groups_provider.dart';
+import '../providers/auth_provider.dart';
 import '../models/group.dart';
 import '../models/chat_message.dart';
 
@@ -62,10 +63,48 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             icon: const Icon(Icons.person_add),
             tooltip: 'Add member',
           ),
-          IconButton(
-            onPressed: _showGroupInfo,
-            icon: const Icon(Icons.info),
-            tooltip: 'Group info',
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'rename') {
+                _showRenameGroupDialog();
+              } else if (value == 'info') {
+                _showGroupInfo();
+              } else if (value == 'leave') {
+                _showLeaveGroupDialog();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'rename',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit),
+                    SizedBox(width: 8),
+                    Text('Rename Group'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'info',
+                child: Row(
+                  children: [
+                    Icon(Icons.info),
+                    SizedBox(width: 8),
+                    Text('Group Info'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'leave',
+                child: Row(
+                  children: [
+                    Icon(Icons.exit_to_app, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Leave Group', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -200,6 +239,155 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         );
       }
     });
+  }
+
+  void _showRenameGroupDialog() {
+    _shouldMaintainFocus = false; // Disable focus maintenance during dialog
+    final currentName = widget.group.name ?? '';
+    final renameController = TextEditingController(text: currentName);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Group'),
+        content: TextField(
+          controller: renameController,
+          decoration: const InputDecoration(
+            labelText: 'Group Name',
+            hintText: 'Enter group name',
+          ),
+          autofocus: true,
+          maxLength: 50,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              renameController.dispose();
+              // Re-enable focus maintenance after dialog closes
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _shouldMaintainFocus = true;
+                _messageFocusNode.requestFocus();
+              });
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newName = renameController.text.trim();
+              _renameGroup(newName);
+              Navigator.pop(context);
+              renameController.dispose();
+              // Re-enable focus maintenance after dialog closes
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _shouldMaintainFocus = true;
+                _messageFocusNode.requestFocus();
+              });
+            },
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _renameGroup(String newName) async {
+    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+
+    final success = await groupsProvider.renameGroup(widget.group.id, newName);
+
+    if (success && mounted) {
+      final displayText = newName.isNotEmpty ? newName : 'Unnamed Group';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Group renamed to "$displayText"')),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to rename group. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showLeaveGroupDialog() {
+    _shouldMaintainFocus = false; // Disable focus maintenance during dialog
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Leave Group'),
+        content: const Text(
+          'Are you sure you want to leave this group? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Re-enable focus maintenance after dialog closes
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _shouldMaintainFocus = true;
+                _messageFocusNode.requestFocus();
+              });
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _leaveGroup();
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _leaveGroup() async {
+    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUser = authProvider.currentAtSign;
+
+    if (currentUser == null) return;
+
+    // Remove current user from group members
+    final updatedMembers = Set<String>.from(widget.group.members)
+      ..remove(currentUser);
+
+    if (updatedMembers.isEmpty) {
+      // If no members left, delete the group entirely
+      groupsProvider.deleteGroup(widget.group.id);
+    } else {
+      // Update group membership and notify other members
+      final success = await groupsProvider.updateGroupMembership(
+        widget.group.id,
+        updatedMembers.toList(),
+        widget.group.name,
+      );
+
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to leave group. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
+    if (mounted) {
+      Navigator.pop(context); // Return to groups list
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Left the group')));
+    }
   }
 
   void _showAddMemberDialog() {

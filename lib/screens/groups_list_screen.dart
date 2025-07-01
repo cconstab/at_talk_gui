@@ -42,6 +42,11 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            onPressed: _showNewChatDialog,
+            icon: const Icon(Icons.person_add),
+            tooltip: 'Start 1-on-1 Chat',
+          ),
+          IconButton(
             onPressed: _showNewGroupDialog,
             icon: const Icon(Icons.group_add),
             tooltip: 'New Group',
@@ -195,8 +200,10 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
               final members = _newGroupController.text.trim();
               final groupName = _groupNameController.text.trim();
               if (members.isNotEmpty) {
-                _createNewGroup(members, groupName);
+                // Close the dialog first
                 Navigator.pop(context);
+                // Then create the group
+                _createNewGroup(members, groupName);
               }
             },
             child: const Text('Create'),
@@ -204,6 +211,64 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
         ],
       ),
     );
+  }
+
+  void _showNewChatDialog() {
+    final TextEditingController chatController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Start 1-on-1 Chat'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Enter the atSign to chat with:'),
+            const SizedBox(height: 8),
+            const Text(
+              'Example: @alice',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: chatController,
+              decoration: const InputDecoration(
+                labelText: 'atSign (e.g., @alice)',
+                hintText: '@alice',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final atSign = chatController.text.trim();
+              if (atSign.isNotEmpty) {
+                // Close the dialog first
+                Navigator.pop(context);
+                // Then start the chat
+                _startOneOnOneChat(atSign);
+              }
+            },
+            child: const Text('Start Chat'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startOneOnOneChat(String atSign) {
+    // Normalize the atSign
+    final normalizedAtSign = atSign.startsWith('@') ? atSign : '@$atSign';
+
+    // Create a 1-on-1 chat as a 2-member group
+    _createNewGroup(normalizedAtSign, null);
   }
 
   void _createNewGroup(String input, String? groupName) {
@@ -248,17 +313,21 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
       name: groupName?.isNotEmpty == true ? groupName : null,
     );
 
+    print('🆕 Created new group: ID=$uniqueInstanceId, members=$members');
+
     if (group != null) {
       // Show success message
       final memberCount = members.length - 1; // Exclude current user from count
       final groupDisplayName = group.displayName;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Created group "$groupDisplayName" with $memberCount member${memberCount == 1 ? '' : 's'}'),
+          content: Text(
+            'Created group "$groupDisplayName" with $memberCount member${memberCount == 1 ? '' : 's'}',
+          ),
           backgroundColor: Colors.green,
         ),
       );
-      
+
       _openGroupChat(group);
     }
   }
