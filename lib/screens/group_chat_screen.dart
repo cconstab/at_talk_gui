@@ -422,21 +422,38 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
-  void _addMember(String memberAtSign) {
+  void _addMember(String memberAtSign) async {
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
 
     // Ensure atSign starts with @
     final formattedAtSign = memberAtSign.startsWith('@') ? memberAtSign : '@$memberAtSign';
 
-    // Add member to group
+    // Check if member is already in the group
+    if (widget.group.members.contains(formattedAtSign)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$formattedAtSign is already in the group')));
+      }
+      return;
+    }
+
+    // Add member to group using the proper membership update method
     final updatedMembers = Set<String>.from(widget.group.members)..add(formattedAtSign);
-    groupsProvider.createOrUpdateGroup(
-      updatedMembers,
-      instanceId: widget.group.id,
-      name: widget.group.name, // Preserve existing group name
+
+    final success = await groupsProvider.updateGroupMembership(
+      widget.group.id,
+      updatedMembers.toList(),
+      widget.group.name,
     );
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added $formattedAtSign to the group')));
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added $formattedAtSign to the group')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add $formattedAtSign to the group'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   void _showGroupInfo() {
@@ -465,16 +482,26 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             ...updatedGroup.members.map(
               (member) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: Colors.grey[300],
-                      child: Text(member.substring(1, 2).toUpperCase(), style: const TextStyle(fontSize: 10)),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(member)),
-                  ],
+                child: InkWell(
+                  onLongPress: () {
+                    // Only allow removing other members, not yourself
+                    if (member != currentAtSign && updatedGroup.members.length > 2) {
+                      _showRemoveMemberDialog(member, updatedGroup);
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 12,
+                        backgroundColor: Colors.grey[300],
+                        child: Text(member.substring(1, 2).toUpperCase(), style: const TextStyle(fontSize: 10)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(member)),
+                      if (member != currentAtSign && updatedGroup.members.length > 2)
+                        const Icon(Icons.remove_circle_outline, size: 16, color: Colors.grey),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -500,6 +527,59 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         ],
       ),
     );
+  }
+
+  void _showRemoveMemberDialog(String member, Group group) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Member'),
+        content: Text('Remove $member from the group?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Close the remove dialog
+              Navigator.pop(context); // Close the group info dialog
+              _removeMember(member, group);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Remove', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _removeMember(String memberAtSign, Group group) async {
+    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+
+    // Remove member from group
+    final updatedMembers = Set<String>.from(group.members)..remove(memberAtSign);
+
+    if (updatedMembers.length < 2) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot remove member - group must have at least 2 members'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    final success = await groupsProvider.updateGroupMembership(group.id, updatedMembers.toList(), group.name);
+
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Removed $memberAtSign from the group')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to remove $memberAtSign from the group'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }
 
