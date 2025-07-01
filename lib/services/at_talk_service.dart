@@ -1,4 +1,5 @@
 import 'package:at_client_mobile/at_client_mobile.dart';
+import 'package:at_auth/at_auth.dart';
 import 'package:at_utils/at_logger.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
@@ -28,21 +29,32 @@ class AtTalkService {
 
   bool get isInitialized => _isInitialized;
 
-  Future<void> onboard({
-    required String? atSign,
-    required Function(bool) onResult,
-    Function(String)? onError,
-  }) async {
+  Future<void> onboard({required String? atSign, required Function(bool) onResult, Function(String)? onError}) async {
     try {
       if (_atClientPreference == null) {
         throw Exception('AtClientPreference not initialized');
       }
 
-      await AtClientManager.getInstance().setCurrentAtSign(
-        atSign!,
-        _atClientPreference!.namespace!,
-        _atClientPreference!,
-      );
+      // Check if keys exist in keychain for this atSign
+      final keyChainManager = KeyChainManager.getInstance();
+      final atsignKey = await keyChainManager.readAtsign(name: atSign!);
+
+      if (atsignKey == null) {
+        throw Exception('No keys found for atSign $atSign. Please onboard first.');
+      }
+
+      // Use AtAuthService for proper authentication
+      final atAuthService = AtClientMobile.authService(atSign, _atClientPreference!);
+
+      // Create authentication request
+      final atAuthRequest = AtAuthRequest(atSign);
+
+      // Perform authentication
+      final atAuthResponse = await atAuthService.authenticate(atAuthRequest);
+
+      if (!atAuthResponse.isSuccessful) {
+        throw Exception('Authentication failed for $atSign');
+      }
 
       _isInitialized = true;
       onResult(true);
@@ -63,10 +75,7 @@ class AtTalkService {
     return atClient?.getCurrentAtSign();
   }
 
-  Future<bool> sendMessage({
-    required String toAtSign,
-    required String message,
-  }) async {
+  Future<bool> sendMessage({required String toAtSign, required String message}) async {
     try {
       final client = atClient;
       if (client == null) return false;
@@ -160,9 +169,7 @@ class AtTalkService {
         ..metadata = metaData;
 
       // Debug: Sending group message
-      print(
-        'Sending group message to $toAtSign: ${groupMembers.length} members',
-      );
+      print('Sending group message to $toAtSign: ${groupMembers.length} members');
 
       final result = await client.notificationService.notify(
         NotificationParams.forUpdate(key, value: jsonMessage),
@@ -177,9 +184,7 @@ class AtTalkService {
 
       return success;
     } catch (e) {
-      print(
-        'Error sending group message: $e',
-      ); // TODO: Replace with proper logging
+      print('Error sending group message: $e'); // TODO: Replace with proper logging
       return false;
     }
   }
@@ -217,9 +222,7 @@ class AtTalkService {
         ..namespace = _atClientPreference!.namespace
         ..metadata = metaData;
 
-      print(
-        'DEBUG: Sending group rename - key: ${key.toString()}, JSON: $jsonMessage, to: $toAtSign',
-      );
+      print('DEBUG: Sending group rename - key: ${key.toString()}, JSON: $jsonMessage, to: $toAtSign');
 
       final result = await client.notificationService.notify(
         NotificationParams.forUpdate(key, value: jsonMessage),
@@ -228,9 +231,7 @@ class AtTalkService {
       );
 
       bool success = result.atClientException == null;
-      print(
-        'DEBUG: Send group rename result - success: $success, exception: ${result.atClientException}',
-      );
+      print('DEBUG: Send group rename result - success: $success, exception: ${result.atClientException}');
 
       return success;
     } catch (e) {
@@ -272,9 +273,7 @@ class AtTalkService {
         ..namespace = _atClientPreference!.namespace
         ..metadata = metaData;
 
-      print(
-        'DEBUG: Sending group membership change - key: ${key.toString()}, JSON: $jsonMessage, to: $toAtSign',
-      );
+      print('DEBUG: Sending group membership change - key: ${key.toString()}, JSON: $jsonMessage, to: $toAtSign');
 
       final result = await client.notificationService.notify(
         NotificationParams.forUpdate(key, value: jsonMessage),
@@ -283,9 +282,7 @@ class AtTalkService {
       );
 
       bool success = result.atClientException == null;
-      print(
-        'DEBUG: Send group membership change result - success: $success, exception: ${result.atClientException}',
-      );
+      print('DEBUG: Send group membership change result - success: $success, exception: ${result.atClientException}');
 
       return success;
     } catch (e) {
@@ -301,31 +298,21 @@ class AtTalkService {
     }
 
     // Use exact same subscription pattern as TUI app
-    print(
-      '🔄 Setting up message subscription with regex: attalk.${_atClientPreference!.namespace}@',
-    );
+    print('🔄 Setting up message subscription with regex: attalk.${_atClientPreference!.namespace}@');
 
     return client.notificationService
-        .subscribe(
-          regex: 'attalk.${_atClientPreference!.namespace}@',
-          shouldDecrypt: true,
-        )
+        .subscribe(regex: 'attalk.${_atClientPreference!.namespace}@', shouldDecrypt: true)
         .where((notification) {
           // Filter like TUI app does - exact same logic
           String keyAtsign = notification.key;
           keyAtsign = keyAtsign.replaceAll('${notification.to}:', '');
-          keyAtsign = keyAtsign.replaceAll(
-            '.${_atClientPreference!.namespace}${notification.from}',
-            '',
-          );
+          keyAtsign = keyAtsign.replaceAll('.${_atClientPreference!.namespace}${notification.from}', '');
 
           final isMatch = keyAtsign == 'attalk';
 
           // Only log when we get a message (regardless of match)
           if (notification.value != null && notification.value!.isNotEmpty) {
-            print(
-              '💬 Incoming notification: from=${notification.from}, to=${notification.to}',
-            );
+            print('💬 Incoming notification: from=${notification.from}, to=${notification.to}');
             print('💬 Full key: "${notification.key}"');
             print('💬 Filtered key: "$keyAtsign" (expected: "attalk")');
             print('💬 Key match: $isMatch');
@@ -349,9 +336,7 @@ class AtTalkService {
           String messageText = notification.value ?? '';
 
           // Debug: Show exactly what the TUI would receive
-          print(
-            '📨 Raw notification: from=${notification.from}, to=${notification.to}',
-          );
+          print('📨 Raw notification: from=${notification.from}, to=${notification.to}');
           print('📨 Raw value: "${notification.value}"');
           print('📨 Key: "${notification.key}"');
 
@@ -387,8 +372,6 @@ class AtTalkService {
   }
 
   Stream<String> getMessageStream({required String fromAtSign}) {
-    return getAllMessageStream()
-        .where((data) => data['from'] == fromAtSign)
-        .map((data) => data['message'] ?? '');
+    return getAllMessageStream().where((data) => data['from'] == fromAtSign).map((data) => data['message'] ?? '');
   }
 }

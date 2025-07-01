@@ -5,6 +5,7 @@ import 'package:at_client_mobile/at_client_mobile.dart';
 
 import 'screens/onboarding_screen.dart';
 import 'screens/groups_list_screen.dart';
+import 'screens/settings_screen.dart';
 import 'providers/groups_provider.dart';
 import 'providers/auth_provider.dart';
 import 'services/at_talk_service.dart';
@@ -26,15 +27,13 @@ class AtTalkApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'AtTalk GUI',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2196F3)),
-          useMaterial3: true,
-        ),
+        theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2196F3)), useMaterial3: true),
         debugShowCheckedModeBanner: false,
         home: const SplashScreen(),
         routes: {
           '/onboarding': (context) => const OnboardingScreen(),
           '/groups': (context) => const GroupsListScreen(),
+          '/settings': (context) => const SettingsScreen(),
         },
       ),
     );
@@ -102,34 +101,18 @@ class _SplashScreenState extends State<SplashScreen> {
             Container(
               width: 100,
               height: 100,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.chat_bubble_outline,
-                size: 50,
-                color: Color(0xFF2196F3),
-              ),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              child: const Icon(Icons.chat_bubble_outline, size: 50, color: Color(0xFF2196F3)),
             ),
             const SizedBox(height: 24),
             const Text(
               'AtTalk',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Secure Messaging with atSigns',
-              style: TextStyle(fontSize: 16, color: Colors.white70),
-            ),
+            const Text('Secure Messaging with atSigns', style: TextStyle(fontSize: 16, color: Colors.white70)),
             const SizedBox(height: 48),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
+            const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
           ],
         ),
       ),

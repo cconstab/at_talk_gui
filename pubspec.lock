@@ -34,7 +34,7 @@ packages:
     source: hosted
     version: "2.13.0"
   at_auth:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: at_auth
       sha256: "28f6e04428f608f283166a7f716df7bcab28a20623f2659c3df1f4362add8cff"
@@ -154,7 +154,7 @@ packages:
     source: hosted
     version: "2.0.14"
   at_server_status:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: at_server_status
       sha256: "2773fa7c4377802b671f6854863214aabe8ee8cd49be87226352dd14562a5d6b"
@@ -306,7 +306,7 @@ packages:
     source: hosted
     version: "0.9.12"
   device_info_plus:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: device_info_plus
       sha256: "98f28b42168cc509abc92f88518882fd58061ea372d7999aecc424345c7bff6a"
@@ -370,7 +370,7 @@ packages:
     source: hosted
     version: "7.0.1"
   file_picker:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: file_picker
       sha256: "09b474c0c8117484b80cbebc043801ff91e05cfbd2874d512825c899e1754694"
@@ -601,7 +601,7 @@ packages:
     source: hosted
     version: "3.2.0"
   path:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: path
       sha256: "75cca69d1490965be98c73ceaea117e8a04dd21217b37b292c9ddbec0d955bc5"
@@ -713,7 +713,7 @@ packages:
     source: hosted
     version: "6.1.0"
   pin_code_fields:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: pin_code_fields
       sha256: "4c0db7fbc889e622e7c71ea54b9ee624bb70c7365b532abea0271b17ea75b729"
@@ -785,7 +785,7 @@ packages:
     source: hosted
     version: "5.0.2"
   shared_preferences:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: shared_preferences
       sha256: "6e8bf70b7fef813df4e9a36f658ac46d107db4b4cfe1048b477d4e453a8159f5"
