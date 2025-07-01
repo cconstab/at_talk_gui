@@ -18,11 +18,41 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    // Listen for changes in messages and auto-scroll
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+      chatProvider.addListener(_scrollToBottom);
+    });
+  }
+
+  @override
   void dispose() {
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    chatProvider.removeListener(_scrollToBottom);
     _messageController.dispose();
     _recipientController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom() {
+    // For reverse ListView, scroll to position 0 (which is the bottom)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        // Add a small additional delay to ensure all widgets are rendered
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              0, // For reverse ListView, 0 is the bottom
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -37,10 +67,7 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 const Text('atTalk - Group Chat'),
                 if (groupMembers.isNotEmpty)
-                  Text(
-                    'Group: ${groupMembers.join(', ')}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
+                  Text('Group: ${groupMembers.join(', ')}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             );
           },
@@ -48,16 +75,8 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: const Color(0xFF2196F3),
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            onPressed: _showAddMemberDialog,
-            icon: const Icon(Icons.person_add),
-            tooltip: 'Add group member',
-          ),
-          IconButton(
-            onPressed: _showGroupMembersDialog,
-            icon: const Icon(Icons.group),
-            tooltip: 'View group members',
-          ),
+          IconButton(onPressed: _showAddMemberDialog, icon: const Icon(Icons.person_add), tooltip: 'Add group member'),
+          IconButton(onPressed: _showGroupMembersDialog, icon: const Icon(Icons.group), tooltip: 'View group members'),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'logout') {
@@ -67,10 +86,7 @@ class _ChatScreenState extends State<ChatScreen> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'clear_group',
-                child: Text('Clear Group'),
-              ),
+              const PopupMenuItem(value: 'clear_group', child: Text('Clear Group')),
               const PopupMenuItem(value: 'logout', child: Text('Logout')),
             ],
           ),
@@ -81,8 +97,7 @@ class _ChatScreenState extends State<ChatScreen> {
           // Connection status
           Consumer<ChatProvider>(
             builder: (context, chatProvider, child) {
-              if (chatProvider.groupMembers.isNotEmpty &&
-                  !chatProvider.isConnected) {
+              if (chatProvider.groupMembers.isNotEmpty && !chatProvider.isConnected) {
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(8),
@@ -127,12 +142,21 @@ class _ChatScreenState extends State<ChatScreen> {
                   );
                 }
 
+                // Use reversed messages for reverse ListView (newest at bottom)
+                final reversedMessages = chatProvider.messages.reversed.toList();
+
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: chatProvider.messages.length,
+                  reverse: true, // This makes the ListView start from the bottom
+                  padding: const EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 32, // Top padding since we're reversed
+                    bottom: 16,
+                  ),
+                  itemCount: reversedMessages.length,
                   itemBuilder: (context, index) {
-                    final message = chatProvider.messages[index];
+                    final message = reversedMessages[index];
                     return ChatBubble(message: message);
                   },
                 );
@@ -146,11 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
             decoration: BoxDecoration(
               color: Colors.grey[100],
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
-                ),
+                BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, -2)),
               ],
             ),
             child: Consumer<ChatProvider>(
@@ -171,10 +191,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                           filled: true,
                           fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
-                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         ),
                         onSubmitted: (text) => _sendMessage(chatProvider),
                       ),
@@ -183,9 +200,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     CircleAvatar(
                       backgroundColor: const Color(0xFF2196F3),
                       child: IconButton(
-                        onPressed: chatProvider.groupMembers.isNotEmpty
-                            ? () => _sendMessage(chatProvider)
-                            : null,
+                        onPressed: chatProvider.groupMembers.isNotEmpty ? () => _sendMessage(chatProvider) : null,
                         icon: const Icon(Icons.send, color: Colors.white),
                       ),
                     ),
@@ -208,23 +223,12 @@ class _ChatScreenState extends State<ChatScreen> {
     final success = await chatProvider.sendMessage(text);
     if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to send message. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Failed to send message. Please try again.'), backgroundColor: Colors.red),
       );
     }
 
-    // Scroll to bottom
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
+    // Scroll to bottom after sending message
+    _scrollToBottom();
   }
 
   void _showAddMemberDialog() {
@@ -235,29 +239,18 @@ class _ChatScreenState extends State<ChatScreen> {
         title: const Text('Add Group Member'),
         content: TextField(
           controller: _recipientController,
-          decoration: const InputDecoration(
-            labelText: 'Enter atSign (e.g., @alice)',
-            hintText: '@alice',
-          ),
+          decoration: const InputDecoration(labelText: 'Enter atSign (e.g., @alice)', hintText: '@alice'),
           autofocus: true,
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               final atSign = _recipientController.text.trim();
               if (atSign.isNotEmpty) {
-                final chatProvider = Provider.of<ChatProvider>(
-                  context,
-                  listen: false,
-                );
+                final chatProvider = Provider.of<ChatProvider>(context, listen: false);
                 // Ensure atSign starts with @
-                final formattedAtSign = atSign.startsWith('@')
-                    ? atSign
-                    : '@$atSign';
+                final formattedAtSign = atSign.startsWith('@') ? atSign : '@$atSign';
                 chatProvider.addToGroup(formattedAtSign);
                 Navigator.pop(context);
               }
@@ -287,10 +280,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.grey[300],
-                        child: Text(
-                          member.substring(1, 2).toUpperCase(),
-                          style: const TextStyle(fontSize: 12),
-                        ),
+                        child: Text(member.substring(1, 2).toUpperCase(), style: const TextStyle(fontSize: 12)),
                       ),
                       title: Text(member),
                       trailing: IconButton(
@@ -304,12 +294,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   },
                 ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
       ),
     );
   }
@@ -319,20 +304,12 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear Group'),
-        content: const Text(
-          'Are you sure you want to clear all group members and messages?',
-        ),
+        content: const Text('Are you sure you want to clear all group members and messages?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
-              final chatProvider = Provider.of<ChatProvider>(
-                context,
-                listen: false,
-              );
+              final chatProvider = Provider.of<ChatProvider>(context, listen: false);
               chatProvider.clearGroup();
               Navigator.pop(context);
             },
@@ -364,26 +341,19 @@ class ChatBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: isMe
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           if (!isMe) ...[
             CircleAvatar(
               radius: 16,
               backgroundColor: Colors.grey[300],
-              child: Text(
-                message.fromAtSign.substring(1, 2).toUpperCase(),
-                style: const TextStyle(fontSize: 12),
-              ),
+              child: Text(message.fromAtSign.substring(1, 2).toUpperCase(), style: const TextStyle(fontSize: 12)),
             ),
             const SizedBox(width: 8),
           ],
           Flexible(
             child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.7,
-              ),
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: isMe ? const Color(0xFF2196F3) : Colors.grey[200],
@@ -392,20 +362,11 @@ class ChatBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    message.text,
-                    style: TextStyle(
-                      color: isMe ? Colors.white : Colors.black87,
-                      fontSize: 16,
-                    ),
-                  ),
+                  Text(message.text, style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 16)),
                   const SizedBox(height: 4),
                   Text(
                     timeFormat.format(message.timestamp),
-                    style: TextStyle(
-                      color: isMe ? Colors.white70 : Colors.grey[600],
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: isMe ? Colors.white70 : Colors.grey[600], fontSize: 12),
                   ),
                 ],
               ),
