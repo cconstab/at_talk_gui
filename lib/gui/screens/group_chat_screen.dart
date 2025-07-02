@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../providers/groups_provider.dart';
-import '../providers/auth_provider.dart';
-import '../services/at_talk_service.dart';
-import '../models/group.dart';
-import '../models/chat_message.dart';
+import '../../core/providers/groups_provider.dart';
+import '../../core/providers/auth_provider.dart';
+import '../../core/services/at_talk_service.dart';
+import '../../core/models/group.dart';
+import '../../core/models/chat_message.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final Group group;

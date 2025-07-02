@@ -3,13 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:at_client_mobile/at_client_mobile.dart';
 
-import 'screens/onboarding_screen.dart';
-import 'screens/groups_list_screen.dart';
-import 'screens/settings_screen.dart';
-import 'providers/groups_provider.dart';
-import 'providers/auth_provider.dart';
-import 'services/at_talk_service.dart';
-import 'utils/at_talk_env.dart';
+import 'gui/screens/onboarding_screen.dart';
+import 'gui/screens/groups_list_screen.dart';
+import 'gui/screens/settings_screen.dart';
+import 'core/providers/groups_provider.dart';
+import 'core/providers/auth_provider.dart';
+import 'core/services/at_talk_service.dart';
+import 'core/utils/at_talk_env.dart';
 
 void main() {
   runApp(const AtTalkApp());

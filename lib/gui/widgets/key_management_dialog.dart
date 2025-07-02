@@ -3,7 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:at_client_mobile/at_client_mobile.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import '../utils/atsign_manager.dart';
+import '../../core/utils/atsign_manager.dart';
 
 class KeyManagementDialog extends StatefulWidget {
   final String atSign;

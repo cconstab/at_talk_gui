@@ -8,7 +8,7 @@ class ChatProvider extends ChangeNotifier {
   final List<ChatMessage> _messages = [];
   final Set<String> _groupMembers = {};
   bool _isConnected = false;
-  bool _isGroupMode = true; // Enable group mode by default
+  final bool _isGroupMode = true; // Enable group mode by default
 
   List<ChatMessage> get messages => _messages;
   Set<String> get groupMembers => _groupMembers;

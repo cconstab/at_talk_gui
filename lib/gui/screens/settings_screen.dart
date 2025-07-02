@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:at_client_mobile/at_client_mobile.dart';
-import '../providers/auth_provider.dart';
-import '../services/at_talk_service.dart';
-import '../utils/atsign_manager.dart';
+import '../../core/providers/auth_provider.dart';
+import '../../core/services/at_talk_service.dart';
+import '../../core/utils/atsign_manager.dart';
 import '../widgets/key_management_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -178,7 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ],
                             ),
                           );
-                        }).toList(),
+                        }),
 
                       const Divider(),
                       ListTile(
