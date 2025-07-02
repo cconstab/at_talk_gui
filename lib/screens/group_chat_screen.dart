@@ -636,27 +636,25 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             const SizedBox(height: 8),
             ...updatedGroup.members.map(
               (member) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: InkWell(
-                  onLongPress: () {
-                    // Only allow removing other members, not yourself
-                    if (member != currentAtSign && updatedGroup.members.length > 2) {
-                      _showRemoveMemberDialog(member, updatedGroup);
-                    }
-                  },
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 12,
-                        backgroundColor: Colors.grey[300],
-                        child: Text(member.substring(1, 2).toUpperCase(), style: const TextStyle(fontSize: 10)),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundColor: Colors.grey[300],
+                      child: Text(member.substring(1, 2).toUpperCase(), style: const TextStyle(fontSize: 10)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(member)),
+                    if (member != currentAtSign && updatedGroup.members.length > 2)
+                      IconButton(
+                        onPressed: () => _showRemoveMemberDialog(member, updatedGroup),
+                        icon: const Icon(Icons.remove_circle, color: Colors.red, size: 20),
+                        tooltip: 'Remove $member',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(member)),
-                      if (member != currentAtSign && updatedGroup.members.length > 2)
-                        const Icon(Icons.remove_circle_outline, size: 16, color: Colors.grey),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -685,21 +683,36 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _showRemoveMemberDialog(String member, Group group) {
+    print('DEBUG: Showing remove member dialog for $member');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove Member'),
-        content: Text('Remove $member from the group?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Remove $member from the group?'),
+            const SizedBox(height: 8),
+            const Text('This action cannot be undone.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              print('DEBUG: Remove member dialog cancelled');
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
+              print('DEBUG: Remove member confirmed for $member');
               Navigator.pop(context); // Close the remove dialog
               Navigator.pop(context); // Close the group info dialog
               _removeMember(member, group);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remove', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Remove'),
           ),
         ],
       ),
@@ -707,12 +720,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _removeMember(String memberAtSign, Group group) async {
+    print('DEBUG: _removeMember called for $memberAtSign from group ${group.id}');
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
 
     // Remove member from group
     final updatedMembers = Set<String>.from(group.members)..remove(memberAtSign);
+    print('DEBUG: Original members: ${group.members}');
+    print('DEBUG: Updated members: $updatedMembers');
 
     if (updatedMembers.length < 2) {
+      print('DEBUG: Cannot remove member - would leave less than 2 members');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -724,7 +741,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       return;
     }
 
+    print('DEBUG: Calling updateGroupMembership...');
     final success = await groupsProvider.updateGroupMembership(group.id, updatedMembers.toList(), group.name);
+    print('DEBUG: Remove member success: $success');
 
     if (mounted) {
       if (success) {

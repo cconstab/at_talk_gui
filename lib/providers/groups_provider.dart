@@ -757,30 +757,76 @@ class GroupsProvider extends ChangeNotifier {
       final instanceId = jsonData['instanceId'] as String?;
       final fromAtSign = jsonData['from'] as String?;
 
+      print('DEBUG: Handling group membership change:');
+      print('  - newMembers: $newMembers');
+      print('  - groupName: $groupName');
+      print('  - instanceId: $instanceId');
+      print('  - fromAtSign: $fromAtSign');
+      print('  - Current groups: ${_groups.keys.toList()}');
+      print('  - Current group details:');
+      for (final entry in _groups.entries) {
+        print('    * ${entry.key}: members=${entry.value.members}');
+      }
+
       if (newMembers.isEmpty) return;
 
       String? groupId;
       Group? existingGroup;
 
-      // Try to find group by instance ID first
+      // Try to find group by instance ID first (this is the most reliable)
       if (instanceId != null && _groups.containsKey(instanceId)) {
         groupId = instanceId;
         existingGroup = _groups[instanceId];
+        print('DEBUG: Found group by instanceId: $instanceId');
       } else {
-        // Look for existing group with similar members
+        // For TUI compatibility, we need more sophisticated group matching
+        // The key insight: when members are removed, we need to find the group that
+        // currently contains ALL the new members PLUS some additional members
+        final newMembersSet = newMembers.toSet();
+
+        print('DEBUG: Looking for group to update with new members: $newMembersSet');
+
+        // Strategy 1: Find a group that contains all new members as a subset
+        // and has MORE members (indicating we're removing some)
+        Group? bestMatch;
+        int smallestSizeDifference = 999;
+
         for (final group in _groups.values) {
-          final commonMembers = group.members.intersection(newMembers.toSet());
-          if (commonMembers.isNotEmpty && commonMembers.length >= group.members.length * 0.5) {
-            existingGroup = group;
-            groupId = group.id;
-            break;
+          final groupMembers = group.members;
+          print('DEBUG: Checking group ${group.id} with members: $groupMembers');
+
+          // Check if this group contains all the new members (subset)
+          final containsAllNewMembers = newMembersSet.every((member) => groupMembers.contains(member));
+
+          if (containsAllNewMembers) {
+            final sizeDifference = groupMembers.length - newMembersSet.length;
+            print('DEBUG: Group ${group.id} contains all new members, size difference: $sizeDifference');
+
+            // Prefer the group with the smallest positive size difference
+            // (closest match for member removal)
+            if (sizeDifference >= 0 && sizeDifference < smallestSizeDifference) {
+              bestMatch = group;
+              smallestSizeDifference = sizeDifference;
+              print('DEBUG: New best match: ${group.id} (difference: $sizeDifference)');
+            }
           }
+        }
+
+        if (bestMatch != null) {
+          existingGroup = bestMatch;
+          groupId = bestMatch.id;
+          print('DEBUG: Found group to update by best subset match: ${bestMatch.id}');
         }
       }
 
       if (existingGroup != null && groupId != null) {
         final oldMembers = existingGroup.members;
         final newMembersSet = newMembers.toSet();
+
+        print('DEBUG: Updating existing group:');
+        print('  - Group ID: $groupId');
+        print('  - Old members: $oldMembers');
+        print('  - New members: $newMembersSet');
 
         // Update the group
         _groups[groupId] = existingGroup.copyWith(members: newMembersSet, name: groupName);
@@ -792,6 +838,8 @@ class GroupsProvider extends ChangeNotifier {
         // Add system messages for member changes
         final added = newMembersSet.difference(oldMembers);
         final removed = oldMembers.difference(newMembersSet);
+
+        print('DEBUG: Member changes - Added: $added, Removed: $removed');
 
         for (final member in added) {
           final systemMessage = ChatMessage(
@@ -814,9 +862,14 @@ class GroupsProvider extends ChangeNotifier {
         }
 
         notifyListeners();
-        print('Group $groupId membership updated: +${added.length}, -${removed.length}');
+        print('DEBUG: Group $groupId membership updated successfully: +${added.length}, -${removed.length}');
       } else {
         // Create new group if not found
+        print('DEBUG: No existing group found! Creating new group...');
+        print('  - Attempted instanceId: $instanceId');
+        print('  - Attempted member matching failed');
+        print('  - This might cause TUI to see a duplicate group!');
+
         final newGroupId = instanceId ?? _generateGroupId(newMembers.toSet());
         _groups[newGroupId] = Group(
           id: newGroupId,
@@ -825,7 +878,7 @@ class GroupsProvider extends ChangeNotifier {
           name: groupName,
         );
         notifyListeners();
-        print('Created new group $newGroupId with ${newMembers.length} members');
+        print('DEBUG: Created new group $newGroupId with ${newMembers.length} members (this may be a duplicate!)');
       }
     } catch (e) {
       print('Error handling group membership change: $e');
