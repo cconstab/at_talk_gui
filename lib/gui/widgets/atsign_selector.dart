@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/atsign_manager.dart';
+import '../../core/utils/atsign_manager.dart';
 
 class AtsignSelector extends StatefulWidget {
   const AtsignSelector({required this.options, required this.onAtsignSelected, this.selectedAtsign, super.key});

@@ -10,7 +10,7 @@ packages:
     source: hosted
     version: "3.6.1"
   args:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: args
       sha256: d0481093c50b1da8910eb0bb301626d4d8eb7284aa739614d2b394ee09e3ea04
@@ -66,7 +66,7 @@ packages:
     source: hosted
     version: "2.2.0"
   at_client:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: at_client
       sha256: d437de35f99d1f70192f785413d39ad1617d3374477a7b03c8b110eb92bad030
@@ -129,6 +129,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.52"
+  at_onboarding_cli:
+    dependency: "direct main"
+    description:
+      name: at_onboarding_cli
+      sha256: f5653d55d3b58ee9ca96e6cf071dd09066bcc373c63d2eb6f72d259ea91571bd
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.9.0"
   at_onboarding_flutter:
     dependency: "direct main"
     description:
@@ -202,7 +210,7 @@ packages:
     source: hosted
     version: "2.1.2"
   chalkdart:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: chalkdart
       sha256: "82dfa884e3cf97641eb0742a3b9ffd41490666b9ece548b2e32cbfefe540bf86"
@@ -321,6 +329,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.3"
+  duration:
+    dependency: transitive
+    description:
+      name: duration
+      sha256: "13e5d20723c9c1dde8fb318cf86716d10ce294734e81e44ae1a817f3ae714501"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.3"
   ecdsa:
     dependency: transitive
     description:
@@ -998,7 +1014,7 @@ packages:
     source: hosted
     version: "2.1.4"
   version:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: version
       sha256: "3d4140128e6ea10d83da32fef2fa4003fccbf6852217bb854845802f04191f94"

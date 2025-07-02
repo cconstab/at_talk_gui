@@ -328,7 +328,7 @@ class GroupsProvider extends ChangeNotifier {
                     '⚠️ Base group ID $baseGroupId already exists, creating unique group for different instanceId: $incomingInstanceId',
                   );
                   final timestamp = DateTime.now().millisecondsSinceEpoch;
-                  groupId = '${baseGroupId}#$timestamp';
+                  groupId = '$baseGroupId#$timestamp';
                 } else if (groupMembers.length > 2) {
                   // For multi-person groups, always create with unique timestamp to avoid overwrites
                   // This matches TUI behavior where /new or member additions create fresh sessions
@@ -338,7 +338,7 @@ class GroupsProvider extends ChangeNotifier {
                   if (_groups.containsKey(baseGroupId)) {
                     // Conflict detected even for 1-on-1 chat, create unique ID
                     final timestamp = DateTime.now().millisecondsSinceEpoch;
-                    groupId = '${baseGroupId}#$timestamp';
+                    groupId = '$baseGroupId#$timestamp';
                     print('⚠️ Conflict detected for 1-on-1 chat $baseGroupId, creating unique ID: $groupId');
                   } else {
                     groupId = baseGroupId;
@@ -523,10 +523,7 @@ class GroupsProvider extends ChangeNotifier {
           bestMatch = group;
           bestTime = group.lastMessageTime;
         }
-      } else if (bestMatch == null) {
-        // If no group has messages yet, prefer the one with more total metadata or the first one
-        bestMatch = group;
-      }
+      } else bestMatch ??= group;
     }
 
     if (bestMatch != null) {
@@ -589,7 +586,7 @@ class GroupsProvider extends ChangeNotifier {
     int counter = 0;
     do {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      uniqueId = counter == 0 ? '${baseId}#$timestamp' : '${baseId}#${timestamp}_$counter';
+      uniqueId = counter == 0 ? '$baseId#$timestamp' : '$baseId#${timestamp}_$counter';
       counter++;
     } while (_groups.containsKey(uniqueId) && counter < 100); // Safety limit
 

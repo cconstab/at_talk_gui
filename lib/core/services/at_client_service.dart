@@ -1,6 +1,5 @@
 import 'package:at_client_mobile/at_client_mobile.dart';
 import 'package:at_utils/at_logger.dart';
-import 'package:logging/logging.dart';
 
 class AtTalkService {
   static AtTalkService? _instance;

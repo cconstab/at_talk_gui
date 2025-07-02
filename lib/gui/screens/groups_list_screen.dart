@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../providers/groups_provider.dart';
-import '../providers/auth_provider.dart';
-import '../services/at_talk_service.dart';
-import '../models/group.dart';
-import '../utils/atsign_manager.dart';
+import '../../core/providers/groups_provider.dart';
+import '../../core/providers/auth_provider.dart';
+import '../../core/services/at_talk_service.dart';
+import '../../core/models/group.dart';
+import '../../core/utils/atsign_manager.dart';
 import '../widgets/key_management_dialog.dart';
 import 'group_chat_screen.dart';
 
@@ -496,7 +496,7 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
                             },
                     ),
                   );
-                }).toList(),
+                }),
               ],
             ),
           ),
