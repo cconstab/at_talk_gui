@@ -1093,6 +1093,7 @@ class TuiChatApp {
           } else if (input == '/exit') {
             stdin.echoMode = true;
             stdin.lineMode = true;
+            stdout.writeln(); // Print a final newline for clean terminal exit
             return;
           } else if (activeSession != null && input.isNotEmpty) {
             // CRITICAL: Preserve message sending functionality
