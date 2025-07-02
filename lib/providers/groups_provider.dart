@@ -617,6 +617,20 @@ class GroupsProvider extends ChangeNotifier {
     return groupId;
   }
 
+  Group? createNewGroupWithUniqueName(Set<String> members, {String? name}) {
+    // Force unique ID generation for new groups to prevent overwrites (TUI behavior)
+    final groupId = _generateTUICompatibleGroupId(members, forceUniqueForGroup: true);
+
+    final newGroup = Group(id: groupId, members: members, name: name, unreadCount: 0, lastMessageTime: DateTime.now());
+
+    _groups[groupId] = newGroup;
+    _groupMessages[groupId] ??= [];
+
+    print('🆕 Created new group with unique ID: $groupId with ${members.length} members');
+    notifyListeners();
+    return newGroup;
+  }
+
   void deleteGroup(String groupId) {
     _groups.remove(groupId);
     _groupMessages.remove(groupId);

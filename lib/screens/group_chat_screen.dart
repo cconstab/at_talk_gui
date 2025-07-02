@@ -403,16 +403,33 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final atSign = _addMemberController.text.trim();
+              print('DEBUG: Add button pressed, atSign: "$atSign"');
               if (atSign.isNotEmpty) {
-                _addMember(atSign);
-                Navigator.pop(context);
-                // Re-enable focus maintenance after dialog closes
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _shouldMaintainFocus = true;
-                  _messageFocusNode.requestFocus();
-                });
+                print('DEBUG: Calling _addMember...');
+
+                // Check if this will be a 1-on-1 to group conversion
+                final willCreateNewGroup = widget.group.members.length == 2;
+
+                await _addMember(atSign);
+                print('DEBUG: _addMember completed');
+
+                // Only close the dialog if we're not navigating to a new group
+                // (because Navigator.pushReplacement will handle the navigation)
+                if (mounted && !willCreateNewGroup) {
+                  print('DEBUG: Closing add member dialog...');
+                  Navigator.pop(context);
+                  // Re-enable focus maintenance after dialog closes
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _shouldMaintainFocus = true;
+                    _messageFocusNode.requestFocus();
+                  });
+                } else if (willCreateNewGroup) {
+                  print('DEBUG: Not closing dialog - new group navigation will handle it');
+                }
+              } else {
+                print('DEBUG: Add button pressed but atSign is empty');
               }
             },
             child: const Text('Add'),
@@ -422,11 +439,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
-  void _addMember(String memberAtSign) async {
+  Future<void> _addMember(String memberAtSign) async {
+    print('DEBUG: _addMember called with: "$memberAtSign"');
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
 
     // Ensure atSign starts with @
     final formattedAtSign = memberAtSign.startsWith('@') ? memberAtSign : '@$memberAtSign';
+
+    print('DEBUG: Adding member $formattedAtSign to group ${widget.group.id}');
+    print('DEBUG: Current group members: ${widget.group.members}');
 
     // Check if member is already in the group
     if (widget.group.members.contains(formattedAtSign)) {
@@ -436,24 +457,158 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       return;
     }
 
-    // Add member to group using the proper membership update method
     final updatedMembers = Set<String>.from(widget.group.members)..add(formattedAtSign);
 
-    final success = await groupsProvider.updateGroupMembership(
-      widget.group.id,
-      updatedMembers.toList(),
-      widget.group.name,
-    );
+    // Check if we're converting a 1-on-1 conversation to a group (TUI behavior)
+    final isConvertingToGroup = widget.group.members.length == 2 && updatedMembers.length == 3;
 
-    if (mounted) {
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added $formattedAtSign to the group')));
+    print('DEBUG: Is converting to group: $isConvertingToGroup');
+    print('DEBUG: Current member count: ${widget.group.members.length}, Updated count: ${updatedMembers.length}');
+
+    if (isConvertingToGroup) {
+      print('DEBUG: Showing group name dialog...');
+      // Show group name dialog first (TUI-compatible behavior)
+      final groupName = await _showGroupNameDialog();
+      print('DEBUG: Group name dialog result: $groupName');
+
+      if (groupName == null || groupName.isEmpty) {
+        print('DEBUG: User cancelled or entered empty name');
+        return; // User cancelled or entered empty name
+      }
+
+      print('DEBUG: Creating new group with name: $groupName');
+      // Create a new group with unique ID (preserves the original 1-on-1)
+      final newGroup = groupsProvider.createNewGroupWithUniqueName(updatedMembers, name: groupName);
+
+      print('DEBUG: New group created: ${newGroup?.id}');
+
+      if (newGroup != null) {
+        print('DEBUG: Sending membership change notifications...');
+        // Send membership change notifications to all members
+        final success = await groupsProvider.updateGroupMembership(newGroup.id, updatedMembers.toList(), groupName);
+
+        print('DEBUG: Membership update success: $success');
+
+        if (mounted) {
+          if (success) {
+            print('DEBUG: Navigating to new group...');
+            // The add member dialog will be automatically closed by the navigation
+            // Navigate to the new group (TUI behavior: focus moves to new group)
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => GroupChatScreen(group: newGroup)),
+            );
+
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Created new group "$groupName" with $formattedAtSign')));
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to create group with $formattedAtSign'), backgroundColor: Colors.red),
+            );
+          }
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add $formattedAtSign to the group'), backgroundColor: Colors.red),
-        );
+        print('ERROR: Failed to create new group');
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to create new group'), backgroundColor: Colors.red));
+        }
+      }
+    } else {
+      print('DEBUG: Adding member to existing group...');
+      // Normal add member to existing group
+      final success = await groupsProvider.updateGroupMembership(
+        widget.group.id,
+        updatedMembers.toList(),
+        widget.group.name,
+      );
+
+      print('DEBUG: Add member success: $success');
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added $formattedAtSign to the group')));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to add $formattedAtSign to the group'), backgroundColor: Colors.red),
+          );
+        }
       }
     }
+  }
+
+  Future<String?> _showGroupNameDialog() async {
+    _shouldMaintainFocus = false; // Disable focus maintenance during dialog
+    final groupNameController = TextEditingController();
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Name Your Group'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('You\'re creating a new group. Please give it a name:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: groupNameController,
+              decoration: const InputDecoration(
+                labelText: 'Group Name',
+                hintText: 'Enter group name',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+              maxLength: 50,
+              onSubmitted: (value) {
+                // Allow Enter key to submit
+                final groupName = value.trim();
+                if (groupName.isNotEmpty) {
+                  Navigator.pop(context, groupName);
+                  groupNameController.dispose();
+                }
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Return null
+              groupNameController.dispose();
+              // Re-enable focus maintenance after dialog closes
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _shouldMaintainFocus = true;
+                _messageFocusNode.requestFocus();
+              });
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final groupName = groupNameController.text.trim();
+              if (groupName.isNotEmpty) {
+                Navigator.pop(context, groupName);
+              } else {
+                // Show error for empty name
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Please enter a group name'), backgroundColor: Colors.red));
+                return;
+              }
+              groupNameController.dispose();
+              // Re-enable focus maintenance after dialog closes
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _shouldMaintainFocus = true;
+                _messageFocusNode.requestFocus();
+              });
+            },
+            child: const Text('Create Group'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showGroupInfo() {
