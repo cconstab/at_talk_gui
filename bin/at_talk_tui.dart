@@ -249,7 +249,8 @@ Future<void> atTalk(List<String> args) async {
     var recipients = toAtsign.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet().toList();
 
     final isGroupMessage = recipients.length > 1;
-    final group = recipients.toSet().toList()..sort();
+    // Group should include all participants: sender + recipients
+    final group = [fromAtsign, ...recipients].toSet().toList()..sort();
 
     // For multi-instance support, we need to send to ourselves too
     final allRecipients = recipients.toSet().toList()..add(fromAtsign);
@@ -440,11 +441,7 @@ Future<void> atTalk(List<String> args) async {
                 }
                 for (var participant in removed) {
                   if (participant != fromAtsign) {
-                    tui.addMessage(
-                      tui.activeSession ?? newSessionKey,
-                      '[$participant left the group]',
-                      incoming: true,
-                    );
+                    tui.addMessage(tui.activeSession ?? newSessionKey, '[$participant left the group]', incoming: true);
                   }
                 }
               } else {

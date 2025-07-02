@@ -49,16 +49,17 @@ bin/
 - 📱 Touch-friendly controls
 - 🔐 Visual onboarding flow
 - 👥 Rich group management UI
-- 📄 File attachment support
-- 🌙 Dark/light theme support
+- � AtKeys file management and backup
+- ⚙️ Settings and preferences
 
 ### TUI-Specific Features
 - 🎨 Colored terminal output
 - ⌨️ Command-line argument parsing
 - 📊 Real-time message streaming
-- 📝 Conversation history commands
+- � Multi-session chat management
 - 🔧 Verbose logging options
 - 🌐 Cross-platform terminal support
+- 👥 Interactive group management commands
 
 ## 📦 Installation & Setup
 
@@ -113,9 +114,21 @@ dart bin/at_talk_gui.dart
 
 ### TUI Mode (Terminal Interface)
 
-Basic usage:
+#### Interactive Mode
+Basic usage for interactive chat:
 ```bash
 dart bin/at_talk_tui.dart -a @yoursign -t @destination
+```
+
+#### Non-Interactive Mode  
+Send a single message and exit:
+```bash
+dart bin/at_talk_tui.dart -a @yoursign -t @destination -m "Your message here"
+```
+
+For group messages, separate multiple recipients with commas:
+```bash
+dart bin/at_talk_tui.dart -a @yoursign -t @alice,@bob,@charlie -m "Group message"
 ```
 
 #### Command Line Options
@@ -124,13 +137,22 @@ dart bin/at_talk_tui.dart -a @yoursign -t @destination
 - `-k, --key-file`: Path to atKeys file (optional, defaults to ~/.atsign/keys/)
 - `-d, --root-domain`: Root domain (optional, defaults to root.atsign.org)
 - `-n, --namespace`: Namespace (optional, defaults to ai6bh)
+- `-m, --message`: Send a message then exit (non-interactive mode)
 - `-v, --verbose`: Enable verbose logging
 - `--never-sync`: Disable sync completely
 - `-h, --help`: Show help message
 
-#### TUI Commands
+#### TUI Interactive Commands
+Once in the TUI, you can use these commands:
+- `/?` - Show help panel with all commands
+- `/switch @other` - Switch to chat with @other
+- `/new @other` - Start new chat with @other (individuals or groups)
+- `/add @other` - Add participant to current group
+- `/remove @other` - Remove participant from current group
+- `/rename name` - Rename current group
+- `/delete` - Delete current session
+- `/list` - Show group info panel
 - `/exit` - Quit the application
-- `/history` - Show conversation history
 - Type any message to send it
 - Real-time incoming messages display automatically
 
@@ -140,21 +162,33 @@ $ dart bin/at_talk_tui.dart -a @alice -t @bob -v
 
 AtClient initialized successfully!
 From: @alice, To: @bob
-Commands:
-  /exit - quit the application
-  /history - show conversation history
-  Type any message to send it
-──────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────────────
+atTalk TUI - Press /? for help | F1-9: Switch | Esc: Close panels
+────────────────────────────────────────────────────────────────────────────────
+Session: @bob                                              0 participants online
+────────────────────────────────────────────────────────────────────────────────
+
+/? for help
 
 > Hello Bob!
 [14:30] You: Hello Bob!
 [14:30] @bob: Hi Alice! How are you?
-> /history
-Conversation History:
-──────────────────────────────────────────────────
-[14:30] You: Hello Bob!
-[14:30] @bob: Hi Alice! How are you?
-──────────────────────────────────────────────────
+> /?
+┌────────────────────────────────────────────────────────┐
+│ atTalk TUI Help                                        │
+│                                                        │
+│ Text Commands:                                         │
+│   /switch @other   Switch to chat with @other         │
+│   /new @other      Start new chat with @other         │
+│   /add @other      Add participant to group           │
+│   /remove @other   Remove participant from group      │
+│   /rename name     Rename current group               │
+│   /delete          Delete current session             │
+│   /list            Show group info panel              │
+│   /exit            Quit                               │
+│                                                        │
+│ Press Escape to close this help panel.                │
+└────────────────────────────────────────────────────────┘
 > /exit
 Goodbye!
 ```
