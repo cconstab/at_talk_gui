@@ -44,6 +44,7 @@ class TuiChatApp {
   int inputScrollOffset = 0;
   bool redrawRequested = false;
   bool showHelpHint = true;
+  bool _shouldExit = false; // Flag to signal exit
 
   // State for group name input
   bool _waitingForGroupName = false;
@@ -797,6 +798,11 @@ class TuiChatApp {
     bool inEscapeSequence = false;
 
     await for (final charCodes in stdin) {
+      // Check if we should exit
+      if (_shouldExit) {
+        break;
+      }
+
       for (int charCode in charCodes) {
         // Handle escape sequences (arrow keys)
         if (charCode == 27) {
@@ -1092,6 +1098,7 @@ class TuiChatApp {
             await showParticipantsPanel();
             continue;
           } else if (input == '/exit') {
+            _shouldExit = true;
             break;
           } else if (activeSession != null && input.isNotEmpty) {
             // CRITICAL: Preserve message sending functionality
