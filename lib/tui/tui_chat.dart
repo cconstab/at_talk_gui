@@ -729,6 +729,12 @@ class TuiChatApp {
       ProcessSignal.sigwinch.watch().listen((_) {
         requestRedraw();
       });
+      
+      // Handle Ctrl+C gracefully on Unix-like systems
+      ProcessSignal.sigint.watch().listen((_) {
+        stdout.writeln('Exiting atTalk TUI...');
+        exit(0);
+      });
     }
 
     // Timer for redraw requests
@@ -917,6 +923,11 @@ class TuiChatApp {
           // Ctrl+L - refresh screen immediately
           draw();
           continue;
+        } else if (charCode == 3) {
+          // Ctrl+C - exit immediately
+          mainSubscription.cancel();
+          stdout.writeln('Exiting atTalk TUI...');
+          exit(0);
         } else if (charCode == 13 || charCode == 10) {
           // Enter
           String input = inputBuffer.trim();
@@ -1145,10 +1156,8 @@ class TuiChatApp {
             return;
           } else if (input == '/exit') {
             mainSubscription.cancel();
-            stdin.echoMode = true;
-            stdin.lineMode = true;
-            stdout.writeln(); // Print a final newline for clean terminal exit
-            return;
+            stdout.writeln('Exiting atTalk TUI...');
+            exit(0); // Force exit the program without trying to reset stdin modes
           } else if (activeSession != null && input.isNotEmpty) {
             // CRITICAL: Preserve message sending functionality
             addMessage(activeSession!, input);

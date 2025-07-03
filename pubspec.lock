@@ -37,10 +37,10 @@ packages:
     dependency: "direct main"
     description:
       name: at_auth
-      sha256: "28f6e04428f608f283166a7f716df7bcab28a20623f2659c3df1f4362add8cff"
+      sha256: b1d2e2dfdbe4cb35373965675b608a758d95dff17033ab814ab5af638bc2f074
       url: "https://pub.dev"
     source: hosted
-    version: "2.2.0"
+    version: "2.3.0"
   at_backupkey_flutter:
     dependency: transitive
     description:
@@ -125,10 +125,10 @@ packages:
     dependency: transitive
     description:
       name: at_lookup
-      sha256: "4bfac8b2ceacf351765494aad2954e5067b140ae4c8333be35cb583402289dd4"
+      sha256: "3f645bb27394a4299fd4a39c7358f28fa3f7e5ccb24264d58b1217bafbfaf5a3"
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.52"
+    version: "3.1.0"
   at_onboarding_cli:
     dependency: "direct main"
     description:
