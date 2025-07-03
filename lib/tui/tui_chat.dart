@@ -729,7 +729,7 @@ class TuiChatApp {
       ProcessSignal.sigwinch.watch().listen((_) {
         requestRedraw();
       });
-      
+
       // Handle Ctrl+C gracefully on Unix-like systems
       ProcessSignal.sigint.watch().listen((_) {
         stdout.writeln('Exiting atTalk TUI...');
