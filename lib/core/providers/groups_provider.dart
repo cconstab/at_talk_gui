@@ -423,48 +423,37 @@ class GroupsProvider extends ChangeNotifier {
 
           print('📩 Adding message to group $groupId: from=$fromAtSign, isFromMe=$isFromCurrentUser');
 
-          // For both 1-on-1 and group chats, check if we already have this exact message to avoid duplicates
+          // Create the ChatMessage with a unique ID first
+          final chatMessage = ChatMessage(
+            text: message,
+            fromAtSign: fromAtSign,
+            timestamp: DateTime.now(),
+            isFromMe: isFromCurrentUser,
+          );
+
+          // Check if we already have a message with this exact ID to avoid duplicates
+          // This is much more reliable than text/timestamp-based detection
           bool isDuplicate = false;
-          if (isFromCurrentUser) {
-            // Check if we already have this exact message from the same sender with a recent timestamp
-            // Look for messages within the last 30 seconds across ALL groups to catch misrouted messages
-            final now = DateTime.now();
-
-            // Check across all groups, not just the current one
+          
+          // Check the target group first
+          final existingMessages = _groupMessages[groupId] ?? [];
+          isDuplicate = existingMessages.any((existingMsg) => existingMsg.id == chatMessage.id);
+          
+          // If from current user, also check all other groups in case of misrouting
+          if (!isDuplicate && isFromCurrentUser) {
             for (final existingGroupId in _groupMessages.keys) {
-              final existingMessages = _groupMessages[existingGroupId] ?? [];
-              isDuplicate = existingMessages.any(
-                (existingMsg) =>
-                    existingMsg.text == message &&
-                    existingMsg.fromAtSign == fromAtSign &&
-                    existingMsg.isFromMe == true &&
-                    now.difference(existingMsg.timestamp).inSeconds < 30,
-              );
-
-              if (isDuplicate) {
-                print('⚠️ Duplicate detected: "$message" from $fromAtSign (already exists in group $existingGroupId)');
-                break;
+              if (existingGroupId != groupId) {
+                final otherGroupMessages = _groupMessages[existingGroupId] ?? [];
+                isDuplicate = otherGroupMessages.any((existingMsg) => existingMsg.id == chatMessage.id);
+                if (isDuplicate) {
+                  print('⚠️ Duplicate message ID detected: ${chatMessage.id} from $fromAtSign (already exists in group $existingGroupId)');
+                  break;
+                }
               }
             }
-          } else {
-            // For messages from others, only check the current group
-            final existingMessages = _groupMessages[groupId] ?? [];
-            final now = DateTime.now();
-            isDuplicate = existingMessages.any(
-              (existingMsg) =>
-                  existingMsg.text == message &&
-                  existingMsg.fromAtSign == fromAtSign &&
-                  now.difference(existingMsg.timestamp).inSeconds < 10,
-            );
           }
 
           if (!isDuplicate) {
-            final chatMessage = ChatMessage(
-              text: message,
-              fromAtSign: fromAtSign,
-              timestamp: DateTime.now(),
-              isFromMe: isFromCurrentUser,
-            );
             addMessageToGroup(groupId, chatMessage);
             print('✅ Message added successfully to UI');
           } else {
