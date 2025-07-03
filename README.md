@@ -1,6 +1,19 @@
 # AtTalk Unified GUI/TUI
 
-A unified messaging application built on the atPlatform that supports both graphical (Flutter) and terminal (CLI) interfaces, sharing the same core business logic for consistent behavior across different environments.
+A unified messaging applic### TUI-Specific Features
+- 🎨 Colored terminal output
+- ⌨️ Command-line argument parsing
+- 📊 Real-time message streaming
+- 🔧 Multi-session chat management
+- 🔧 Verbose logging options
+- 🌐 Cross-platform terminal support
+- 👥 Interactive group management commands
+
+### Platform Compatibility
+- **Windows**: Full support with PowerShell, Command Prompt, or Windows Terminal
+- **macOS/Linux**: Full support with any ANSI-compatible terminal
+- **Input Handling**: Uses Enter key for all panel confirmations (Escape key may not work consistently on Windows)
+- **Terminal Colors**: Automatically adapts to terminal capabilitiesilt on the atPlatform that supports both graphical (Flutter) and terminal (CLI) interfaces, sharing the same core business logic for consistent behavior across different environments.
 
 ## 🌟 Overview
 
@@ -151,10 +164,12 @@ Once in the TUI, you can use these commands:
 - `/remove @other` - Remove participant from current group
 - `/rename name` - Rename current group
 - `/delete` - Delete current session
-- `/list` - Show group info panel
+- `/list` - Show participants panel (interactive: `r` rename group, `a` add participant, `d` remove participant, `j`/`k` scroll, Enter to close)
 - `/exit` - Quit the application
 - Type any message to send it
 - Real-time incoming messages display automatically
+
+**Note**: All interactive panels use the Enter key to close/confirm. While Escape may work on some platforms, Enter is recommended for consistent cross-platform behavior, especially on Windows.
 
 ### Example TUI Session
 ```bash
@@ -236,10 +251,10 @@ atTalk TUI - @alice
 │   /remove @other   Remove participant from group      │
 │   /rename name     Rename current group               │
 │   /delete          Delete current session             │
-│   /list            Show group info panel              │
+│   /list            Show participants panel            │
 │   /exit            Quit                               │
 │                                                        │
-│ Press Escape to close this help panel.                │
+│ Press [Enter] to close this help panel.               │
 └────────────────────────────────────────────────────────┘
 > /exit
 ```
@@ -306,6 +321,21 @@ Test TUI functionality:
 ```bash
 dart bin/at_talk_tui.dart --help
 ```
+
+#### Windows-Specific Testing
+For Windows users, test the TUI with different terminals:
+```powershell
+# PowerShell
+dart bin/at_talk_tui.dart -a @yoursign -t @destination
+
+# Command Prompt
+dart bin/at_talk_tui.dart -a @yoursign -t @destination
+
+# Windows Terminal (recommended for best experience)
+dart bin/at_talk_tui.dart -a @yoursign -t @destination
+```
+
+All interactive features including the `/list` panel should work correctly across all Windows terminal environments.
 
 ## 🤝 Contributing
 

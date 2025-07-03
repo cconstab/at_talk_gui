@@ -48,6 +48,17 @@ class TuiChatApp {
   // State for group name input
   bool _waitingForGroupName = false;
   List<String>? _pendingParticipants;
+
+  // Panel state for Windows compatibility
+  bool _showingHelpPanel = false;
+  bool _showingParticipantsPanel = false;
+  int _participantsScroll = 0;
+
+  // Participants panel input state
+  bool _participantsInputMode = false;
+  String _participantsInputBuffer = '';
+  String _participantsInputPrompt = '';
+  int _participantsInputAction = 0; // 1: rename, 2: add, 3: remove
   String? _pendingSessionKey;
 
   TuiChatApp(this.myAtSign);
@@ -364,7 +375,13 @@ class TuiChatApp {
     updateInputDisplay();
   }
 
-  void showHelpPanel() {
+  Future<void> showHelpPanel() async {
+    _showingHelpPanel = true;
+    _drawHelpPanel();
+    // The main input loop will handle the exit condition
+  }
+
+  void _drawHelpPanel() {
     final termWidth = stdout.hasTerminal ? stdout.terminalColumns : 80;
     final termHeight = stdout.hasTerminal ? stdout.terminalLines : 24;
     final helpLines = [
@@ -380,7 +397,7 @@ class TuiChatApp {
       '  /list            Show group info panel',
       '  /exit            Quit',
       '',
-      'Press Escape to close this help panel.',
+      'Press Enter to close this help panel.',
     ];
     int panelWidth = 50;
     int panelHeight = helpLines.length + 2;
@@ -402,287 +419,83 @@ class TuiChatApp {
         stdout.write(chalk.yellow('│') + chalk.bold(line) + chalk.yellow('│'));
       }
     }
-
-    // Wait for Escape key
-    stdin.echoMode = false;
-    stdin.lineMode = false;
-
-    while (true) {
-      int key = stdin.readByteSync();
-      if (key == 27) {
-        // Escape key - always close help panel
-        break;
-      }
-    }
-
-    // Restore screen
-    draw();
   }
 
   Future<void> showParticipantsPanel() async {
+    _showingParticipantsPanel = true;
+    _participantsScroll = 0;
+    _participantsInputMode = false;
+    _participantsInputBuffer = '';
+    _participantsInputAction = 0;
+    _drawParticipantsPanel();
+    // The main input loop will handle the exit condition
+  }
+
+  void _drawParticipantsPanel() {
     if (activeSession == null) return;
     final session = sessions[activeSession!]!;
     final termWidth = stdout.hasTerminal ? stdout.terminalColumns : 80;
     final termHeight = stdout.hasTerminal ? stdout.terminalLines : 24;
-    final panelWidth = 50; // Increased width for better layout
+    final panelWidth = 50;
     final maxPanelHeight = termHeight - 8;
 
-    int scroll = 0;
-    String inputBuffer = '';
-    bool isInputMode = false;
-    String inputPrompt = '';
-    int inputAction = 0; // 1: rename, 2: add, 3: remove
-
-    stdin.echoMode = false;
-    stdin.lineMode = false;
-
-    while (true) {
-      final participants = [myAtSign, ...session.participants.where((p) => p != myAtSign)];
-
-      // Calculate visible count for participants
-      int visibleCount = (participants.length < maxPanelHeight - 8) ? participants.length : (maxPanelHeight - 8);
-
-      // Draw the enhanced panel
-      _drawEnhancedParticipantsPanel(
-        participants,
-        scroll,
-        visibleCount,
-        panelWidth,
-        termWidth,
-        termHeight,
-        isInputMode,
-        inputBuffer,
-        inputPrompt,
-        session,
-      );
-
-      // Wait for input
-      int key = stdin.readByteSync();
-
-      if (isInputMode) {
-        // Handle input mode
-        if (key == 27) {
-          // Escape - cancel input
-          isInputMode = false;
-          inputBuffer = '';
-          inputAction = 0;
-        } else if (key == 13 || key == 10) {
-          // Enter - submit input
-          if (inputBuffer.trim().isNotEmpty) {
-            if (inputAction == 1) {
-              // Rename
-              session.groupName = inputBuffer.trim();
-              var displayName = session.groupName ?? 'Unnamed Group';
-              addMessage(activeSession!, '[Group renamed to "$displayName"]', incoming: true);
-              if (onGroupRename != null) {
-                onGroupRename!(activeSession!, inputBuffer.trim());
-              }
-            } else if (inputAction == 2) {
-              // Add participant
-              var newParticipant = inputBuffer.trim();
-              if (!session.participants.contains(newParticipant) && newParticipant != myAtSign) {
-                // Check if this will create a group (3+ participants)
-                if (session.participants.length == 2) {
-                  // Converting from individual chat to group - create NEW group session
-                  // instead of migrating the existing 2-person chat
-                  var newParticipants = session.participants.toList()..add(newParticipant);
-
-                  // Create a unique session key for the new group to avoid conflicts
-                  var sortedParticipants = newParticipants.toSet().toList()..sort();
-                  var timestamp = DateTime.now().millisecondsSinceEpoch;
-                  var groupKey = '${sortedParticipants.join(',')}#$timestamp';
-
-                  // Create the new group session directly
-                  sessions[groupKey] = ChatSession(groupKey, newParticipants);
-
-                  // Switch to the new group session
-                  activeSession = groupKey;
-                  windowOffset = sessionList.indexOf(groupKey);
-
-                  // Set up for group name prompting for the NEW session
-                  _waitingForGroupName = true;
-                  _pendingParticipants = newParticipants;
-                  _pendingSessionKey = groupKey; // Use the new group session key
-
-                  addMessage(activeSession!, '[Added $newParticipant to the chat]', incoming: true);
-                  addMessage(
-                    activeSession!,
-                    '[Enter a name for this group (or press Enter for no name):]',
-                    incoming: true,
-                  );
-                  requestRedraw();
-                  break; // Exit panel to handle group naming
-                } else {
-                  // Already a group - add participant and update session key if needed
-                  session.participants.add(newParticipant);
-
-                  // Check if session key needs to be updated
-                  var newSessionKey = generateSessionKey(session.participants);
-                  var currentSessionKey = activeSession!;
-
-                  if (newSessionKey != currentSessionKey) {
-                    // Need to migrate to new session key
-                    var groupName = session.groupName;
-                    var messages = session.messages.toList();
-
-                    // Create new session with updated participants
-                    addSession(newSessionKey, session.participants.toList(), groupName);
-                    sessions[newSessionKey]!.messages.addAll(messages);
-
-                    // Remove old session
-                    sessions.remove(currentSessionKey);
-
-                    // Switch to new session
-                    activeSession = newSessionKey;
-                    windowOffset = sessionList.indexOf(newSessionKey);
-                  }
-
-                  addMessage(activeSession!, '[Added $newParticipant to the chat]', incoming: true);
-
-                  // Notify other participants of the membership change
-                  if (onGroupMembershipChange != null) {
-                    onGroupMembershipChange!(activeSession!, session.participants.toList(), session.groupName);
-                  }
-                }
-              }
-            } else if (inputAction == 3) {
-              // Remove participant
-              var participantToRemove = inputBuffer.trim();
-              if (session.participants.contains(participantToRemove) && participantToRemove != myAtSign) {
-                // Simply remove from the current session, preserving group name and messages
-                session.participants.remove(participantToRemove);
-                addMessage(activeSession!, '[Removed $participantToRemove from the chat]', incoming: true);
-
-                // Notify other participants of the membership change
-                if (onGroupMembershipChange != null) {
-                  onGroupMembershipChange!(activeSession!, session.participants.toList(), session.groupName);
-                }
-              }
-            }
-          }
-          isInputMode = false;
-          inputBuffer = '';
-          inputAction = 0;
-          requestRedraw();
-        } else if (key == 127 || key == 8) {
-          // Backspace
-          if (inputBuffer.isNotEmpty) {
-            inputBuffer = inputBuffer.substring(0, inputBuffer.length - 1);
-          }
-        } else if (key >= 32 && key <= 126) {
-          // Printable characters
-          inputBuffer += String.fromCharCode(key);
-        }
-      } else {
-        // Handle navigation mode
-        if (key == 27) {
-          // Escape key
-          break;
-        } else if (key == 106 && scroll < participants.length - visibleCount) {
-          // 'j' - scroll down
-          scroll++;
-        } else if (key == 107 && scroll > 0) {
-          // 'k' - scroll up
-          scroll--;
-        } else if (key == 114) {
-          // 'r' - rename group
-          if (session.participants.length >= 3) {
-            // Only for groups
-            inputAction = 1;
-            isInputMode = true;
-            inputBuffer = session.groupName ?? '';
-            inputPrompt = 'Enter new group name:';
-          }
-        } else if (key == 97) {
-          // 'a' - add participant
-          inputAction = 2;
-          isInputMode = true;
-          inputBuffer = '';
-          inputPrompt = 'Enter atSign to add:';
-        } else if (key == 100) {
-          // 'd' - remove participant (delete)
-          if (session.participants.length > 2) {
-            // Don't allow removing from 1-on-1 chats
-            inputAction = 3;
-            isInputMode = true;
-            inputBuffer = '';
-            inputPrompt = 'Enter atSign to remove:';
-          }
-        }
-      }
-    }
-
-    draw();
-  }
-
-  void _drawEnhancedParticipantsPanel(
-    List<String> participants,
-    int scroll,
-    int visibleCount,
-    int panelWidth,
-    int termWidth,
-    int termHeight,
-    bool isInputMode,
-    String inputBuffer,
-    String inputPrompt,
-    ChatSession session,
-  ) {
-    int panelHeight = visibleCount + 8; // Increased for buttons
-    int left = ((termWidth - panelWidth) ~/ 2).clamp(0, termWidth - 1);
-    int top = ((termHeight - panelHeight) ~/ 2).clamp(0, termHeight - 1);
+    final participants = [myAtSign, ...session.participants.where((p) => p != myAtSign)];
+    final visibleCount = (participants.length < maxPanelHeight - 8) ? participants.length : (maxPanelHeight - 8);
+    final panelHeight = visibleCount + 8; // More space for buttons and input
+    final left = ((termWidth - panelWidth) ~/ 2).clamp(0, termWidth - 1);
+    final top = ((termHeight - panelHeight) ~/ 2).clamp(0, termHeight - 1);
 
     // Draw overlay panel
     for (int i = 0; i < panelHeight; i++) {
       stdout.write('\x1b[${top + i + 1};${left + 1}H');
       if (i == 0) {
         stdout.write(chalk.yellow('┌${'─' * (panelWidth - 2)}┐'));
-      } else if (i == 2 || i == panelHeight - 5) {
-        stdout.write(chalk.yellow('├${'─' * (panelWidth - 2)}┤'));
       } else if (i == panelHeight - 1) {
         stdout.write(chalk.yellow('└${'─' * (panelWidth - 2)}┘'));
       } else if (i == 1) {
-        // Title with group name and scroll indicators
+        // Title with scroll indicators
         String title = session.groupName != null
-            ? chalk.bold(' Group: ${session.groupName}')
-            : chalk.bold(' Participants (${participants.length})');
+            ? ' Group: ${session.groupName}'
+            : ' Participants (${participants.length})';
         String scrollInfo = '';
         if (participants.length > visibleCount) {
-          String upIndicator = scroll > 0 ? '↑' : ' ';
-          String downIndicator = scroll < participants.length - visibleCount ? '↓' : ' ';
+          String upIndicator = _participantsScroll > 0 ? '↑' : ' ';
+          String downIndicator = _participantsScroll < participants.length - visibleCount ? '↓' : ' ';
           scrollInfo = ' $upIndicator$downIndicator ';
         }
-        int titleVisibleLen =
-            stripAnsi(
-              session.groupName != null ? ' Group: ${session.groupName}' : ' Participants (${participants.length})',
-            ).length +
-            scrollInfo.length;
-        String titleLine = title + scrollInfo + ' ' * (panelWidth - 2 - titleVisibleLen);
+        String titleLine = chalk.bold(title) + scrollInfo + ' ' * (panelWidth - 2 - title.length - scrollInfo.length);
         stdout.write(chalk.yellow('│') + titleLine + chalk.yellow('│'));
+      } else if (i == 2) {
+        // Separator line
+        stdout.write(chalk.yellow('├${'─' * (panelWidth - 2)}┤'));
       } else if (i >= 3 && i < 3 + visibleCount) {
         // Participant list
-        int participantIndex = i - 3 + scroll;
+        int participantIndex = i - 3 + _participantsScroll;
         if (participantIndex < participants.length) {
           String p = participants[participantIndex];
-          String displayName = (p == myAtSign ? chalk.yellow.bold(p) : chalk.cyan(p));
+          String displayName = (p == myAtSign ? chalk.yellow.bold('$p (you)') : chalk.cyan(p));
           int visibleLen = stripAnsi(displayName).length;
-          String line = displayName + ' ' * (panelWidth - 2 - visibleLen);
+          String line = ' $displayName' + ' ' * (panelWidth - 3 - visibleLen);
           stdout.write(chalk.yellow('│') + line + chalk.yellow('│'));
         } else {
           stdout.write(chalk.yellow('│${' ' * (panelWidth - 2)}│'));
         }
-      } else if (i == panelHeight - 4) {
+      } else if (i == 3 + visibleCount) {
+        // Separator line
+        stdout.write(chalk.yellow('├${'─' * (panelWidth - 2)}┤'));
+      } else if (i == 4 + visibleCount) {
         // Rename button (only for groups)
         String renameText = session.participants.length >= 3
             ? chalk.cyan(' [r] Rename Group')
             : chalk.gray(' [r] Rename Group (groups only)');
         String line = renameText + ' ' * (panelWidth - 2 - stripAnsi(renameText).length);
         stdout.write(chalk.yellow('│') + line + chalk.yellow('│'));
-      } else if (i == panelHeight - 3) {
+      } else if (i == 5 + visibleCount) {
         // Add participant button
         String addText = chalk.green(' [a] Add Participant');
         String line = addText + ' ' * (panelWidth - 2 - stripAnsi(addText).length);
         stdout.write(chalk.yellow('│') + line + chalk.yellow('│'));
-      } else if (i == panelHeight - 2) {
+      } else if (i == 6 + visibleCount) {
         // Remove participant button (only if more than 2 participants)
         String removeText = session.participants.length > 2
             ? chalk.red(' [d] Remove Participant')
@@ -696,16 +509,150 @@ class TuiChatApp {
 
     // Show input prompt or instructions below panel
     stdout.write('\x1b[${top + panelHeight + 1};${left + 1}H');
-    if (isInputMode) {
-      String promptLine = chalk.bold('$inputPrompt ') + inputBuffer;
+    if (_participantsInputMode) {
+      String promptLine = chalk.bold('$_participantsInputPrompt ') + _participantsInputBuffer;
       stdout.write(promptLine.padRight(panelWidth));
       stdout.write('\x1b[${top + panelHeight + 2};${left + 1}H');
-      stdout.write(chalk.dim('[Enter] to confirm, [Esc] to cancel').padRight(panelWidth));
+      stdout.write(chalk.dim('[Enter] to confirm or cancel if empty').padRight(panelWidth));
     } else {
       if (participants.length > visibleCount) {
-        stdout.write(chalk.bold('Use j/k to scroll, [Esc] to close.').padRight(panelWidth));
+        stdout.write(chalk.bold('Use j/k to scroll, action keys, [Enter] to close').padRight(panelWidth));
       } else {
-        stdout.write(chalk.bold('Use action keys or [Esc] to close.').padRight(panelWidth));
+        stdout.write(chalk.bold('Use action keys or [Enter] to close').padRight(panelWidth));
+      }
+    }
+  }
+
+  Future<void> _handleParticipantsInput() async {
+    if (activeSession == null) return;
+    final session = sessions[activeSession!]!;
+
+    if (_participantsInputBuffer.trim().isEmpty) return;
+
+    if (_participantsInputAction == 1) {
+      // Rename group
+      session.groupName = _participantsInputBuffer.trim();
+      var displayName = session.groupName ?? 'Unnamed Group';
+      addMessage(activeSession!, '[Group renamed to "$displayName"]', incoming: true);
+      if (onGroupRename != null) {
+        onGroupRename!(activeSession!, _participantsInputBuffer.trim());
+      }
+
+      // Close the participants panel immediately to avoid Windows terminal state issues
+      _showingParticipantsPanel = false;
+      _participantsInputMode = false;
+      _participantsInputBuffer = '';
+      _participantsInputAction = 0;
+      _participantsScroll = 0;
+
+      // Force a full redraw to ensure terminal state is properly reset on Windows
+      requestRedraw();
+      return;
+    } else if (_participantsInputAction == 2) {
+      // Add participant
+      var newParticipant = _participantsInputBuffer.trim();
+      if (!session.participants.contains(newParticipant) && newParticipant != myAtSign) {
+        // Check if this will create a group (3+ participants)
+        if (session.participants.length == 2) {
+          // Converting from individual chat to group - create NEW group session
+          var newParticipants = session.participants.toList()..add(newParticipant);
+
+          // Create a unique session key for the new group to avoid conflicts
+          var sortedParticipants = newParticipants.toSet().toList()..sort();
+          var timestamp = DateTime.now().millisecondsSinceEpoch;
+          var groupKey = '${sortedParticipants.join(',')}#$timestamp';
+
+          // Create the new group session directly
+          sessions[groupKey] = ChatSession(groupKey, newParticipants);
+
+          // Switch to the new group session
+          activeSession = groupKey;
+          windowOffset = sessionList.indexOf(groupKey);
+
+          // Set up for group name prompting for the NEW session
+          _waitingForGroupName = true;
+          _pendingParticipants = newParticipants;
+          _pendingSessionKey = groupKey;
+
+          addMessage(activeSession!, '[Added $newParticipant to the chat]', incoming: true);
+          addMessage(activeSession!, '[Enter a name for this group (or press Enter for no name):]', incoming: true);
+
+          // Close the participants panel since we're now in group naming mode
+          _showingParticipantsPanel = false;
+          _participantsInputMode = false;
+          _participantsInputBuffer = '';
+          _participantsInputAction = 0;
+          _participantsScroll = 0;
+
+          requestRedraw();
+          return;
+        } else {
+          // Already a group - add participant and update session key if needed
+          session.participants.add(newParticipant);
+
+          // Check if session key needs to be updated
+          var newSessionKey = generateSessionKey(session.participants);
+          var currentSessionKey = activeSession!;
+
+          if (newSessionKey != currentSessionKey) {
+            // Need to migrate to new session key
+            var groupName = session.groupName;
+            var messages = session.messages.toList();
+
+            // Create new session with updated participants
+            addSession(newSessionKey, session.participants.toList(), groupName);
+            sessions[newSessionKey]!.messages.addAll(messages);
+
+            // Remove old session
+            sessions.remove(currentSessionKey);
+
+            // Switch to new session
+            activeSession = newSessionKey;
+            windowOffset = sessionList.indexOf(newSessionKey);
+          }
+
+          addMessage(activeSession!, '[Added $newParticipant to the chat]', incoming: true);
+
+          // Notify other participants of the membership change
+          if (onGroupMembershipChange != null) {
+            onGroupMembershipChange!(activeSession!, session.participants.toList(), session.groupName);
+          }
+
+          // Close the participants panel immediately to avoid Windows terminal state issues
+          _showingParticipantsPanel = false;
+          _participantsInputMode = false;
+          _participantsInputBuffer = '';
+          _participantsInputAction = 0;
+          _participantsScroll = 0;
+
+          // Force a full redraw to ensure terminal state is properly reset on Windows
+          requestRedraw();
+          return;
+        }
+      }
+    } else if (_participantsInputAction == 3) {
+      // Remove participant
+      var participantToRemove = _participantsInputBuffer.trim();
+      if (session.participants.contains(participantToRemove) && participantToRemove != myAtSign) {
+        // Simply remove from the current session, preserving group name and messages
+        session.participants.remove(participantToRemove);
+        addMessage(activeSession!, '[Removed $participantToRemove from the chat]', incoming: true);
+
+        // Notify other participants of the membership change
+        if (onGroupMembershipChange != null) {
+          onGroupMembershipChange!(activeSession!, session.participants.toList(), session.groupName);
+        }
+
+        // Close the participants panel immediately to avoid Windows terminal state issues
+        _showingParticipantsPanel = false;
+        _participantsInputMode = false;
+        _participantsInputBuffer = '';
+        _participantsInputAction = 0;
+        _participantsScroll = 0;
+
+        // Force a full redraw to ensure terminal state is properly reset on Windows
+        requestRedraw();
+        return;
       }
     }
   }
@@ -777,10 +724,12 @@ class TuiChatApp {
     stdin.lineMode = false;
     draw();
 
-    // Listen for terminal resize events (SIGWINCH)
-    ProcessSignal.sigwinch.watch().listen((_) {
-      requestRedraw();
-    });
+    // Listen for terminal resize events (SIGWINCH) - Unix/Linux/Mac only
+    if (!Platform.isWindows) {
+      ProcessSignal.sigwinch.watch().listen((_) {
+        requestRedraw();
+      });
+    }
 
     // Timer for redraw requests
     Timer.periodic(Duration(milliseconds: 100), (_) {
@@ -793,10 +742,114 @@ class TuiChatApp {
     // Reset input state
     inputBuffer = '';
     inputCursorPos = 0;
+
+    // Use StreamSubscription approach for better control
+    late StreamSubscription<List<int>> mainSubscription;
     List<int> escapeSequence = [];
     bool inEscapeSequence = false;
-    await for (final charCodes in stdin) {
+
+    mainSubscription = stdin.listen((charCodes) async {
       for (int charCode in charCodes) {
+        // Handle panel input first
+        if (_showingHelpPanel) {
+          if (charCode == 27 || charCode == 13 || charCode == 10) {
+            // Escape key, Enter, or newline - close help panel
+            _showingHelpPanel = false;
+            draw(); // Restore screen
+          }
+          continue;
+        }
+
+        if (_showingParticipantsPanel) {
+          if (_participantsInputMode) {
+            // Handle input mode for participants panel
+            if (charCode == 27) {
+              // Escape - cancel input
+              _participantsInputMode = false;
+              _participantsInputBuffer = '';
+              _participantsInputAction = 0;
+              _drawParticipantsPanel();
+            } else if (charCode == 13 || charCode == 10) {
+              // Enter - submit input
+              await _handleParticipantsInput();
+              _participantsInputMode = false;
+              _participantsInputBuffer = '';
+              _participantsInputAction = 0;
+              _drawParticipantsPanel();
+            } else if (charCode == 127 || charCode == 8) {
+              // Backspace
+              if (_participantsInputBuffer.isNotEmpty) {
+                _participantsInputBuffer = _participantsInputBuffer.substring(0, _participantsInputBuffer.length - 1);
+                _drawParticipantsPanel();
+              }
+            } else if (charCode >= 32 && charCode <= 126) {
+              // Printable characters
+              _participantsInputBuffer += String.fromCharCode(charCode);
+              _drawParticipantsPanel();
+            }
+          } else {
+            // Handle navigation mode for participants panel
+            if (charCode == 27 || charCode == 13 || charCode == 10) {
+              // Escape key, Enter, or newline - close participants panel
+              _showingParticipantsPanel = false;
+              _participantsInputMode = false;
+              _participantsInputBuffer = '';
+              _participantsInputAction = 0;
+              _participantsScroll = 0;
+              draw(); // Restore screen
+            } else if (charCode == 106) {
+              // 'j' - scroll down
+              if (activeSession != null) {
+                final session = sessions[activeSession!]!;
+                final participants = [myAtSign, ...session.participants.where((p) => p != myAtSign)];
+                final maxVisible = 10; // Approximate visible count
+                if (_participantsScroll < participants.length - maxVisible) {
+                  _participantsScroll++;
+                  _drawParticipantsPanel();
+                }
+              }
+            } else if (charCode == 107) {
+              // 'k' - scroll up
+              if (_participantsScroll > 0) {
+                _participantsScroll--;
+                _drawParticipantsPanel();
+              }
+            } else if (charCode == 114) {
+              // 'r' - rename group
+              if (activeSession != null) {
+                final session = sessions[activeSession!]!;
+                if (session.participants.length >= 3) {
+                  _participantsInputAction = 1;
+                  _participantsInputMode = true;
+                  _participantsInputBuffer = session.groupName ?? '';
+                  _participantsInputPrompt = 'Enter new group name:';
+                  _drawParticipantsPanel();
+                }
+              }
+            } else if (charCode == 97) {
+              // 'a' - add participant
+              _participantsInputAction = 2;
+              _participantsInputMode = true;
+              _participantsInputBuffer = '';
+              _participantsInputPrompt = 'Enter atSign to add:';
+              _drawParticipantsPanel();
+            } else if (charCode == 100) {
+              // 'd' - remove participant (delete)
+              if (activeSession != null) {
+                final session = sessions[activeSession!]!;
+                if (session.participants.length > 2) {
+                  _participantsInputAction = 3;
+                  _participantsInputMode = true;
+                  _participantsInputBuffer = '';
+                  _participantsInputPrompt = 'Enter atSign to remove:';
+                  _drawParticipantsPanel();
+                }
+              }
+            }
+          }
+          continue;
+        }
+
         // Handle escape sequences (arrow keys)
         if (charCode == 27) {
           // ESC
@@ -928,12 +981,12 @@ class TuiChatApp {
             _pendingParticipants = null;
             _pendingSessionKey = null;
             requestRedraw();
-            continue;
+            return;
           }
 
           if (input == '/?') {
-            showHelpPanel();
-            continue;
+            await showHelpPanel();
+            return;
           } else if (input.startsWith('/switch ')) {
             var query = input.substring(8).trim();
             var bestMatch = findBestMatch(query);
@@ -1089,8 +1142,9 @@ class TuiChatApp {
             }
           } else if (input == '/list') {
             await showParticipantsPanel();
-            continue;
+            return;
           } else if (input == '/exit') {
+            mainSubscription.cancel();
             stdin.echoMode = true;
             stdin.lineMode = true;
             stdout.writeln(); // Print a final newline for clean terminal exit
@@ -1124,7 +1178,10 @@ class TuiChatApp {
           updateInputDisplay();
         }
       }
-    }
+    });
+
+    // Keep the main subscription alive
+    await mainSubscription.asFuture();
 
     stdin.echoMode = true;
     stdin.lineMode = true;
