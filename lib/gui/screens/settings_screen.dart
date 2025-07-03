@@ -292,7 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       // Clear current state first
       print('🔄 Switching to $atSign - clearing current state...');
-      authProvider.logout(); 
+      authProvider.logout();
       await Future.delayed(const Duration(milliseconds: 500)); // Give time for cleanup
 
       // Authenticate directly with the known atSign
@@ -301,17 +301,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog
-        
+
         if (authProvider.isAuthenticated) {
           // Switch successful - go to groups screen which will reinitialize providers
           print('✅ Authentication successful - navigating to groups screen...');
           Navigator.pushReplacementNamed(context, '/groups');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Switched to $atSign'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Switched to $atSign'), backgroundColor: Colors.green));
         } else {
           // Authentication failed - show error and stay on settings
           ScaffoldMessenger.of(context).showSnackBar(

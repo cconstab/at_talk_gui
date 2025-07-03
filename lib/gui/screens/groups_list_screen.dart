@@ -536,12 +536,12 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
-      
+
       // Clear all current state and data
       print('🔄 Switching to $atSign - clearing current state...');
       authProvider.logout();
       groupsProvider.clearAllGroups(); // Clear all groups and messages
-      
+
       await Future.delayed(const Duration(milliseconds: 500)); // Give time for cleanup
 
       // Authenticate directly with the known atSign
@@ -550,23 +550,20 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
 
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog
-        
+
         if (authProvider.isAuthenticated) {
           // Switch successful - reinitialize providers with new atSign context
           print('✅ Authentication successful - reinitializing providers...');
           groupsProvider.initialize(); // Reinitialize with new atSign
-          
+
           // Force a rebuild of the UI to reflect the new atSign
           setState(() {
             // This will trigger a rebuild and update the app bar title
           });
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Switched to $atSign'),
-              backgroundColor: Colors.green,
-            ),
-          );
+
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Switched to $atSign'), backgroundColor: Colors.green));
         } else {
           // Authentication failed - show error
           ScaffoldMessenger.of(context).showSnackBar(

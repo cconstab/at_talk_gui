@@ -434,11 +434,11 @@ class GroupsProvider extends ChangeNotifier {
           // Check if we already have a message with this exact ID to avoid duplicates
           // This is much more reliable than text/timestamp-based detection
           bool isDuplicate = false;
-          
+
           // Check the target group first
           final existingMessages = _groupMessages[groupId] ?? [];
           isDuplicate = existingMessages.any((existingMsg) => existingMsg.id == chatMessage.id);
-          
+
           // If from current user, also check all other groups in case of misrouting
           if (!isDuplicate && isFromCurrentUser) {
             for (final existingGroupId in _groupMessages.keys) {
@@ -446,7 +446,9 @@ class GroupsProvider extends ChangeNotifier {
                 final otherGroupMessages = _groupMessages[existingGroupId] ?? [];
                 isDuplicate = otherGroupMessages.any((existingMsg) => existingMsg.id == chatMessage.id);
                 if (isDuplicate) {
-                  print('⚠️ Duplicate message ID detected: ${chatMessage.id} from $fromAtSign (already exists in group $existingGroupId)');
+                  print(
+                    '⚠️ Duplicate message ID detected: ${chatMessage.id} from $fromAtSign (already exists in group $existingGroupId)',
+                  );
                   break;
                 }
               }
@@ -512,7 +514,8 @@ class GroupsProvider extends ChangeNotifier {
           bestMatch = group;
           bestTime = group.lastMessageTime;
         }
-      } else bestMatch ??= group;
+      } else
+        bestMatch ??= group;
     }
 
     if (bestMatch != null) {
