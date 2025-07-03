@@ -168,10 +168,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                               valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2196F3)),
                                             ),
                                           )
-                                        : const Icon(Icons.rocket_launch),
-                                    label: const Text(
-                                      'Get Started',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                        : Icon(_availableAtSigns.isEmpty ? Icons.rocket_launch : Icons.person_add),
+                                    label: Text(
+                                      _availableAtSigns.isEmpty ? 'Get Started' : 'Add New atSign',
+                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                                     ),
                                   ),
                                 ),

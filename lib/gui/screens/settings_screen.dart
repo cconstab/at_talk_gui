@@ -290,12 +290,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     try {
-      authProvider.logout(); // Clear current state
+      // Clear current state first
+      print('🔄 Switching to $atSign - clearing current state...');
+      authProvider.logout(); 
       await Future.delayed(const Duration(milliseconds: 500)); // Give time for cleanup
+
+      // Authenticate directly with the known atSign
+      print('🔑 Authenticating with $atSign...');
+      await authProvider.authenticateExisting(atSign);
 
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog
-        Navigator.pushReplacementNamed(context, '/onboarding');
+        
+        if (authProvider.isAuthenticated) {
+          // Switch successful - go to groups screen which will reinitialize providers
+          print('✅ Authentication successful - navigating to groups screen...');
+          Navigator.pushReplacementNamed(context, '/groups');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Switched to $atSign'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          // Authentication failed - show error and stay on settings
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to switch to $atSign: ${authProvider.errorMessage ?? "Unknown error"}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
