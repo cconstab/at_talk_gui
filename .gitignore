@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Test files and compiled binaries (development artifacts)
+test_*.dart
+*_test
+at_talk_test*
+*.exe
