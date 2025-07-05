@@ -48,6 +48,7 @@ dependencies:
   # UI and utility dependencies
   provider: ^6.1.2
   collection: ^1.18.0
+  window_manager: ^0.3.9
   intl: ^0.19.0
   
   # TUI-specific dependencies
@@ -57,6 +58,7 @@ dependencies:
   args: ^2.5.0
   logging: ^1.2.0
   uuid: ^3.0.7
+  hive: ^2.2.3
   
   # Additional Flutter dependencies
   path_provider: ^2.1.4

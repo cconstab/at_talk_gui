@@ -61,7 +61,10 @@ class ChatProvider extends ChangeNotifier {
         final message = messageData['message'] ?? '';
         final rawValue = messageData['rawValue'] ?? '';
 
-        print('Received message from $fromAtSign: $message'); // DEBUG
+        print(
+          '📨 ChatProvider received: from=$fromAtSign, message=$message',
+        ); // DEBUG
+        print('📨 Raw JSON: $rawValue'); // DEBUG
 
         // Try to extract group information from the raw JSON
         try {
@@ -70,6 +73,33 @@ class ChatProvider extends ChangeNotifier {
             // Check if this is a group message
             final isGroupMessage = jsonData['isGroup'] == true;
             final groupMembers = jsonData['group'] as List<dynamic>?;
+            final instanceId = jsonData['instanceId'] as String?;
+
+            // Filter out messages from our own GUI instance to prevent duplicates
+            final currentAtSign = AtTalkService.instance.currentAtSign;
+            final ourInstanceId = AtTalkService.instance.instanceId;
+
+            print(
+              '🔍 Instance check: fromAtSign=$fromAtSign, currentAtSign=$currentAtSign',
+            );
+            print(
+              '🔍 Instance check: messageInstanceId=$instanceId, ourInstanceId=$ourInstanceId',
+            );
+            print(
+              '🔍 Instance check: fromSelf=${fromAtSign == currentAtSign}, sameInstance=${instanceId == ourInstanceId}',
+            );
+
+            if (fromAtSign == currentAtSign && instanceId == ourInstanceId) {
+              print(
+                '🚫 Skipping message from our own instance: $instanceId (already added locally)',
+              );
+              return;
+            } else if (fromAtSign == currentAtSign &&
+                instanceId != ourInstanceId) {
+              print(
+                '📨 Processing message from our own atSign but different instance: $instanceId',
+              );
+            }
 
             if (isGroupMessage && groupMembers != null) {
               // Auto-sync with TUI group
@@ -87,12 +117,15 @@ class ChatProvider extends ChangeNotifier {
         }
 
         // Add message to the group chat
+        final currentAtSign = AtTalkService.instance.currentAtSign;
         _addMessage(
           ChatMessage(
             text: message,
             fromAtSign: fromAtSign,
             timestamp: DateTime.now(),
-            isFromMe: false,
+            isFromMe:
+                fromAtSign ==
+                currentAtSign, // 🔧 FIX: Correctly identify own messages
           ),
         );
 
@@ -132,10 +165,13 @@ class ChatProvider extends ChangeNotifier {
     bool allSuccess = true;
 
     // Send message to all recipients
+    final groupMembersList = _groupMembers.toList()
+      ..sort(); // Consistent group member list
     for (String recipient in recipients) {
       final success = await AtTalkService.instance.sendMessage(
         toAtSign: recipient,
         message: message,
+        groupMembers: groupMembersList, // Pass the consistent group members
       );
       if (!success) allSuccess = false;
     }
