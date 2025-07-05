@@ -51,17 +51,3 @@ at_talk_test*
 bin/at_talk_tui
 bin/at_talk_gui
 *.exe
-
-# Development and debug files
-find_*.dart
-manual_test_*.dart
-send_test_*.dart
-show_*.dart
-verify_*.dart
-cleanup_*.sh
-test_lock_*.sh
-test_tui/
-
-# Lock files (runtime artifacts)
-*.lock
-!pubspec.lock
