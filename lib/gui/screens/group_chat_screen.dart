@@ -687,74 +687,75 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          '${updatedGroup.getDisplayName(currentAtSign)} - ${currentAtSign ?? 'Unknown'}',
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (updatedGroup.name != null && updatedGroup.name!.isNotEmpty) ...[
-              const Text(
-                'Group Name:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+        title: const Text('Group Info'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400, // Set a reasonable fixed height for the dialog content
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Members (${updatedGroup.members.length}):',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              Text(updatedGroup.name!),
-              const SizedBox(height: 12),
-            ],
-            Text(
-              'Members (${updatedGroup.members.length}):',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            ...updatedGroup.members.map(
-              (member) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: Colors.grey[300],
-                      child: Text(
-                        member.substring(1, 2).toUpperCase(),
-                        style: const TextStyle(fontSize: 10),
+              const SizedBox(height: 8),
+              // Make the members list flexible and scrollable
+              Expanded(
+                child: ListView.builder(
+                  itemCount: updatedGroup.members.length,
+                  itemBuilder: (context, index) {
+                    final membersList = updatedGroup.members.toList();
+                    final member = membersList[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.grey[300],
+                            child: Text(
+                              member.substring(1, 2).toUpperCase(),
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(member)),
+                          if (member != currentAtSign &&
+                              updatedGroup.members.length > 2)
+                            IconButton(
+                              onPressed: () =>
+                                  _showRemoveMemberDialog(member, updatedGroup),
+                              icon: const Icon(
+                                Icons.remove_circle,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              tooltip: 'Remove $member',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 24,
+                                minHeight: 24,
+                              ),
+                            ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(member)),
-                    if (member != currentAtSign &&
-                        updatedGroup.members.length > 2)
-                      IconButton(
-                        onPressed: () =>
-                            _showRemoveMemberDialog(member, updatedGroup),
-                        icon: const Icon(
-                          Icons.remove_circle,
-                          color: Colors.red,
-                          size: 20,
-                        ),
-                        tooltip: 'Remove $member',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 24,
-                          minHeight: 24,
-                        ),
-                      ),
-                  ],
+                    );
+                  },
                 ),
               ),
-            ),
-            if (updatedGroup.id.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Group ID:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                updatedGroup.id,
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-              ),
+              if (updatedGroup.id.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Group ID:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  updatedGroup.id,
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
         actions: [
           TextButton(
