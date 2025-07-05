@@ -1,19 +1,6 @@
 # AtTalk Unified GUI/TUI
 
-A unified messaging applic### TUI-Specific Features
-- 🎨 Colored terminal output
-- ⌨️ Command-line argument parsing
-- 📊 Real-time message streaming
-- 🔧 Multi-session chat management
-- 🔧 Verbose logging options
-- 🌐 Cross-platform terminal support
-- 👥 Interactive group management commands
-
-### Platform Compatibility
-- **Windows**: Full support with PowerShell, Command Prompt, or Windows Terminal
-- **macOS/Linux**: Full support with any ANSI-compatible terminal
-- **Input Handling**: Uses Enter key for all panel confirmations (Escape key may not work consistently on Windows)
-- **Terminal Colors**: Automatically adapts to terminal capabilitiesilt on the atPlatform that supports both graphical (Flutter) and terminal (CLI) interfaces, sharing the same core business logic for consistent behavior across different environments.
+A unified messaging application built on the atPlatform that supports both graphical (Flutter) and terminal (CLI) interfaces, sharing the same core business logic for consistent behavior across different environments.
 
 ## 🌟 Overview
 
@@ -56,23 +43,35 @@ bin/
 - ✅ Conversation history
 - ✅ Message notifications
 - ✅ Cross-platform support
+- ✅ Multi-instance support with automatic storage conflict resolution
+- ✅ Robust resource cleanup and signal handling
 
 ### GUI-Specific Features
 - 🎨 Modern Material Design interface
 - 📱 Touch-friendly controls
 - 🔐 Visual onboarding flow
 - 👥 Rich group management UI
-- � AtKeys file management and backup
+- 🔧 AtKeys file management and backup
 - ⚙️ Settings and preferences
+- 🔄 Automatic ephemeral storage fallback for multi-instance scenarios
 
 ### TUI-Specific Features
 - 🎨 Colored terminal output
 - ⌨️ Command-line argument parsing
 - 📊 Real-time message streaming
-- � Multi-session chat management
+- 🔧 Multi-session chat management
 - 🔧 Verbose logging options
 - 🌐 Cross-platform terminal support
 - 👥 Interactive group management commands
+- ⚡ Ephemeral storage for one-shot message mode (`-m` flag)
+- 🛡️ Signal handlers for graceful cleanup (Ctrl+C, SIGTERM)
+
+### Platform Compatibility
+- **Windows**: Full support with PowerShell, Command Prompt, or Windows Terminal
+- **macOS/Linux**: Full support with any ANSI-compatible terminal
+- **Input Handling**: Uses Enter key for all panel confirmations (Escape key may not work consistently on Windows)
+- **Terminal Colors**: Automatically adapts to terminal capabilities
+- **Multi-Instance**: Both GUI and TUI can run simultaneously without storage conflicts
 
 ## 📦 Installation & Setup
 
@@ -150,9 +149,10 @@ dart bin/at_talk_tui.dart -a @yoursign -t @alice,@bob,@charlie -m "Group message
 - `-k, --key-file`: Path to atKeys file (optional, defaults to ~/.atsign/keys/)
 - `-d, --root-domain`: Root domain (optional, defaults to root.atsign.org)
 - `-n, --namespace`: Namespace (optional, defaults to ai6bh)
-- `-m, --message`: Send a message then exit (non-interactive mode)
+- `-m, --message`: Send a message then exit (non-interactive mode, uses ephemeral storage)
 - `-v, --verbose`: Enable verbose logging
 - `--never-sync`: Disable sync completely
+- `--ephemeral`: Force ephemeral storage mode (no persistent storage)
 - `-h, --help`: Show help message
 
 #### TUI Interactive Commands
@@ -336,6 +336,41 @@ dart bin/at_talk_tui.dart -a @yoursign -t @destination
 ```
 
 All interactive features including the `/list` panel should work correctly across all Windows terminal environments.
+
+## 🗄️ Storage Architecture
+
+AtTalk implements robust storage handling with automatic conflict resolution:
+
+### Persistent vs Ephemeral Storage
+- **Persistent Storage**: Default mode that saves conversation history and settings
+- **Ephemeral Storage**: Temporary storage that doesn't persist between sessions
+
+### Multi-Instance Support
+- **Automatic Detection**: Both GUI and TUI detect when storage is already in use
+- **Smart Fallback**: Automatically switches to ephemeral storage when conflicts detected
+- **Lock File Management**: Uses Hive lock files to detect active storage usage
+- **Stale Lock Cleanup**: Automatically removes abandoned lock files (5-minute timeout)
+
+### Storage Modes
+
+#### GUI Storage
+- **Default**: Uses application support directory for persistent storage
+- **Multi-Instance**: Automatically falls back to ephemeral temp storage with UUID isolation
+- **Cross-Platform**: Adapts to platform-specific storage conventions
+
+#### TUI Storage
+- **Interactive Mode**: Uses persistent storage in `~/.ai6bh/$atsign/storage`
+- **Message Mode (`-m`)**: Always uses ephemeral storage for faster, conflict-free operation
+- **Ephemeral Flag (`--ephemeral`)**: Forces ephemeral storage regardless of conflicts
+- **Multi-Instance**: Automatic fallback to ephemeral storage when persistent storage in use
+
+### Resource Cleanup
+- **Signal Handlers**: Graceful cleanup on Ctrl+C, SIGTERM (TUI)
+- **App Lifecycle**: Proper cleanup on app termination (GUI)
+- **AtClient Reset**: Ensures AtClient connections are properly closed
+- **Hive Box Closure**: All database connections closed on exit
+
+This architecture ensures that multiple instances of AtTalk can run simultaneously without interfering with each other, while providing the best possible user experience in both single and multi-instance scenarios.
 
 ## 🤝 Contributing
 

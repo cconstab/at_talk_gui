@@ -48,4 +48,6 @@ app.*.map.json
 test_*.dart
 *_test
 at_talk_test*
+bin/at_talk_tui
+bin/at_talk_gui
 *.exe

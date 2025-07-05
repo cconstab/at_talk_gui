@@ -291,7 +291,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       // Clear current state first
-      print('🔄 Switching to $atSign - clearing current state...');
       authProvider.logout();
       await Future.delayed(const Duration(milliseconds: 500)); // Give time for cleanup
 
@@ -304,7 +303,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         if (authProvider.isAuthenticated) {
           // Switch successful - go to groups screen which will reinitialize providers
-          print('✅ Authentication successful - navigating to groups screen...');
           Navigator.pushReplacementNamed(context, '/groups');
           ScaffoldMessenger.of(
             context,

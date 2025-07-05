@@ -33,9 +33,11 @@ class TuiChatApp {
   final Map<String, ChatSession> sessions = {};
   String? activeSession;
   void Function(String sessionId, String message)? onSend;
-  void Function(String sessionId, String newGroupName)? onGroupRename; // New callback for group renames
+  void Function(String sessionId, String newGroupName)?
+  onGroupRename; // New callback for group renames
   void Function(String sessionId, List<String> participants, String? groupName)?
   onGroupMembershipChange; // New callback for group membership changes
+  Future<void> Function()? onCleanup; // Cleanup callback for graceful exit
   int windowOffset = 0;
   int windowSize = 1;
   List<String> get sessionList => sessions.keys.toList();
@@ -65,7 +67,11 @@ class TuiChatApp {
 
   void addSession(String id, [List<String>? participants, String? groupName]) {
     if (!sessions.containsKey(id)) {
-      sessions[id] = ChatSession(id, participants ?? [id], groupName: groupName);
+      sessions[id] = ChatSession(
+        id,
+        participants ?? [id],
+        groupName: groupName,
+      );
     } else {
       if (participants != null) {
         sessions[id]!.participants
@@ -92,7 +98,8 @@ class TuiChatApp {
     var sortedParticipants = participants.toSet().toList()..sort();
 
     for (var entry in sessions.entries) {
-      var sessionParticipants = entry.value.participants.toSet().toList()..sort();
+      var sessionParticipants = entry.value.participants.toSet().toList()
+        ..sort();
       if (sessionParticipants.length == sortedParticipants.length &&
           sessionParticipants.every((p) => sortedParticipants.contains(p))) {
         return entry.key;
@@ -104,7 +111,8 @@ class TuiChatApp {
   // Generate session key based on participants
   String generateSessionKey(List<String> participants) {
     var sortedParticipants = participants.toSet().toList()..sort();
-    if (sortedParticipants.length == 2 && sortedParticipants.contains(myAtSign)) {
+    if (sortedParticipants.length == 2 &&
+        sortedParticipants.contains(myAtSign)) {
       // Individual chat: use the other person's atSign as the key
       return sortedParticipants.firstWhere((p) => p != myAtSign);
     } else {
@@ -117,14 +125,23 @@ class TuiChatApp {
     redrawRequested = true;
   }
 
-  void addMessage(String id, String message, {bool incoming = false, String? sender}) {
+  void addMessage(
+    String id,
+    String message, {
+    bool incoming = false,
+    String? sender,
+  }) {
     addSession(id);
-    final prefix = incoming ? (sender != null ? chalk.green('$sender: ') : chalk.yellow('me: ')) : chalk.yellow('me: ');
+    final prefix = incoming
+        ? (sender != null ? chalk.green('$sender: ') : chalk.yellow('me: '))
+        : chalk.yellow('me: ');
 
     // Highlight "file sent" if it appears at the beginning of the message
     String processedMessage = message;
     if (message.startsWith('file sent\n')) {
-      processedMessage = chalk.cyan.bold('file sent') + message.substring(9); // 9 = length of "file sent"
+      processedMessage =
+          chalk.cyan.bold('file sent') +
+          message.substring(9); // 9 = length of "file sent"
     }
 
     sessions[id]!.messages.add(prefix + processedMessage);
@@ -218,7 +235,11 @@ class TuiChatApp {
               int breakPoint = 0;
               bool inAnsiSequence = false;
 
-              for (int i = 0; i < remainingWord.length && visibleCount < maxWidth; i++) {
+              for (
+                int i = 0;
+                i < remainingWord.length && visibleCount < maxWidth;
+                i++
+              ) {
                 if (remainingWord[i] == '\x1B') {
                   inAnsiSequence = true;
                 } else if (inAnsiSequence && remainingWord[i] == 'm') {
@@ -295,8 +316,13 @@ class TuiChatApp {
     stdout.writeln('─' * termWidth);
     if (activeSession != null) {
       var session = sessions[activeSession!]!;
-      var sortedParticipants = [myAtSign, ...session.participants.where((p) => p != myAtSign)];
-      var participants = sortedParticipants.map((p) => p == myAtSign ? chalk.yellow.bold(p) : chalk.cyan(p)).join(', ');
+      var sortedParticipants = [
+        myAtSign,
+        ...session.participants.where((p) => p != myAtSign),
+      ];
+      var participants = sortedParticipants
+          .map((p) => p == myAtSign ? chalk.yellow.bold(p) : chalk.cyan(p))
+          .join(', ');
       stdout.writeln(chalk.cyan(' Participants: ') + participants);
       // Draw a line under participants, joining the session list and chat window
       stdout.write(chalk.yellow('├${'─' * (sessionWidth - 1)}'));
@@ -310,12 +336,19 @@ class TuiChatApp {
       // Process messages with word wrapping
       List<String> wrappedMessages = [];
       for (String message in session.messages) {
-        List<String> wrapped = wrapText(message, chatWidth - 2); // -2 for padding
+        List<String> wrapped = wrapText(
+          message,
+          chatWidth - 2,
+        ); // -2 for padding
         wrappedMessages.addAll(wrapped);
       }
 
-      int start = (wrappedMessages.length - maxLines - session.scrollOffset).clamp(0, wrappedMessages.length);
-      int end = (wrappedMessages.length - session.scrollOffset).clamp(0, wrappedMessages.length);
+      int start = (wrappedMessages.length - maxLines - session.scrollOffset)
+          .clamp(0, wrappedMessages.length);
+      int end = (wrappedMessages.length - session.scrollOffset).clamp(
+        0,
+        wrappedMessages.length,
+      );
       for (int i = start; i < end; i++) {
         chatLines.add(wrappedMessages[i]);
       }
@@ -439,8 +472,13 @@ class TuiChatApp {
     final panelWidth = 50;
     final maxPanelHeight = termHeight - 8;
 
-    final participants = [myAtSign, ...session.participants.where((p) => p != myAtSign)];
-    final visibleCount = (participants.length < maxPanelHeight - 8) ? participants.length : (maxPanelHeight - 8);
+    final participants = [
+      myAtSign,
+      ...session.participants.where((p) => p != myAtSign),
+    ];
+    final visibleCount = (participants.length < maxPanelHeight - 8)
+        ? participants.length
+        : (maxPanelHeight - 8);
     final panelHeight = visibleCount + 8; // More space for buttons and input
     final left = ((termWidth - panelWidth) ~/ 2).clamp(0, termWidth - 1);
     final top = ((termHeight - panelHeight) ~/ 2).clamp(0, termHeight - 1);
@@ -460,10 +498,16 @@ class TuiChatApp {
         String scrollInfo = '';
         if (participants.length > visibleCount) {
           String upIndicator = _participantsScroll > 0 ? '↑' : ' ';
-          String downIndicator = _participantsScroll < participants.length - visibleCount ? '↓' : ' ';
+          String downIndicator =
+              _participantsScroll < participants.length - visibleCount
+              ? '↓'
+              : ' ';
           scrollInfo = ' $upIndicator$downIndicator ';
         }
-        String titleLine = chalk.bold(title) + scrollInfo + ' ' * (panelWidth - 2 - title.length - scrollInfo.length);
+        String titleLine =
+            chalk.bold(title) +
+            scrollInfo +
+            ' ' * (panelWidth - 2 - title.length - scrollInfo.length);
         stdout.write(chalk.yellow('│') + titleLine + chalk.yellow('│'));
       } else if (i == 2) {
         // Separator line
@@ -473,7 +517,9 @@ class TuiChatApp {
         int participantIndex = i - 3 + _participantsScroll;
         if (participantIndex < participants.length) {
           String p = participants[participantIndex];
-          String displayName = (p == myAtSign ? chalk.yellow.bold('$p (you)') : chalk.cyan(p));
+          String displayName = (p == myAtSign
+              ? chalk.yellow.bold('$p (you)')
+              : chalk.cyan(p));
           int visibleLen = stripAnsi(displayName).length;
           String line = ' $displayName' + ' ' * (panelWidth - 3 - visibleLen);
           stdout.write(chalk.yellow('│') + line + chalk.yellow('│'));
@@ -488,19 +534,22 @@ class TuiChatApp {
         String renameText = session.participants.length >= 3
             ? chalk.cyan(' [r] Rename Group')
             : chalk.gray(' [r] Rename Group (groups only)');
-        String line = renameText + ' ' * (panelWidth - 2 - stripAnsi(renameText).length);
+        String line =
+            renameText + ' ' * (panelWidth - 2 - stripAnsi(renameText).length);
         stdout.write(chalk.yellow('│') + line + chalk.yellow('│'));
       } else if (i == 5 + visibleCount) {
         // Add participant button
         String addText = chalk.green(' [a] Add Participant');
-        String line = addText + ' ' * (panelWidth - 2 - stripAnsi(addText).length);
+        String line =
+            addText + ' ' * (panelWidth - 2 - stripAnsi(addText).length);
         stdout.write(chalk.yellow('│') + line + chalk.yellow('│'));
       } else if (i == 6 + visibleCount) {
         // Remove participant button (only if more than 2 participants)
         String removeText = session.participants.length > 2
             ? chalk.red(' [d] Remove Participant')
             : chalk.gray(' [d] Remove Participant (groups only)');
-        String line = removeText + ' ' * (panelWidth - 2 - stripAnsi(removeText).length);
+        String line =
+            removeText + ' ' * (panelWidth - 2 - stripAnsi(removeText).length);
         stdout.write(chalk.yellow('│') + line + chalk.yellow('│'));
       } else {
         stdout.write(chalk.yellow('│${' ' * (panelWidth - 2)}│'));
@@ -510,15 +559,26 @@ class TuiChatApp {
     // Show input prompt or instructions below panel
     stdout.write('\x1b[${top + panelHeight + 1};${left + 1}H');
     if (_participantsInputMode) {
-      String promptLine = chalk.bold('$_participantsInputPrompt ') + _participantsInputBuffer;
+      String promptLine =
+          chalk.bold('$_participantsInputPrompt ') + _participantsInputBuffer;
       stdout.write(promptLine.padRight(panelWidth));
       stdout.write('\x1b[${top + panelHeight + 2};${left + 1}H');
-      stdout.write(chalk.dim('[Enter] to confirm or cancel if empty').padRight(panelWidth));
+      stdout.write(
+        chalk.dim('[Enter] to confirm or cancel if empty').padRight(panelWidth),
+      );
     } else {
       if (participants.length > visibleCount) {
-        stdout.write(chalk.bold('Use j/k to scroll, action keys, [Enter] to close').padRight(panelWidth));
+        stdout.write(
+          chalk
+              .bold('Use j/k to scroll, action keys, [Enter] to close')
+              .padRight(panelWidth),
+        );
       } else {
-        stdout.write(chalk.bold('Use action keys or [Enter] to close').padRight(panelWidth));
+        stdout.write(
+          chalk
+              .bold('Use action keys or [Enter] to close')
+              .padRight(panelWidth),
+        );
       }
     }
   }
@@ -533,7 +593,11 @@ class TuiChatApp {
       // Rename group
       session.groupName = _participantsInputBuffer.trim();
       var displayName = session.groupName ?? 'Unnamed Group';
-      addMessage(activeSession!, '[Group renamed to "$displayName"]', incoming: true);
+      addMessage(
+        activeSession!,
+        '[Group renamed to "$displayName"]',
+        incoming: true,
+      );
       if (onGroupRename != null) {
         onGroupRename!(activeSession!, _participantsInputBuffer.trim());
       }
@@ -551,11 +615,13 @@ class TuiChatApp {
     } else if (_participantsInputAction == 2) {
       // Add participant
       var newParticipant = _participantsInputBuffer.trim();
-      if (!session.participants.contains(newParticipant) && newParticipant != myAtSign) {
+      if (!session.participants.contains(newParticipant) &&
+          newParticipant != myAtSign) {
         // Check if this will create a group (3+ participants)
         if (session.participants.length == 2) {
           // Converting from individual chat to group - create NEW group session
-          var newParticipants = session.participants.toList()..add(newParticipant);
+          var newParticipants = session.participants.toList()
+            ..add(newParticipant);
 
           // Create a unique session key for the new group to avoid conflicts
           var sortedParticipants = newParticipants.toSet().toList()..sort();
@@ -574,8 +640,16 @@ class TuiChatApp {
           _pendingParticipants = newParticipants;
           _pendingSessionKey = groupKey;
 
-          addMessage(activeSession!, '[Added $newParticipant to the chat]', incoming: true);
-          addMessage(activeSession!, '[Enter a name for this group (or press Enter for no name):]', incoming: true);
+          addMessage(
+            activeSession!,
+            '[Added $newParticipant to the chat]',
+            incoming: true,
+          );
+          addMessage(
+            activeSession!,
+            '[Enter a name for this group (or press Enter for no name):]',
+            incoming: true,
+          );
 
           // Close the participants panel since we're now in group naming mode
           _showingParticipantsPanel = false;
@@ -611,11 +685,19 @@ class TuiChatApp {
             windowOffset = sessionList.indexOf(newSessionKey);
           }
 
-          addMessage(activeSession!, '[Added $newParticipant to the chat]', incoming: true);
+          addMessage(
+            activeSession!,
+            '[Added $newParticipant to the chat]',
+            incoming: true,
+          );
 
           // Notify other participants of the membership change
           if (onGroupMembershipChange != null) {
-            onGroupMembershipChange!(activeSession!, session.participants.toList(), session.groupName);
+            onGroupMembershipChange!(
+              activeSession!,
+              session.participants.toList(),
+              session.groupName,
+            );
           }
 
           // Close the participants panel immediately to avoid Windows terminal state issues
@@ -633,14 +715,23 @@ class TuiChatApp {
     } else if (_participantsInputAction == 3) {
       // Remove participant
       var participantToRemove = _participantsInputBuffer.trim();
-      if (session.participants.contains(participantToRemove) && participantToRemove != myAtSign) {
+      if (session.participants.contains(participantToRemove) &&
+          participantToRemove != myAtSign) {
         // Simply remove from the current session, preserving group name and messages
         session.participants.remove(participantToRemove);
-        addMessage(activeSession!, '[Removed $participantToRemove from the chat]', incoming: true);
+        addMessage(
+          activeSession!,
+          '[Removed $participantToRemove from the chat]',
+          incoming: true,
+        );
 
         // Notify other participants of the membership change
         if (onGroupMembershipChange != null) {
-          onGroupMembershipChange!(activeSession!, session.participants.toList(), session.groupName);
+          onGroupMembershipChange!(
+            activeSession!,
+            session.participants.toList(),
+            session.groupName,
+          );
         }
 
         // Close the participants panel immediately to avoid Windows terminal state issues
@@ -692,17 +783,22 @@ class TuiChatApp {
     } else {
       // Input is too long, show visible portion
       int startPos = inputScrollOffset;
-      int endPos = (inputScrollOffset + maxInputWidth).clamp(0, inputBuffer.length);
+      int endPos = (inputScrollOffset + maxInputWidth).clamp(
+        0,
+        inputBuffer.length,
+      );
       visibleInput = inputBuffer.substring(startPos, endPos);
 
       // Add scroll indicators without affecting cursor position
       if (inputScrollOffset > 0 && visibleInput.isNotEmpty) {
         visibleInput = '<${visibleInput.substring(1)}';
-        if (visibleCursorPos == 0) visibleCursorPos = 1; // Adjust cursor if at start
+        if (visibleCursorPos == 0)
+          visibleCursorPos = 1; // Adjust cursor if at start
       }
       if (endPos < inputBuffer.length && visibleInput.isNotEmpty) {
         visibleInput = '${visibleInput.substring(0, visibleInput.length - 1)}>';
-        if (visibleCursorPos >= visibleInput.length) visibleCursorPos = visibleInput.length - 1;
+        if (visibleCursorPos >= visibleInput.length)
+          visibleCursorPos = visibleInput.length - 1;
       }
     }
 
@@ -711,7 +807,9 @@ class TuiChatApp {
     if (inputBuffer.isEmpty && showHelpHint) {
       // Show greyed-out help hint when input is empty
       stdout.write('> ');
-      stdout.write('\x1b[90m /? for help\x1b[0m'); // 90m = dark grey, 0m = reset
+      stdout.write(
+        '\x1b[90m /? for help\x1b[0m',
+      ); // 90m = dark grey, 0m = reset
       stdout.write('\x1b[$termHeight;3H'); // Position cursor after "> "
     } else {
       stdout.write('> $visibleInput');
@@ -731,8 +829,18 @@ class TuiChatApp {
       });
 
       // Handle Ctrl+C gracefully on Unix-like systems
-      ProcessSignal.sigint.watch().listen((_) {
+      ProcessSignal.sigint.watch().listen((_) async {
         stdout.writeln('Exiting atTalk TUI...');
+
+        // Call cleanup function if available
+        if (onCleanup != null) {
+          try {
+            await onCleanup!();
+          } catch (e) {
+            stdout.writeln('⚠️ Cleanup error: $e');
+          }
+        }
+
         exit(0);
       });
     }
@@ -785,7 +893,10 @@ class TuiChatApp {
             } else if (charCode == 127 || charCode == 8) {
               // Backspace
               if (_participantsInputBuffer.isNotEmpty) {
-                _participantsInputBuffer = _participantsInputBuffer.substring(0, _participantsInputBuffer.length - 1);
+                _participantsInputBuffer = _participantsInputBuffer.substring(
+                  0,
+                  _participantsInputBuffer.length - 1,
+                );
                 _drawParticipantsPanel();
               }
             } else if (charCode >= 32 && charCode <= 126) {
@@ -807,7 +918,10 @@ class TuiChatApp {
               // 'j' - scroll down
               if (activeSession != null) {
                 final session = sessions[activeSession!]!;
-                final participants = [myAtSign, ...session.participants.where((p) => p != myAtSign)];
+                final participants = [
+                  myAtSign,
+                  ...session.participants.where((p) => p != myAtSign),
+                ];
                 final maxVisible = 10; // Approximate visible count
                 if (_participantsScroll < participants.length - maxVisible) {
                   _participantsScroll++;
@@ -940,7 +1054,9 @@ class TuiChatApp {
           stdout.write('\x1b[$termHeight;1H\x1b[K> ');
 
           // Check if we're waiting for a group name
-          if (_waitingForGroupName && _pendingParticipants != null && _pendingSessionKey != null) {
+          if (_waitingForGroupName &&
+              _pendingParticipants != null &&
+              _pendingSessionKey != null) {
             _waitingForGroupName = false;
             var groupName = input.isNotEmpty ? input : null;
             var oldSessionKey = _pendingSessionKey!;
@@ -972,19 +1088,31 @@ class TuiChatApp {
 
             // Clear the prompt message (it was the last one added)
             if (sessions[activeSession!]!.messages.isNotEmpty &&
-                sessions[activeSession!]!.messages.last.contains('[Enter a name for this group')) {
+                sessions[activeSession!]!.messages.last.contains(
+                  '[Enter a name for this group',
+                )) {
               sessions[activeSession!]!.messages.removeLast();
             }
 
-            var displayName = groupName?.isNotEmpty == true ? groupName! : 'Unnamed Group';
-            addMessage(activeSession!, '[Group "$displayName" created]', incoming: true);
+            var displayName = groupName?.isNotEmpty == true
+                ? groupName!
+                : 'Unnamed Group';
+            addMessage(
+              activeSession!,
+              '[Group "$displayName" created]',
+              incoming: true,
+            );
 
             // Notify other participants of the new group membership
             if (onGroupMembershipChange != null) {
               var session = sessions[activeSession!]!;
               // Use a small delay to ensure the session migration is complete
               Future.delayed(Duration(milliseconds: 100), () {
-                onGroupMembershipChange!(activeSession!, session.participants.toList(), session.groupName);
+                onGroupMembershipChange!(
+                  activeSession!,
+                  session.participants.toList(),
+                  session.groupName,
+                );
               });
             }
 
@@ -1009,7 +1137,11 @@ class TuiChatApp {
             }
           } else if (input.startsWith('/new ')) {
             var rest = input.substring(5).trim();
-            var ids = rest.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+            var ids = rest
+                .split(',')
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
             if (ids.length == 1) {
               // Individual chat: include both sender and receiver in participants
               var individualParticipants = {myAtSign, ids[0]}.toList()..sort();
@@ -1035,7 +1167,11 @@ class TuiChatApp {
               _pendingSessionKey = groupKey;
 
               // Add the prompt message to the clean session
-              addMessage(groupKey, '[Enter a name for this group (or press Enter for no name):]', incoming: true);
+              addMessage(
+                groupKey,
+                '[Enter a name for this group (or press Enter for no name):]',
+                incoming: true,
+              );
               requestRedraw();
             }
           } else if (input == '/delete') {
@@ -1047,7 +1183,11 @@ class TuiChatApp {
               session.groupName = newName.isNotEmpty ? newName : null;
 
               var displayName = session.groupName ?? 'Unnamed Group';
-              addMessage(activeSession!, '[Group renamed to "$displayName"]', incoming: true);
+              addMessage(
+                activeSession!,
+                '[Group renamed to "$displayName"]',
+                incoming: true,
+              );
 
               // Notify other participants of the rename
               if (onGroupRename != null) {
@@ -1065,10 +1205,12 @@ class TuiChatApp {
                 if (session.participants.length == 2) {
                   // Converting from individual chat to group
                   // Create a NEW group session instead of migrating the existing 2-person chat
-                  var newParticipants = session.participants.toList()..add(newParticipant);
+                  var newParticipants = session.participants.toList()
+                    ..add(newParticipant);
 
                   // Create a unique session key for the new group to avoid conflicts
-                  var sortedParticipants = newParticipants.toSet().toList()..sort();
+                  var sortedParticipants = newParticipants.toSet().toList()
+                    ..sort();
                   var timestamp = DateTime.now().millisecondsSinceEpoch;
                   var groupKey = '${sortedParticipants.join(',')}#$timestamp';
 
@@ -1082,9 +1224,14 @@ class TuiChatApp {
                   // Set up for group name prompting for the NEW session
                   _waitingForGroupName = true;
                   _pendingParticipants = newParticipants;
-                  _pendingSessionKey = groupKey; // Use the new group session key
+                  _pendingSessionKey =
+                      groupKey; // Use the new group session key
 
-                  addMessage(activeSession!, '[Added $newParticipant to the chat]', incoming: true);
+                  addMessage(
+                    activeSession!,
+                    '[Added $newParticipant to the chat]',
+                    incoming: true,
+                  );
                   addMessage(
                     activeSession!,
                     '[Enter a name for this group (or press Enter for no name):]',
@@ -1105,7 +1252,11 @@ class TuiChatApp {
                     var messages = session.messages.toList();
 
                     // Create new session with updated participants
-                    addSession(newSessionKey, session.participants.toList(), groupName);
+                    addSession(
+                      newSessionKey,
+                      session.participants.toList(),
+                      groupName,
+                    );
                     sessions[newSessionKey]!.messages.addAll(messages);
 
                     // Remove old session
@@ -1116,15 +1267,27 @@ class TuiChatApp {
                     windowOffset = sessionList.indexOf(newSessionKey);
                   }
 
-                  addMessage(activeSession!, '[Added $newParticipant to the chat]', incoming: true);
+                  addMessage(
+                    activeSession!,
+                    '[Added $newParticipant to the chat]',
+                    incoming: true,
+                  );
 
                   // Notify other participants of the membership change
                   if (onGroupMembershipChange != null) {
-                    onGroupMembershipChange!(activeSession!, session.participants.toList(), session.groupName);
+                    onGroupMembershipChange!(
+                      activeSession!,
+                      session.participants.toList(),
+                      session.groupName,
+                    );
                   }
                 }
               } else {
-                addMessage(activeSession!, '[Participant $newParticipant is already in this chat]', incoming: true);
+                addMessage(
+                  activeSession!,
+                  '[Participant $newParticipant is already in this chat]',
+                  incoming: true,
+                );
               }
             }
           } else if (input.startsWith('/remove ')) {
@@ -1136,19 +1299,35 @@ class TuiChatApp {
                 if (participantToRemove != myAtSign) {
                   // Simply remove from the current session, preserving group name and messages
                   session.participants.remove(participantToRemove);
-                  addMessage(activeSession!, '[Removed $participantToRemove from the chat]', incoming: true);
+                  addMessage(
+                    activeSession!,
+                    '[Removed $participantToRemove from the chat]',
+                    incoming: true,
+                  );
 
                   // Notify other participants of the membership change
                   if (onGroupMembershipChange != null) {
-                    onGroupMembershipChange!(activeSession!, session.participants.toList(), session.groupName);
+                    onGroupMembershipChange!(
+                      activeSession!,
+                      session.participants.toList(),
+                      session.groupName,
+                    );
                   }
                 } else {
                   // Show error message - can't remove yourself
-                  addMessage(activeSession!, '[Cannot remove yourself from chat]', incoming: true);
+                  addMessage(
+                    activeSession!,
+                    '[Cannot remove yourself from chat]',
+                    incoming: true,
+                  );
                 }
               } else {
                 // Show error message - participant not found
-                addMessage(activeSession!, '[Participant $participantToRemove not found in chat]', incoming: true);
+                addMessage(
+                  activeSession!,
+                  '[Participant $participantToRemove not found in chat]',
+                  incoming: true,
+                );
               }
             }
           } else if (input == '/list') {
@@ -1157,7 +1336,19 @@ class TuiChatApp {
           } else if (input == '/exit') {
             mainSubscription.cancel();
             stdout.writeln('Exiting atTalk TUI...');
-            exit(0); // Force exit the program without trying to reset stdin modes
+
+            // Call cleanup function if available
+            if (onCleanup != null) {
+              try {
+                await onCleanup!();
+              } catch (e) {
+                stdout.writeln('⚠️ Cleanup error: $e');
+              }
+            }
+
+            exit(
+              0,
+            ); // Force exit the program without trying to reset stdin modes
           } else if (activeSession != null && input.isNotEmpty) {
             // CRITICAL: Preserve message sending functionality
             addMessage(activeSession!, input);
@@ -1169,7 +1360,9 @@ class TuiChatApp {
         } else if (charCode == 127 || charCode == 8) {
           // Backspace/Delete
           if (inputBuffer.isNotEmpty && inputCursorPos > 0) {
-            inputBuffer = inputBuffer.substring(0, inputCursorPos - 1) + inputBuffer.substring(inputCursorPos);
+            inputBuffer =
+                inputBuffer.substring(0, inputCursorPos - 1) +
+                inputBuffer.substring(inputCursorPos);
             inputCursorPos--;
             updateInputDisplay();
           }
@@ -1182,7 +1375,10 @@ class TuiChatApp {
             showHelpHint = false;
           }
 
-          inputBuffer = inputBuffer.substring(0, inputCursorPos) + char + inputBuffer.substring(inputCursorPos);
+          inputBuffer =
+              inputBuffer.substring(0, inputCursorPos) +
+              char +
+              inputBuffer.substring(inputCursorPos);
           inputCursorPos++;
           updateInputDisplay();
         }

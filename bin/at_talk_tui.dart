@@ -27,6 +27,34 @@ const String digits = '0123456789';
 // Global cleanup state
 AtClient? globalAtClient;
 bool isCleaningUp = false;
+Timer? _lockRefreshTimer;
+
+// Start periodic lock file refresh to prove we're still alive
+void startLockRefresh() {
+  if (_currentLockFile != null) {
+    _lockRefreshTimer = Timer.periodic(Duration(seconds: 10), (timer) async {
+      if (_currentLockFile != null) {
+        try {
+          final lockFile = File(_currentLockFile!);
+          if (await lockFile.exists()) {
+            // Touch the lock file to update its modification time
+            await lockFile.setLastModified(DateTime.now());
+          }
+        } catch (e) {
+          print('⚠️ Could not refresh lock file: $e');
+        }
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+}
+
+// Stop the lock refresh timer
+void stopLockRefresh() {
+  _lockRefreshTimer?.cancel();
+  _lockRefreshTimer = null;
+}
 
 // Cleanup function to properly close AtClient and Hive boxes
 Future<void> cleanup() async {
@@ -36,6 +64,12 @@ Future<void> cleanup() async {
   print('\n🧹 Cleaning up resources...');
 
   try {
+    // Stop lock refresh timer
+    stopLockRefresh();
+
+    // Release storage lock first
+    await releaseStorageLock();
+
     // Close AtClient if it exists
     if (globalAtClient != null) {
       print('  📡 Closing AtClient connections...');
@@ -57,12 +91,7 @@ Future<void> cleanup() async {
 
 // Setup signal handlers for graceful shutdown
 void setupSignalHandlers() {
-  // Handle Ctrl+C (SIGINT)
-  ProcessSignal.sigint.watch().listen((signal) async {
-    print('\n⚠️  Received interrupt signal (Ctrl+C)');
-    await cleanup();
-    exit(0);
-  });
+  // Note: SIGINT (Ctrl+C) is handled by the TUI chat interface to avoid conflicts
 
   // Handle SIGTERM (graceful termination)
   ProcessSignal.sigterm.watch().listen((signal) async {
@@ -114,101 +143,237 @@ Future<bool> fileExists(String file) async {
   return f;
 }
 
-// Check if storage is already in use by checking for Hive lock files
-Future<bool> isStorageInUse(String storagePath) async {
+// Global variable to track our own lock file
+String? _currentLockFile;
+
+// Check if storage is already in use and attempt to create our own lock
+Future<bool> tryClaimStorage(String storagePath, String instanceId) async {
+  try {
+    final directory = Directory(storagePath);
+
+    // Create directories if they don't exist
+    await directory.create(recursive: true);
+    final commitLogDir = Directory('$storagePath/commitLog');
+    await commitLogDir.create(recursive: true);
+
+    // Check for existing locks first
+    bool hasActiveLocks = await _hasActiveLocks(storagePath);
+    if (hasActiveLocks) {
+      return false; // Storage is already claimed
+    }
+
+    // Try to create our own lock file atomically
+    final lockFileName = 'at_talk_tui_$instanceId.lock';
+    final lockFile = File('$storagePath/$lockFileName');
+
+    // Use atomic write to prevent race conditions
+    final lockContent = jsonEncode({
+      'instanceId': instanceId,
+      'pid': pid,
+      'timestamp': DateTime.now().toIso8601String(),
+      'type': 'at_talk_tui',
+    });
+
+    try {
+      // Create lock file exclusively (fails if exists)
+      final randomAccessFile = await lockFile.open(mode: FileMode.writeOnly);
+      await randomAccessFile.writeString(lockContent);
+      await randomAccessFile.close();
+
+      // Double-check that we're still the only lock after a brief pause
+      await Future.delayed(Duration(milliseconds: 100));
+      bool hasOtherLocks = await _hasActiveLocks(
+        storagePath,
+        excludeOurLock: lockFileName,
+      );
+
+      if (hasOtherLocks) {
+        // We lost the race - another process claimed storage
+        try {
+          await lockFile.delete();
+        } catch (e) {
+          print('⚠️ Could not clean up our lock file: $e');
+        }
+        return false;
+      }
+
+      // Success! We have exclusive access
+      _currentLockFile = lockFile.path;
+      print('🔐 Successfully claimed storage: $storagePath');
+
+      // Start periodic lock file refresh to prove we're still alive
+      startLockRefresh();
+
+      return true;
+    } catch (e) {
+      // Lock file already exists or other error
+      return false;
+    }
+  } catch (e) {
+    print('⚠️ Storage claim error: $e');
+    return false;
+  }
+}
+
+// Check for active lock files, optionally excluding our own
+Future<bool> _hasActiveLocks(
+  String storagePath, {
+  String? excludeOurLock,
+}) async {
   try {
     final directory = Directory(storagePath);
     if (!await directory.exists()) {
-      return false; // Storage doesn't exist, so it's not in use
+      return false;
     }
 
-    // Check for .lock files (Hive creates these when boxes are in use)
-    // This is more reliable than trying to open boxes which changes global state
+    // Only check main storage directory for our app lock files
+    // DO NOT check commit log directory - that contains Hive's internal lock files
     final files = await directory.list().toList();
     for (var file in files) {
       if (file is File && file.path.endsWith('.lock')) {
-        final lockFile = File(file.path);
-        if (await lockFile.exists()) {
-          // Check if lock file has content (active process) or is empty (stale lock)
-          try {
-            final lockContent = await lockFile.readAsString();
-            final lockStat = await lockFile.stat();
-            final isStale =
-                DateTime.now().difference(lockStat.modified).inMinutes >
-                5; // 5 minute timeout
+        final fileName = file.path.split('/').last;
 
-            if (lockContent.isNotEmpty && !isStale) {
-              print(
-                '🔒 Active Hive lock detected: ${file.path.split('/').last}',
-              );
-              return true;
-            } else {
-              print(
-                '🧹 Removing stale lock file: ${file.path.split('/').last}',
-              );
-              try {
-                await lockFile.delete();
-              } catch (e) {
-                print('⚠️ Could not remove stale lock: $e');
-              }
-            }
+        // Only check OUR app lock files, not Hive's internal lock files
+        if (!_isOurAppLockFile(fileName)) {
+          continue; // Skip Hive internal lock files
+        }
+
+        if (excludeOurLock != null && fileName == excludeOurLock) {
+          continue; // Skip our own lock file
+        }
+
+        if (await _isActiveLock(File(file.path))) {
+          return true;
+        }
+      }
+    }
+
+    // DO NOT check commit log directory - it contains Hive's lock files that we should never touch
+
+    return false;
+  } catch (e) {
+    print('⚠️ Lock check error: $e');
+    return true; // Assume locked on error
+  }
+}
+
+// Check if a lock file is one of our app lock files (not a Hive internal lock file)
+bool _isOurAppLockFile(String fileName) {
+  return fileName.startsWith('at_talk_gui_') ||
+      fileName.startsWith('at_talk_tui_');
+}
+
+// Check if a specific lock file represents an active process
+Future<bool> _isActiveLock(File lockFile) async {
+  try {
+    if (!await lockFile.exists()) {
+      return false;
+    }
+
+    final lockContent = await lockFile.readAsString();
+    final lockStat = await lockFile.stat();
+    final isStale =
+        DateTime.now().difference(lockStat.modified).inSeconds >
+        30; // 30 seconds should be plenty for normal shutdown
+
+    if (lockContent.isEmpty || isStale) {
+      // Clean up stale lock
+      print(
+        '🧹 Removing stale lock file: ${lockFile.path.split('/').last} (age: ${DateTime.now().difference(lockStat.modified).inSeconds}s)',
+      );
+      try {
+        await lockFile.delete();
+      } catch (e) {
+        print('⚠️ Could not remove stale lock: $e');
+      }
+      return false;
+    }
+
+    // For JSON lock files, also check if the process is still running
+    try {
+      final lockData = jsonDecode(lockContent);
+      if (lockData is Map && lockData.containsKey('pid')) {
+        final lockPid = lockData['pid'] as int;
+        if (!_isProcessRunning(lockPid)) {
+          print(
+            '🧹 Removing lock for dead process $lockPid: ${lockFile.path.split('/').last}',
+          );
+          try {
+            await lockFile.delete();
           } catch (e) {
-            // If we can't read the lock file, assume it's in use
+            print('⚠️ Could not remove dead process lock: $e');
+          }
+          return false;
+        }
+
+        // Extra check: if lock is more than 15 seconds old but process still exists,
+        // check if it's really our type of process (at_talk)
+        if (DateTime.now().difference(lockStat.modified).inSeconds > 15) {
+          final processType = lockData['type'] as String?;
+          if (processType != null && (processType.contains('at_talk'))) {
+            // This is probably a real at_talk process, keep the lock
             print(
-              '🔒 Cannot read lock file, assuming in use: ${file.path.split('/').last}',
+              '🔒 Active at_talk lock detected: ${lockFile.path.split('/').last}',
             );
             return true;
-          }
-        }
-      }
-    }
-
-    // Also check commit log directory for lock files
-    final commitLogDir = Directory('$storagePath/commitLog');
-    if (await commitLogDir.exists()) {
-      final commitLogFiles = await commitLogDir.list().toList();
-      for (var file in commitLogFiles) {
-        if (file is File && file.path.endsWith('.lock')) {
-          final lockFile = File(file.path);
-          if (await lockFile.exists()) {
+          } else {
+            // Unknown process type, might be orphaned
+            print(
+              '🧹 Removing lock for unknown process type: ${lockFile.path.split('/').last}',
+            );
             try {
-              final lockContent = await lockFile.readAsString();
-              final lockStat = await lockFile.stat();
-              final isStale =
-                  DateTime.now().difference(lockStat.modified).inMinutes > 5;
-
-              if (lockContent.isNotEmpty && !isStale) {
-                print(
-                  '🔒 Active commit log lock detected: ${file.path.split('/').last}',
-                );
-                return true;
-              } else {
-                print(
-                  '🧹 Removing stale commit log lock: ${file.path.split('/').last}',
-                );
-                try {
-                  await lockFile.delete();
-                } catch (e) {
-                  print('⚠️ Could not remove stale commit log lock: $e');
-                }
-              }
+              await lockFile.delete();
             } catch (e) {
-              print(
-                '🔒 Cannot read commit log lock, assuming in use: ${file.path.split('/').last}',
-              );
-              return true;
+              print('⚠️ Could not remove unknown process lock: $e');
             }
+            return false;
           }
         }
       }
+    } catch (e) {
+      // Not JSON or other parsing error, treat as active for safety
     }
 
-    return false; // No active locks found
+    print('🔒 Active lock detected: ${lockFile.path.split('/').last}');
+    return true;
   } catch (e) {
-    print('⚠️  Storage check error: $e');
-    // If we can't check properly, assume it's safe to proceed
+    print(
+      '🔒 Cannot read lock file, assuming active: ${lockFile.path.split('/').last}',
+    );
+    return true; // Assume active on error
+  }
+}
+
+// Check if a process ID is still running
+bool _isProcessRunning(int pid) {
+  try {
+    // On Unix-like systems, sending signal 0 checks if process exists
+    Process.runSync('kill', ['-0', pid.toString()]);
+    return true;
+  } catch (e) {
     return false;
   }
+}
+
+// Release our storage lock
+Future<void> releaseStorageLock() async {
+  if (_currentLockFile != null) {
+    try {
+      final lockFile = File(_currentLockFile!);
+      if (await lockFile.exists()) {
+        await lockFile.delete();
+        print('🔓 Released storage lock: ${_currentLockFile!.split('/').last}');
+      }
+    } catch (e) {
+      print('⚠️ Could not release storage lock: $e');
+    }
+    _currentLockFile = null;
+  }
+}
+
+// Legacy function for backward compatibility (now just checks without claiming)
+Future<bool> isStorageInUse(String storagePath) async {
+  return await _hasActiveLocks(storagePath);
 }
 
 class ServiceFactoryWithNoOpSyncService extends DefaultAtServiceFactory {
@@ -339,6 +504,7 @@ Future<void> atTalk(List<String> args) async {
       print('atTalk TUI - Terminal-based chat for the atPlatform');
       print('');
       print(parser.usage);
+      await cleanup();
       exit(0);
     }
 
@@ -423,25 +589,28 @@ Future<void> atTalk(List<String> args) async {
       stdout.writeln(chalk.gray('Commit log: $storagePath/commitLog'));
     }
   } else {
-    // Check if persistent storage is already in use by another instance
+    // Try to claim persistent storage atomically
     String persistentStoragePath =
         '$homeDirectory/.$nameSpace/$fromAtsign/storage';
 
     if (parsedArgs['verbose']) {
       stdout.writeln(
         chalk.gray(
-          'Checking if persistent storage is in use: $persistentStoragePath',
+          'Attempting to claim persistent storage: $persistentStoragePath',
         ),
       );
     }
 
-    bool storageInUse = await isStorageInUse(persistentStoragePath);
+    bool storageClaimed = await tryClaimStorage(
+      persistentStoragePath,
+      instanceId,
+    );
 
-    if (storageInUse) {
-      // Storage is in use, fall back to ephemeral mode
+    if (!storageClaimed) {
+      // Storage claim failed, fall back to ephemeral mode
       stdout.writeln(
         chalk.brightYellow(
-          '⚠️  Persistent storage is already in use by another instance',
+          '⚠️  Could not claim persistent storage (another instance may be using it)',
         ),
       );
       stdout.writeln(
@@ -465,11 +634,11 @@ Future<void> atTalk(List<String> args) async {
         );
       }
     } else {
-      // Use fixed storage paths for persistence (no UUID)
+      // Successfully claimed persistent storage
       storagePath = persistentStoragePath;
       downloadPath = '$homeDirectory/.$nameSpace/$fromAtsign/files';
       stdout.writeln(
-        chalk.brightBlue('Using persistent storage for offline messages'),
+        chalk.brightBlue('✅ Claimed persistent storage for offline messages'),
       );
       if (parsedArgs['verbose']) {
         stdout.writeln(chalk.gray('Storage path: $storagePath'));
@@ -503,19 +672,6 @@ Future<void> atTalk(List<String> args) async {
   Duration retryDuration = Duration(seconds: 3);
   while (!onboarded) {
     try {
-      // Final safety check just before attempting onboarding
-      if (!hasTriedEphemeral && !parsedArgs['ephemeral'] && !forcedEphemeral) {
-        bool finalStorageCheck = await isStorageInUse(storagePath);
-        if (finalStorageCheck) {
-          stdout.writeln(
-            chalk.brightYellow(
-              '🔒 Storage lock detected just before onboarding - switching to ephemeral mode',
-            ),
-          );
-          throw Exception('Storage locked before onboarding attempt');
-        }
-      }
-
       stdout.write(chalk.brightBlue('\r\x1b[KConnecting ... '));
       await Future.delayed(
         Duration(milliseconds: 1000),
@@ -714,7 +870,7 @@ Future<void> atTalk(List<String> args) async {
     final group = [fromAtsign, ...recipients].toSet().toList()..sort();
 
     // For multi-instance support, we need to send to ourselves too
-    final allRecipients = recipients.toSet().toList()..add(fromAtsign);
+    final allRecipients = <String>{...recipients, fromAtsign}.toList();
 
     bool allSuccess = true;
     for (final atSign in allRecipients) {
@@ -782,6 +938,9 @@ Future<void> atTalk(List<String> args) async {
   // Start TUI chat app
   final tui = TuiChatApp(fromAtsign);
 
+  // Set cleanup callback for graceful exit
+  tui.onCleanup = cleanup;
+
   // If -m is not used, support group chat creation from comma-separated -t
   List<String> participants = toAtsign
       .split(',')
@@ -806,6 +965,8 @@ Future<void> atTalk(List<String> args) async {
   }
 
   // Listen for incoming messages
+  // Each instance needs a unique subscription to avoid notification load balancing
+  // Use instanceId to make subscription unique while still receiving all attalk messages
   atClient.notificationService
       .subscribe(regex: 'attalk.$nameSpace@', shouldDecrypt: true)
       .listen(
