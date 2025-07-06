@@ -490,7 +490,7 @@ Future<void> atTalk(List<String> args) async {
   String fromAtsign = 'unknown';
   String toAtsign = 'unknown';
   String? homeDirectory = getHomeDirectory();
-  String nameSpace = 'attalk';
+  String nameSpace = 'default.attalk';
   String rootDomain = 'root.atsign.org';
   String? message;
   bool hasTerminal = stdin.hasTerminal;
@@ -517,7 +517,7 @@ Future<void> atTalk(List<String> args) async {
     }
 
     if (parsedArgs['namespace'] != null) {
-      nameSpace = parsedArgs['namespace'];
+      nameSpace = parsedArgs['namespace'] + '.attalk';
     }
     if (parsedArgs['message'] != null) {
       message = parsedArgs['message'];
