@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:at_client_mobile/at_client_mobile.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/groups_provider.dart';
 import '../../core/services/at_talk_service.dart';
 import '../../core/utils/atsign_manager.dart';
 import '../widgets/key_management_dialog.dart';
@@ -36,7 +37,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load atSigns: ${e.toString()}'), backgroundColor: Colors.orange),
+          SnackBar(
+            content: Text('Failed to load atSigns: ${e.toString()}'),
+            backgroundColor: Colors.orange,
+          ),
         );
       }
     } finally {
@@ -73,15 +77,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           backgroundColor: const Color(0xFF2196F3),
                           child: Text(
                             currentAtSign?.substring(1, 2).toUpperCase() ?? '?',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         title: Text(currentAtSign ?? 'Unknown'),
-                        subtitle: currentAtSign != null && _availableAtSigns.containsKey(currentAtSign)
-                            ? Text('Domain: ${_availableAtSigns[currentAtSign]!.rootDomain}')
+                        subtitle:
+                            currentAtSign != null &&
+                                _availableAtSigns.containsKey(currentAtSign)
+                            ? Text(
+                                'Domain: ${_availableAtSigns[currentAtSign]!.rootDomain}',
+                              )
                             : const Text('Domain: Unknown'),
                         trailing: IconButton(
-                          onPressed: currentAtSign != null ? () => _showKeyManagement(currentAtSign) : null,
+                          onPressed: currentAtSign != null
+                              ? () => _showKeyManagement(currentAtSign)
+                              : null,
                           icon: const Icon(Icons.settings),
                           tooltip: 'Manage Keys',
                         ),
@@ -100,7 +113,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const Padding(
                           padding: EdgeInsets.all(16.0),
                           child: Center(
-                            child: Text('No atSigns found', style: TextStyle(color: Colors.grey)),
+                            child: Text(
+                              'No atSigns found',
+                              style: TextStyle(color: Colors.grey),
+                            ),
                           ),
                         )
                       else
@@ -111,10 +127,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: isCurrent ? const Color(0xFF2196F3) : Colors.grey,
+                              backgroundColor: isCurrent
+                                  ? const Color(0xFF2196F3)
+                                  : Colors.grey,
                               child: Text(
                                 atSign.substring(1, 2).toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             title: Row(
@@ -122,12 +143,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 Expanded(child: Text(atSign)),
                                 if (isCurrent)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.green,
                                       borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: const Text('Active', style: TextStyle(color: Colors.white, fontSize: 10)),
+                                    child: const Text(
+                                      'Active',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                      ),
+                                    ),
                                   ),
                               ],
                             ),
@@ -150,7 +180,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 const PopupMenuItem(
                                   value: 'manage',
                                   child: Row(
-                                    children: [Icon(Icons.vpn_key, size: 18), SizedBox(width: 8), Text('Manage Keys')],
+                                    children: [
+                                      Icon(Icons.vpn_key, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Manage Keys'),
+                                    ],
                                   ),
                                 ),
                                 if (!isCurrent)
@@ -169,9 +203,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   value: 'remove',
                                   child: Row(
                                     children: [
-                                      Icon(Icons.delete, size: 18, color: Colors.red),
+                                      Icon(
+                                        Icons.delete,
+                                        size: 18,
+                                        color: Colors.red,
+                                      ),
                                       SizedBox(width: 8),
-                                      Text('Remove', style: TextStyle(color: Colors.red)),
+                                      Text(
+                                        'Remove',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -190,6 +231,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onTap: () {
                           Navigator.pushNamed(context, '/onboarding');
                         },
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // App Configuration Section
+                  _buildSectionCard(
+                    title: 'App Configuration',
+                    icon: Icons.tune,
+                    children: [
+                      ListTile(
+                        leading: const Icon(
+                          Icons.folder_outlined,
+                          color: Colors.purple,
+                        ),
+                        title: const Text('Namespace'),
+                        subtitle: Text(
+                          'Current: ${AtTalkService.instance.currentNamespace}',
+                        ),
+                        onTap: () => _showNamespaceDialog(),
                       ),
                     ],
                   ),
@@ -224,12 +286,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Text(
                           'AtTalk GUI',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: Colors.grey[600]),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Secure messaging powered by atPlatform',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Colors.grey[500]),
                         ),
                       ],
                     ),
@@ -240,7 +304,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSectionCard({required String title, required IconData icon, required List<Widget> children}) {
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
     return Card(
       elevation: 2,
       child: Column(
@@ -254,7 +322,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2196F3)),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2196F3),
+                  ),
                 ),
               ],
             ),
@@ -284,7 +356,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => const AlertDialog(
         content: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [CircularProgressIndicator(), SizedBox(width: 16), Text('Switching atSign...')],
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Switching atSign...'),
+          ],
         ),
       ),
     );
@@ -292,7 +368,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       // Clear current state first
       authProvider.logout();
-      await Future.delayed(const Duration(milliseconds: 500)); // Give time for cleanup
+      await Future.delayed(
+        const Duration(milliseconds: 500),
+      ); // Give time for cleanup
 
       // Authenticate directly with the known atSign
       print('🔑 Authenticating with $atSign...');
@@ -304,14 +382,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (authProvider.isAuthenticated) {
           // Switch successful - go to groups screen which will reinitialize providers
           Navigator.pushReplacementNamed(context, '/groups');
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Switched to $atSign'), backgroundColor: Colors.green));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Switched to $atSign'),
+              backgroundColor: Colors.green,
+            ),
+          );
         } else {
           // Authentication failed - show error and stay on settings
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to switch to $atSign: ${authProvider.errorMessage ?? "Unknown error"}'),
+              content: Text(
+                'Failed to switch to $atSign: ${authProvider.errorMessage ?? "Unknown error"}',
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -321,7 +404,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to switch atSign: ${e.toString()}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Failed to switch atSign: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -338,7 +424,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'This action cannot be undone.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
@@ -359,7 +448,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => const AlertDialog(
         content: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [CircularProgressIndicator(), SizedBox(width: 16), Text('Removing atSign...')],
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Removing atSign...'),
+          ],
         ),
       ),
     );
@@ -382,9 +475,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$atSign removed successfully'), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$atSign removed successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
         _loadAtSignsInfo(); // Refresh the list
 
         // If we removed the current atSign, go to onboarding
@@ -396,7 +492,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to remove atSign: ${e.toString()}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Failed to remove atSign: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -409,18 +508,181 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final authProvider = Provider.of<AuthProvider>(
+                context,
+                listen: false,
+              );
               authProvider.logout();
-              Navigator.pushNamedAndRemoveUntil(context, '/onboarding', (route) => false);
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/onboarding',
+                (route) => false,
+              );
             },
             child: const Text('Logout'),
           ),
         ],
       ),
     );
+  }
+
+  void _showNamespaceDialog() {
+    final currentNamespace = AtTalkService.instance.currentNamespace;
+    final controller = TextEditingController();
+
+    // Extract the base namespace (remove .attalk suffix if present)
+    String baseNamespace = currentNamespace;
+    if (baseNamespace.endsWith('.attalk')) {
+      baseNamespace = baseNamespace.substring(0, baseNamespace.length - 7);
+    }
+    controller.text = baseNamespace;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.folder_outlined, color: Color(0xFF2196F3)),
+            SizedBox(width: 8),
+            Text('Change Namespace'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Namespace determines the storage directory and message isolation. '
+              'Similar to TUI\'s -n option.',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Namespace',
+                hintText: 'e.g., default, work, personal',
+                border: OutlineInputBorder(),
+                helperText: 'Will automatically append .attalk',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Full namespace: ${controller.text.isEmpty ? 'default' : controller.text}.attalk',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newNamespace = controller.text.trim().isEmpty
+                  ? 'default'
+                  : controller.text.trim();
+              Navigator.of(context).pop();
+              await _changeNamespace(newNamespace);
+            },
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _changeNamespace(String newNamespace) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+    final currentAtSign = authProvider.currentAtSign;
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Changing namespace...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // Step 1: Clear all groups data and stop subscriptions
+      print('🧹 Clearing groups data for namespace change...');
+      // Note: Don't clear here, let reinitialize handle it after AtClient is ready
+
+      // Step 2: Change namespace and reinitialize AtClient
+      final success = await AtTalkService.instance.changeNamespace(
+        newNamespace,
+        currentAtSign,
+      );
+
+      if (!success) {
+        throw Exception('Failed to change namespace');
+      }
+
+      // Step 3: If user is authenticated, re-authenticate with new namespace
+      if (currentAtSign != null) {
+        print('🔄 Re-authenticating $currentAtSign with new namespace...');
+        await authProvider.authenticateExisting(currentAtSign);
+
+        if (!authProvider.isAuthenticated) {
+          throw Exception('Failed to re-authenticate with new namespace');
+        }
+
+        print('✅ Re-authentication successful with new namespace');
+        
+        // Step 4: Reinitialize GroupsProvider with new namespace
+        print('🔄 Reinitializing GroupsProvider with new namespace...');
+        groupsProvider.reinitialize();
+        print('✅ GroupsProvider reinitialized with new namespace');
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+
+        // Refresh the UI to show new namespace
+        setState(() {});
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Namespace changed to: ${AtTalkService.instance.currentNamespace}',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        print('✅ Namespace change completed successfully');
+      }
+    } catch (e) {
+      print('❌ Namespace change failed: $e');
+
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to change namespace: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

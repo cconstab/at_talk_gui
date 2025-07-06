@@ -523,10 +523,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     try {
-      final atClientPreference = AtTalkService.instance.atClientPreference;
-      if (atClientPreference == null) {
-        throw Exception('AtClient not initialized. Please restart the app.');
-      }
+      // Configure atSign-specific storage before onboarding
+      print(
+        '🔧 Configuring atSign-specific storage for CRAM onboarding: $atSign',
+      );
+      final atClientPreference = await AtTalkService.configureAtSignStorage(
+        atSign,
+      );
 
       print('AtClient preference found, proceeding with CRAM onboarding...');
 
@@ -955,11 +958,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       print('Validated .atKeys file for $normalizedFile');
 
-      // Get the atClient preference
-      final atClientPreference = AtTalkService.instance.atClientPreference;
-      if (atClientPreference == null) {
-        throw Exception('AtClient not initialized. Please restart the app.');
-      }
+      // Configure atSign-specific storage before onboarding
+      print(
+        '🔧 Configuring atSign-specific storage for .atKeys upload: $normalizedFile',
+      );
+      final atClientPreference = await AtTalkService.configureAtSignStorage(
+        normalizedFile,
+      );
 
       // Create onboarding preference with the specified domain
       final onboardingPreference = AtClientPreference()
@@ -1074,10 +1079,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
 
     try {
-      final atClientPreference = AtTalkService.instance.atClientPreference;
-      if (atClientPreference == null) {
-        throw Exception('AtClient not initialized. Please restart the app.');
-      }
+      // Configure atSign-specific storage before onboarding
+      print(
+        '🔧 Configuring atSign-specific storage for APKAM onboarding: $atSign',
+      );
+      final atClientPreference = await AtTalkService.configureAtSignStorage(
+        atSign,
+      );
 
       // Create a modified preference with the specified domain
       final customPreference = AtClientPreference()

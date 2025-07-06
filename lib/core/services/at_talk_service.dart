@@ -2,9 +2,12 @@ import 'package:at_client_mobile/at_client_mobile.dart';
 import 'package:at_auth/at_auth.dart';
 import 'package:at_utils/at_logger.dart';
 import 'package:uuid/uuid.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
+
+import '../utils/at_talk_env.dart';
 
 class AtTalkService {
   static AtTalkService? _instance;
@@ -30,6 +33,79 @@ class AtTalkService {
   AtClientPreference? get atClientPreference => _atClientPreference;
 
   bool get isInitialized => _isInitialized;
+
+  /// Configure atSign-specific storage paths matching TUI behavior
+  static Future<AtClientPreference> configureAtSignStorage(
+    String atSign, {
+    bool forceEphemeral = false,
+  }) async {
+    // Normalize atSign (remove @ if present, we'll add it back consistently)
+    final normalizedAtSign = atSign.startsWith('@')
+        ? atSign.substring(1)
+        : atSign;
+    final fullAtSign = '@$normalizedAtSign';
+
+    final dir = await getApplicationSupportDirectory();
+    String storagePath = '';
+    String commitLogPath = '';
+    bool usingEphemeral = forceEphemeral;
+    final instanceId = const Uuid().v4();
+
+    if (!forceEphemeral) {
+      // Try persistent storage first with atSign-specific path (matching TUI)
+      // Use configurable namespace like TUI's -n option
+      storagePath = '${dir.path}/.${AtTalkEnv.namespace}/$fullAtSign/storage';
+      commitLogPath = '$storagePath/commitLog';
+
+      print('Attempting to claim atSign-specific storage: $storagePath');
+
+      final storageClaimed = await tryClaimStorage(storagePath, instanceId);
+
+      if (!storageClaimed) {
+        // Storage claim failed, fall back to ephemeral mode with atSign isolation
+        print('⚠️  Could not claim persistent storage for $fullAtSign');
+        print('   Automatically using ephemeral storage instead...');
+        usingEphemeral = true;
+      } else {
+        print('Successfully claimed persistent storage for $fullAtSign');
+      }
+    }
+
+    if (usingEphemeral) {
+      // Create ephemeral storage path with atSign isolation (matching TUI)
+      final tempDir = Directory.systemTemp;
+      final uuid = const Uuid().v4();
+      storagePath = '${tempDir.path}/at_talk_gui/$fullAtSign/$uuid/storage';
+      commitLogPath = '$storagePath/commitLog';
+
+      // Ensure ephemeral storage directories exist
+      await Directory(storagePath).create(recursive: true);
+      await Directory(commitLogPath).create(recursive: true);
+
+      print('Using ephemeral GUI storage for $fullAtSign: $storagePath');
+    }
+
+    // Create AtClientPreference with atSign-specific paths
+    final preference = AtClientPreference()
+      ..rootDomain = _atClientPreference?.rootDomain ?? 'root.atsign.org'
+      ..namespace = AtTalkEnv
+          .namespace // Always use current namespace from AtTalkEnv
+      ..hiveStoragePath = storagePath
+      ..commitLogPath = commitLogPath
+      ..isLocalStoreRequired = true
+      ..fetchOfflineNotifications = true;
+
+    // Debug logging to verify paths include atSign
+    print('AtClient preferences configured for $fullAtSign:');
+    print('   hiveStoragePath: $storagePath');
+    print('   commitLogPath: $commitLogPath');
+    print('   usingEphemeral: $usingEphemeral');
+
+    // Update the global preference
+    _atClientPreference = preference;
+
+    return preference;
+  }
 
   Future<void> onboard({
     required String? atSign,
@@ -135,6 +211,14 @@ class AtTalkService {
         ..sharedWith = toAtSign
         ..namespace = _atClientPreference!.namespace
         ..metadata = metaData;
+
+      // Debug: Show exactly what AtKey we're creating
+      print('🔑 GUI AtKey debug:');
+      print('   key: ${key.key}');
+      print('   sharedBy: ${key.sharedBy}');
+      print('   sharedWith: ${key.sharedWith}');
+      print('   namespace: ${key.namespace}');
+      print('   Full key: ${key.toString()}');
 
       // Debug: Sending message
       print('📤 Sending 1-on-1 message to $toAtSign');
@@ -716,5 +800,95 @@ class AtTalkService {
         print('⚠️ GUI cleanup error: $e');
       }
     }
+  }
+
+  /// Change namespace and reinitialize AtClient (like TUI's -n option)
+  /// This will switch to a different storage directory and namespace
+  /// and completely reinitialize the AtClient with the new namespace
+  Future<bool> changeNamespace(
+    String newNamespace,
+    String? currentAtSign,
+  ) async {
+    try {
+      print(
+        '🔄 Changing namespace from ${AtTalkEnv.namespace} to: $newNamespace',
+      );
+
+      // Clean up current AtClient and stop all subscriptions
+      await cleanup();
+
+      // Update the namespace
+      AtTalkEnv.setNamespace(newNamespace);
+      print('✅ Namespace updated to: ${AtTalkEnv.namespace}');
+
+      // If we have a current atSign, reconfigure storage and re-authenticate
+      if (currentAtSign != null) {
+        print(
+          '🔄 Reconfiguring storage for $currentAtSign with new namespace...',
+        );
+
+        // Configure new storage with the updated namespace
+        final newPreference = await configureAtSignStorage(currentAtSign);
+
+        // Force complete reinitialization of AtClient with new paths
+        print('🔄 Forcing complete AtClient reinitialization...');
+
+        // Initialize AtTalk service with new preference
+        initialize(newPreference);
+
+        // Mark as initialized so atClient getter works
+        _isInitialized = true;
+
+        // Debug: verify the namespace is correctly set
+        print('🔍 Verifying namespace update:');
+        print('   AtTalkEnv.namespace: ${AtTalkEnv.namespace}');
+        print(
+          '   _atClientPreference.namespace: ${_atClientPreference?.namespace}',
+        );
+        print('   Storage path: ${_atClientPreference?.hiveStoragePath}');
+
+        print('✅ AtClient reinitialized with new namespace storage');
+
+        // Note: The caller (settings screen) should handle:
+        // 1. Clearing GroupsProvider data
+        // 2. Re-authenticating the user
+        // 3. Restarting message subscriptions
+
+        return true;
+      } else {
+        // Just update the default preference for future use
+        final dir = await getApplicationSupportDirectory();
+        String storagePath =
+            '${dir.path}/.${AtTalkEnv.namespace}/temp_initialization/storage';
+        String commitLogPath = '$storagePath/commitLog';
+
+        await Directory(storagePath).create(recursive: true);
+        await Directory(commitLogPath).create(recursive: true);
+
+        final newPreference = AtClientPreference()
+          ..rootDomain = AtTalkEnv.rootDomain
+          ..namespace = AtTalkEnv.namespace
+          ..hiveStoragePath = storagePath
+          ..commitLogPath = commitLogPath
+          ..isLocalStoreRequired = true
+          ..fetchOfflineNotifications = true;
+
+        initialize(newPreference);
+
+        print('✅ Default AtClient preference updated with new namespace');
+        return true;
+      }
+    } catch (e) {
+      print('❌ Failed to change namespace: $e');
+      return false;
+    }
+  }
+
+  /// Get current namespace
+  String get currentNamespace => AtTalkEnv.namespace;
+
+  /// Reset namespace to default
+  Future<bool> resetNamespace(String? currentAtSign) async {
+    return await changeNamespace('default', currentAtSign);
   }
 }

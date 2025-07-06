@@ -14,9 +14,27 @@ class AtTalkEnv {
   static const String? appApiKey =
       null; // Replace with actual API key when using Production
 
-  // App namespace - MUST match TUI app namespace for compatibility
-  static const String namespace = 'default.attalk';
+  // App namespace - configurable like TUI's -n option
+  static String _namespace = 'default.attalk';
 
   // App name
   static const String appName = 'AtTalk GUI';
+
+  // Get current namespace
+  static String get namespace => _namespace;
+
+  // Set namespace (like TUI's -n option)
+  static void setNamespace(String namespace) {
+    // Ensure it ends with .attalk like the TUI does
+    if (!namespace.endsWith('.attalk')) {
+      _namespace = '$namespace.attalk';
+    } else {
+      _namespace = namespace;
+    }
+  }
+
+  // Reset to default namespace
+  static void resetNamespace() {
+    _namespace = 'default.attalk';
+  }
 }

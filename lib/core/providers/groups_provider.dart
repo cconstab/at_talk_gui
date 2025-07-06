@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
+import 'dart:async';
 import '../models/group.dart';
 import '../models/chat_message.dart';
 import '../services/at_talk_service.dart';
@@ -8,6 +9,7 @@ class GroupsProvider extends ChangeNotifier {
   final Map<String, Group> _groups = {};
   final Map<String, List<ChatMessage>> _groupMessages = {};
   bool _isConnected = false;
+  StreamSubscription? _messageSubscription;
 
   Map<String, Group> get groups => _groups;
   bool get isConnected => _isConnected;
@@ -31,6 +33,27 @@ class GroupsProvider extends ChangeNotifier {
     print('🚀 GroupsProvider initializing...');
     print('🚀 Current atSign: ${AtTalkService.instance.currentAtSign}');
     _subscribeToMessages();
+  }
+
+  /// Reinitialize after namespace change - clears data and restarts subscriptions
+  void reinitialize() {
+    print('🔄 GroupsProvider reinitializing after namespace change...');
+    
+    // Cancel existing subscription first
+    _messageSubscription?.cancel();
+    
+    // Clear all existing data
+    clearAllGroups();
+    
+    // Restart message subscriptions with new namespace
+    initialize();
+  }
+
+  /// Clean up resources
+  @override
+  void dispose() {
+    _messageSubscription?.cancel();
+    super.dispose();
   }
 
   Group? createOrUpdateGroup(
@@ -243,8 +266,12 @@ class GroupsProvider extends ChangeNotifier {
 
   void _subscribeToMessages() {
     print('🔄 GroupsProvider subscribing to messages...');
+    
+    // Cancel any existing subscription first
+    _messageSubscription?.cancel();
+    
     try {
-      AtTalkService.instance.getAllMessageStream().listen((messageData) {
+      _messageSubscription = AtTalkService.instance.getAllMessageStream().listen((messageData) {
         final fromAtSign = messageData['from'] ?? '';
         final message = messageData['message'] ?? '';
         final rawValue = messageData['rawValue'] ?? '';

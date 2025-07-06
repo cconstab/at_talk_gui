@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:at_client_mobile/at_client_mobile.dart';
-import 'package:uuid/uuid.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:args/args.dart';
 import 'dart:io';
 
 import 'gui/screens/onboarding_screen.dart';
@@ -15,9 +15,17 @@ import 'core/providers/auth_provider.dart';
 import 'core/services/at_talk_service.dart';
 import 'core/utils/at_talk_env.dart';
 
-void main() async {
+void main(List<String> args) async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Parse command line arguments like TUI
+  _parseCommandLineArgs(args);
+
+  // Debug: Show what namespace is being used
+  print('🔧 GUI using namespace: ${AtTalkEnv.namespace}');
+
+  // Continue with normal initialization
 
   // Initialize window manager for desktop platforms to handle window close events
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
@@ -180,43 +188,22 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _initializeApp() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // Get the persistent storage directory
+    // Note: Storage path will be determined when user authenticates with an atSign
+    // For now, use a temporary generic path that will be updated during onboarding
     final dir = await getApplicationSupportDirectory();
-    String storagePath = dir.path;
-    String commitLogPath =
-        '$dir.path/commitLog'; // Fixed: should point to commitLog subdirectory
+    String storagePath =
+        '${dir.path}/.${AtTalkEnv.namespace}/temp_initialization/storage';
+    String commitLogPath = '$storagePath/commitLog';
     bool usingEphemeral = false;
 
-    // Try to claim persistent storage atomically (same approach as TUI)
-    print('Attempting to claim GUI storage: $storagePath');
-    final instanceId = const Uuid().v4();
-    bool storageClaimed = await AtTalkService.tryClaimStorage(
-      storagePath,
-      instanceId,
-    );
+    // Create temporary directories for initialization
+    await Directory(storagePath).create(recursive: true);
+    await Directory(commitLogPath).create(recursive: true);
 
-    if (!storageClaimed) {
-      // Storage claim failed, fall back to ephemeral mode
-      print(
-        '⚠️  Could not claim GUI persistent storage (another instance may be using it)',
-      );
-      print('   Automatically using ephemeral storage instead...');
+    print('Using temporary GUI storage for initialization: $storagePath');
+    print('(Will be updated to atSign-specific path during authentication)');
 
-      // Create ephemeral storage path using temp directory with UUID for isolation
-      final tempDir = Directory.systemTemp;
-      final uuid = const Uuid().v4();
-      storagePath = '${tempDir.path}/at_talk_gui/ephemeral/$uuid/storage';
-      commitLogPath = '$storagePath/commitLog';
-      usingEphemeral = true;
-
-      // Ensure ephemeral storage directories exist
-      await Directory(storagePath).create(recursive: true);
-      await Directory(commitLogPath).create(recursive: true);
-
-      print('Using ephemeral GUI storage: $storagePath');
-    }
-
-    // Initialize AtClient preferences with determined storage path
+    // Initialize AtClient preferences with temporary storage path
     final atClientPreference = AtClientPreference()
       ..rootDomain = AtTalkEnv.rootDomain
       ..namespace = AtTalkEnv.namespace
@@ -232,8 +219,6 @@ class _SplashScreenState extends State<SplashScreen> {
     print('   usingEphemeral: $usingEphemeral');
 
     AtTalkService.initialize(atClientPreference);
-
-    if (usingEphemeral) {}
 
     // Check if user is already authenticated
     final keyChainManager = KeyChainManager.getInstance();
@@ -299,5 +284,48 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
       ),
     );
+  }
+}
+
+/// Parse command line arguments like TUI's -n option
+void _parseCommandLineArgs(List<String> args) {
+  final parser = ArgParser();
+
+  // Add namespace option like TUI
+  parser.addOption(
+    'namespace',
+    abbr: 'n',
+    mandatory: false,
+    help: 'Namespace (defaults to default.attalk)',
+  );
+
+  parser.addFlag(
+    'help',
+    abbr: 'h',
+    help: 'Show this help message',
+    negatable: false,
+  );
+
+  try {
+    final parsedArgs = parser.parse(args);
+
+    // Check for help flag
+    if (parsedArgs['help']) {
+      print('AtTalk GUI - Flutter-based chat for the atPlatform');
+      print('');
+      print(parser.usage);
+      exit(0);
+    }
+
+    // Set namespace if provided
+    if (parsedArgs['namespace'] != null) {
+      final namespace = parsedArgs['namespace'] as String;
+      AtTalkEnv.setNamespace(namespace);
+      print('Using namespace: ${AtTalkEnv.namespace}');
+    }
+  } catch (e) {
+    print('Error parsing arguments: $e');
+    print('Use --help for usage information');
+    // Don't exit on argument errors for GUI - just continue with defaults
   }
 }

@@ -13,14 +13,14 @@ The AtTalk TUI and GUI now have robust, user-friendly, and cross-platform storag
 
 ### Normal Mode (Persistent)
 #### TUI
-- Primary: `~/.ai6bh/@atsign/storage` 
-- Fallback: `~/.ai6bh/@atsign/{uuid}/storage`
-- Files: `~/.ai6bh/@atsign/files`
+- Primary: `~/.default.attalk/@atsign/storage` 
+- Fallback: `~/.default.attalk/@atsign/{uuid}/storage`
+- Files: `~/.default.attalk/@atsign/files`
 
 #### GUI
-- Primary: `{AppSupport}/.ai6bh/@atsign/storage`
-- Fallback: `{AppSupport}/.ai6bh/@atsign/{uuid}/storage`
-- Files: `{AppSupport}/.ai6bh/@atsign/files`
+- Primary: `{AppSupport}/.default.attalk/@atsign/storage`
+- Fallback: `{AppSupport}/.default.attalk/@atsign/{uuid}/storage`
+- Files: `{AppSupport}/.default.attalk/@atsign/files`
 
 ### Ephemeral Mode (Auto-cleanup)
 #### Both TUI & GUI
@@ -41,7 +41,7 @@ Both applications were creating new UUID-based storage paths on each run, which 
 Implemented a multi-tier storage strategy for both TUI and GUI:
 
 ### 1. Default Persistent Storage
-- **TUI**: Uses fixed storage path: `~/.ai6bh/@atsign/storage`
+- **TUI**: Uses fixed storage path: `~/.default.attalk/@atsign/storage`
 - **GUI**: Uses application support directory with atSign-specific paths
 - Allows offline messages to persist between app sessions
 - Enables proper offline notification retrieval via `fetchOfflineNotifications: true`
@@ -60,9 +60,9 @@ Implemented a multi-tier storage strategy for both TUI and GUI:
 ## Storage Paths
 
 ### Normal Mode (Persistent)
-- Primary: `~/.ai6bh/@atsign/storage` 
-- Fallback: `~/.ai6bh/@atsign/{uuid}/storage`
-- Files: `~/.ai6bh/@atsign/files`
+- Primary: `~/.default.attalk/@atsign/storage` 
+- Fallback: `~/.default.attalk/@atsign/{uuid}/storage`
+- Files: `~/.default.attalk/@atsign/files`
 
 ### Ephemeral Mode  
 - Storage: `{OS_TEMP_DIR}/at_talk_tui/@atsign/{uuid}/storage`
@@ -212,7 +212,7 @@ Start TUI
     │   │
     │   └─ NO: Persistent Mode
     │        └─ Start with primary storage
-    │             └─ Path: ~/.ai6bh/@atsign/storage
+    │             └─ Path: ~/.default.attalk/@atsign/storage
     │
     │
     ├─ Attempt Authentication with Current Storage
@@ -224,7 +224,7 @@ Start TUI
     │        ├─ Database Lock/Busy Error?
     │        │   ├─ Using primary storage?
     │        │   │   └─ Switch to fallback UUID storage
-    │        │   │        └─ Path: ~/.ai6bh/@atsign/{uuid}/storage
+    │        │   │        └─ Path: ~/.default.attalk/@atsign/{uuid}/storage
     │        │   │        └─ Retry authentication
     │        │   │
     │        │   └─ Using fallback storage? 

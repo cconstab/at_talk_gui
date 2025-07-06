@@ -41,24 +41,35 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    await AtTalkService.instance.onboard(
-      atSign: atSign,
-      onResult: (success) {
-        _isAuthenticated = success;
-        if (success) {
-          _currentAtSign = atSign;
-          _errorMessage = null;
-        }
-        _isLoading = false;
-        notifyListeners();
-      },
-      onError: (error) {
-        _errorMessage = error;
-        _isAuthenticated = false;
-        _isLoading = false;
-        notifyListeners();
-      },
-    );
+    try {
+      // Configure atSign-specific storage before authentication
+      print('🔧 Configuring atSign-specific storage for: $atSign');
+      await AtTalkService.configureAtSignStorage(atSign!);
+
+      await AtTalkService.instance.onboard(
+        atSign: atSign,
+        onResult: (success) {
+          _isAuthenticated = success;
+          if (success) {
+            _currentAtSign = atSign;
+            _errorMessage = null;
+          }
+          _isLoading = false;
+          notifyListeners();
+        },
+        onError: (error) {
+          _errorMessage = error;
+          _isAuthenticated = false;
+          _isLoading = false;
+          notifyListeners();
+        },
+      );
+    } catch (e) {
+      _errorMessage = 'Failed to configure storage: ${e.toString()}';
+      _isAuthenticated = false;
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> authenticateExisting(String atSign) async {
@@ -67,6 +78,12 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Configure atSign-specific storage before authentication
+      print(
+        '🔧 Configuring atSign-specific storage for existing atSign: $atSign',
+      );
+      await AtTalkService.configureAtSignStorage(atSign);
+
       // Initialize the AtTalkService with the existing atSign
       await AtTalkService.instance.onboard(
         atSign: atSign,
@@ -87,7 +104,8 @@ class AuthProvider extends ChangeNotifier {
         },
       );
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage =
+          'Failed to configure storage or authenticate: ${e.toString()}';
       _isAuthenticated = false;
       _isLoading = false;
       notifyListeners();
