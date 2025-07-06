@@ -1668,7 +1668,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       appName: 'AtTalk',
       deviceName: deviceName,
       otp: otp,
-      namespaces: {'at_talk': 'rw'},
+      namespaces: {'*.attalk': 'rw'},
     );
 
     log('About to enroll with $enrollmentRequest');
