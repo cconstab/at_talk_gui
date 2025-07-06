@@ -64,7 +64,7 @@ class AtTalkService {
       if (client == null) return false;
 
       final key = AtKey()
-        ..key = 'attalk'
+        ..key = 'message'
         ..sharedBy = currentAtSign
         ..sharedWith = toAtSign
         ..namespace = _atClientPreference!.namespace
@@ -94,7 +94,7 @@ class AtTalkService {
 
     return client.notificationService
         .subscribe(
-          regex: 'attalk.${_atClientPreference!.namespace}@',
+          regex: 'message.${_atClientPreference!.namespace}@',
           shouldDecrypt: true,
         )
         .where((notification) => notification.from == fromAtSign)

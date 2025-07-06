@@ -1858,132 +1858,132 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
               ],
             ),
             OnboardingStatus.otpRequired ||
-            OnboardingStatus.validatingOtp => Column(
-              key: const Key('otp'),
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Enter OTP from Authenticator',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Open your authenticator app and enter the current 6-digit OTP',
-                  style: TextStyle(fontSize: 14),
-                ),
-                if (hasExpired) ...[
+            OnboardingStatus.validatingOtp => SingleChildScrollView(
+              child: Column(
+                key: const Key('otp'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Enter OTP from Authenticator',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Previous request expired. Please submit a new OTP.',
-                    style: TextStyle(color: Colors.red),
+                    'Open your authenticator app and enter the current 6-digit OTP',
+                    style: TextStyle(fontSize: 14),
                   ),
-                ],
-                const SizedBox(height: 24),
-                PinCodeTextField(
-                  autoDisposeControllers: false,
-                  appContext: context,
-                  length: _kPinLength,
-                  controller: pinController,
-                  autoFocus: true,
-                  textCapitalization: TextCapitalization.characters,
-                  // Styling
-                  animationType: AnimationType.fade,
-                  pinTheme: PinTheme(
-                    shape: PinCodeFieldShape.box,
-                    borderRadius: BorderRadius.circular(5),
-                    activeFillColor: Colors.white,
-                    inactiveFillColor: const Color(0xFFF3F3F3),
-                    disabledColor: Colors.blue,
-                    inactiveColor: const Color(0xFF747474),
-                    selectedFillColor: Colors.white,
-                    selectedColor: Theme.of(context).colorScheme.primary,
-                    fieldOuterPadding: const EdgeInsets.all(2),
-                  ),
-                  cursorColor: Colors.black,
-                  animationDuration: const Duration(milliseconds: 300),
-                  enableActiveFill: true,
-                  keyboardType: TextInputType.text,
-                  beforeTextPaste: (text) => true,
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: AnimatedBuilder(
-                    animation: pinController,
-                    builder: (context, _) {
-                      return ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          textStyle: const TextStyle(fontSize: 16),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 20,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        onPressed:
-                            pinController.text.length == _kPinLength &&
-                                onboardingStatus !=
-                                    OnboardingStatus.validatingOtp
-                            ? () async {
-                                await otpSubmit(pinController.text);
-                              }
-                            : null,
-                        child:
-                            onboardingStatus == OnboardingStatus.validatingOtp
-                            ? const CircularProgressIndicator()
-                            : const Text('Submit OTP'),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.orange.withValues(alpha: 0.3),
+                  if (hasExpired) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Previous request expired. Please submit a new OTP.',
+                      style: TextStyle(color: Colors.red),
                     ),
+                  ],
+                  const SizedBox(height: 24),
+                  PinCodeTextField(
+                    autoDisposeControllers: false,
+                    appContext: context,
+                    length: _kPinLength,
+                    controller: pinController,
+                    autoFocus: true,
+                    textCapitalization: TextCapitalization.characters,
+                    // Styling
+                    animationType: AnimationType.fade,
+                    pinTheme: PinTheme(
+                      shape: PinCodeFieldShape.box,
+                      borderRadius: BorderRadius.circular(5),
+                      activeFillColor: Colors.white,
+                      inactiveFillColor: const Color(0xFFF3F3F3),
+                      disabledColor: Colors.blue,
+                      inactiveColor: const Color(0xFF747474),
+                      selectedFillColor: Colors.white,
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      fieldOuterPadding: const EdgeInsets.all(2),
+                    ),
+                    cursorColor: Colors.black,
+                    animationDuration: const Duration(milliseconds: 300),
+                    enableActiveFill: true,
+                    keyboardType: TextInputType.text,
+                    beforeTextPaste: (text) => true,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 16,
-                            color: Colors.orange,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Important',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange,
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: AnimatedBuilder(
+                      animation: pinController,
+                      builder: (context, _) {
+                        return ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            textStyle: const TextStyle(fontSize: 16),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 20,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '• Make sure $atsign is enrolled in your authenticator app\n'
-                        '• The OTP changes every 30 seconds\n'
-                        '• Enter the current 6-digit code shown in the app',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
+                          onPressed:
+                              pinController.text.length == _kPinLength &&
+                                  onboardingStatus !=
+                                      OnboardingStatus.validatingOtp
+                              ? () async {
+                                  await otpSubmit(pinController.text);
+                                }
+                              : null,
+                          child:
+                              onboardingStatus == OnboardingStatus.validatingOtp
+                              ? const CircularProgressIndicator()
+                              : const Text('Submit OTP'),
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: Colors.orange,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Important',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '• Make sure $atsign is enrolled in your authenticator app\n'
+                          '• The OTP changes every 30 seconds\n'
+                          '• Enter the current 6-digit code shown in the app',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             OnboardingStatus.pendingApproval => const Column(
               key: Key('pending'),

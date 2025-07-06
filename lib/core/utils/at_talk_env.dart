@@ -15,7 +15,7 @@ class AtTalkEnv {
       null; // Replace with actual API key when using Production
 
   // App namespace - MUST match TUI app namespace for compatibility
-  static const String namespace = 'ai6bh';
+  static const String namespace = 'attalk';
 
   // App name
   static const String appName = 'AtTalk GUI';

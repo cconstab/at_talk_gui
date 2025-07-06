@@ -130,7 +130,7 @@ class AtTalkService {
         ..namespaceAware = true;
 
       var key = AtKey()
-        ..key = 'attalk'
+        ..key = 'message'
         ..sharedBy = currentUser
         ..sharedWith = toAtSign
         ..namespace = _atClientPreference!.namespace
@@ -191,7 +191,7 @@ class AtTalkService {
         ..namespaceAware = true;
 
       var key = AtKey()
-        ..key = 'attalk'
+        ..key = 'message'
         ..sharedBy = currentAtSign
         ..sharedWith = toAtSign
         ..namespace = _atClientPreference!.namespace
@@ -249,7 +249,7 @@ class AtTalkService {
         ..namespaceAware = true;
 
       var key = AtKey()
-        ..key = 'attalk'
+        ..key = 'message'
         ..sharedBy = currentAtSign
         ..sharedWith = toAtSign
         ..namespace = _atClientPreference!.namespace
@@ -304,7 +304,7 @@ class AtTalkService {
         ..namespaceAware = true;
 
       var key = AtKey()
-        ..key = 'attalk'
+        ..key = 'message'
         ..sharedBy = currentAtSign
         ..sharedWith = toAtSign
         ..namespace = _atClientPreference!.namespace
@@ -340,12 +340,12 @@ class AtTalkService {
 
     // Use exact same subscription pattern as TUI app
     print(
-      '🔄 Setting up message subscription with regex: attalk.${_atClientPreference!.namespace}@',
+      '🔄 Setting up message subscription with regex: message.${_atClientPreference!.namespace}@',
     );
 
     return client.notificationService
         .subscribe(
-          regex: 'attalk.${_atClientPreference!.namespace}@',
+          regex: 'message.${_atClientPreference!.namespace}@',
           shouldDecrypt: true,
         )
         .where((notification) {
@@ -357,7 +357,7 @@ class AtTalkService {
             '',
           );
 
-          final isMatch = keyAtsign == 'attalk';
+          final isMatch = keyAtsign == 'message';
 
           // Only log when we get a message (regardless of match)
           if (notification.value != null && notification.value!.isNotEmpty) {

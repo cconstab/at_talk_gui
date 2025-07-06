@@ -6,7 +6,8 @@ import 'package:uuid/uuid.dart';
 /// Core AtClient service that works for both GUI and TUI implementations
 class CoreAtClientService {
   static CoreAtClientService? _instance;
-  static CoreAtClientService get instance => _instance ??= CoreAtClientService._internal();
+  static CoreAtClientService get instance =>
+      _instance ??= CoreAtClientService._internal();
 
   CoreAtClientService._internal() {
     _instanceId = const Uuid().v4();
@@ -44,7 +45,7 @@ class CoreAtClientService {
       // Set up AtClientPreference for CLI environment
       _atClientPreference = AtClientPreference()
         ..rootDomain = rootDomain ?? 'root.atsign.org'
-        ..namespace = namespace ?? 'ai6bh'
+        ..namespace = namespace ?? 'attalk'
         ..hiveStoragePath = '${Platform.environment['HOME']}/.atsign/storage'
         ..commitLogPath = '${Platform.environment['HOME']}/.atsign/storage'
         ..isLocalStoreRequired = true
@@ -54,7 +55,11 @@ class CoreAtClientService {
 
       // Create AtClient
       final atClientManager = AtClientManager.getInstance();
-      await atClientManager.setCurrentAtSign(atSign, _atClientPreference!.namespace!, _atClientPreference!);
+      await atClientManager.setCurrentAtSign(
+        atSign,
+        _atClientPreference!.namespace!,
+        _atClientPreference!,
+      );
 
       _atClient = atClientManager.atClient;
 
@@ -68,7 +73,11 @@ class CoreAtClientService {
   }
 
   /// Send a message to another atSign
-  Future<bool> sendMessage({required String toAtSign, required String message, String? messageId}) async {
+  Future<bool> sendMessage({
+    required String toAtSign,
+    required String message,
+    String? messageId,
+  }) async {
     try {
       if (!_isInitialized || _atClient == null) {
         _logger.warning('AtClient not initialized');
@@ -76,7 +85,7 @@ class CoreAtClientService {
       }
 
       final key = AtKey()
-        ..key = 'attalk'
+        ..key = 'message'
         ..sharedBy = currentAtSign
         ..sharedWith = toAtSign
         ..namespace = _atClientPreference!.namespace
@@ -119,7 +128,10 @@ class CoreAtClientService {
     }
 
     return _atClient!.notificationService
-        .subscribe(regex: 'attalk.${_atClientPreference!.namespace}@', shouldDecrypt: true)
+        .subscribe(
+          regex: 'attalk.${_atClientPreference!.namespace}@',
+          shouldDecrypt: true,
+        )
         .where((notification) => notification.value != null)
         .map((notification) {
           try {
@@ -144,7 +156,10 @@ class CoreAtClientService {
   }
 
   /// Get conversation history with another atSign
-  Future<List<Map<String, dynamic>>> getConversationHistory({required String withAtSign, int limit = 50}) async {
+  Future<List<Map<String, dynamic>>> getConversationHistory({
+    required String withAtSign,
+    int limit = 50,
+  }) async {
     try {
       if (!_isInitialized || _atClient == null) {
         return [];
@@ -153,7 +168,9 @@ class CoreAtClientService {
       final messages = <Map<String, dynamic>>[];
 
       // Get messages sent to the other atSign
-      final sentKeys = await _atClient!.getKeys(regex: 'attalk.${_atClientPreference!.namespace}@$withAtSign');
+      final sentKeys = await _atClient!.getKeys(
+        regex: 'attalk.${_atClientPreference!.namespace}@$withAtSign',
+      );
 
       for (final keyStr in sentKeys) {
         try {
@@ -175,7 +192,8 @@ class CoreAtClientService {
 
       // Get messages received from the other atSign
       final receivedKeys = await _atClient!.getKeys(
-        regex: 'attalk.${_atClientPreference!.namespace}@${currentAtSign?.replaceAll('@', '')}',
+        regex:
+            'attalk.${_atClientPreference!.namespace}@${currentAtSign?.replaceAll('@', '')}',
       );
 
       for (final keyStr in receivedKeys) {
@@ -188,7 +206,8 @@ class CoreAtClientService {
                 'message': value.value.toString(),
                 'from': withAtSign,
                 'to': currentAtSign,
-                'timestamp': key.metadata.createdAt?.millisecondsSinceEpoch ?? 0,
+                'timestamp':
+                    key.metadata.createdAt?.millisecondsSinceEpoch ?? 0,
                 'isSent': false,
               });
             }
@@ -199,7 +218,9 @@ class CoreAtClientService {
       }
 
       // Sort by timestamp and limit results
-      messages.sort((a, b) => (a['timestamp'] as int).compareTo(b['timestamp'] as int));
+      messages.sort(
+        (a, b) => (a['timestamp'] as int).compareTo(b['timestamp'] as int),
+      );
       return messages.take(limit).toList();
     } catch (e) {
       _logger.severe('Error getting conversation history: $e');
