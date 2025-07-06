@@ -1650,6 +1650,16 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
     }
   }
 
+  // Generate a random three-letter nonce
+  String _randomNonce() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz';
+    final rand = (DateTime.now().microsecondsSinceEpoch % 17576).toInt();
+    final a = chars[(rand ~/ (26 * 26)) % 26];
+    final b = chars[(rand ~/ 26) % 26];
+    final c = chars[rand % 26];
+    return '$a$b$c';
+  }
+
   // Submit OTP for enrollment
   Future<void> otpSubmit(String otp) async {
     setState(() {
@@ -1661,14 +1671,16 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
 
     // Device name cannot contain spaces or special characters
     final regExp = RegExp(r'[^a-zA-Z0-9]');
-    final deviceName = (await getDeviceName()).replaceAll(regExp, '');
+    final baseDeviceName = (await getDeviceName()).replaceAll(regExp, '');
+    final nonce = _randomNonce();
+    final deviceName = '${baseDeviceName}_$nonce';
     log('Device Name: $deviceName');
 
     final enrollmentRequest = EnrollmentRequest(
       appName: 'AtTalk',
       deviceName: deviceName,
       otp: otp,
-      namespaces: {'*.attalk': 'rw'},
+      namespaces: {'attalk': 'rw'},
     );
 
     log('About to enroll with $enrollmentRequest');
@@ -1691,16 +1703,30 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       log(st.toString());
 
       if (mounted) {
-        // Doesn't seem like enroll throws an `AtException`.
-        if (e.toString().contains('AT0011')) {
+        final errorStr = e.toString();
+        if (errorStr.contains('AT0011')) {
           log('Invalid OTP');
           Navigator.of(
             context,
           ).pop(AtOnboardingResult.error(message: 'Invalid OTP'));
+        } else if (errorStr.contains('pending enrollment')) {
+          Navigator.of(context).pop(
+            AtOnboardingResult.error(
+              message:
+                  'A previous enrollment request for this atSign is still pending.\n\n• Open your authenticator app and check for any pending requests.\n• Approve or deny the request if you see one.\n• If you do not see a pending request, wait 10–15 minutes for it to expire, then try again.\n• If the problem persists, contact atPlatform support to clear the stuck request.',
+            ),
+          );
+        } else if (errorStr.contains('duplicate') ||
+            errorStr.contains('already exists')) {
+          Navigator.of(context).pop(
+            AtOnboardingResult.error(
+              message: 'Device name already exists. Please try again.',
+            ),
+          );
         } else {
           Navigator.of(context).pop(
             AtOnboardingResult.error(
-              message: 'Unknown error during enrollment',
+              message: 'Unknown error during enrollment: $errorStr',
             ),
           );
         }

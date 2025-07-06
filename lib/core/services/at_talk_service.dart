@@ -199,7 +199,7 @@ class AtTalkService {
 
       // Debug: Sending group message
       print(
-        'Sending group message to $toAtSign: ${groupMembers.length} members',
+        'Sending group message to $toAtSign: ${groupMembers.length} members at nameSpace ${_atClientPreference!.namespace.toString()}',
       );
 
       final result = await client.notificationService.notify(

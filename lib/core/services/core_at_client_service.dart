@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:at_client/at_client.dart';
 import 'package:at_utils/at_logger.dart';
 import 'package:uuid/uuid.dart';
+import '../utils/at_talk_env.dart';
 
 /// Core AtClient service that works for both GUI and TUI implementations
 class CoreAtClientService {
@@ -45,7 +46,7 @@ class CoreAtClientService {
       // Set up AtClientPreference for CLI environment
       _atClientPreference = AtClientPreference()
         ..rootDomain = rootDomain ?? 'root.atsign.org'
-        ..namespace = namespace ?? 'attalk'
+        ..namespace = namespace ?? AtTalkEnv.namespace
         ..hiveStoragePath = '${Platform.environment['HOME']}/.atsign/storage'
         ..commitLogPath = '${Platform.environment['HOME']}/.atsign/storage'
         ..isLocalStoreRequired = true
