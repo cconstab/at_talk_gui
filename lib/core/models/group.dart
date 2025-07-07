@@ -30,16 +30,18 @@ class Group {
 
     // For any group, show meaningful member display
     if (currentAtSign != null && members.contains(currentAtSign)) {
-      final otherMembers = members.where((member) => member != currentAtSign).toList();
+      final otherMembers = members
+          .where((member) => member != currentAtSign)
+          .toList();
       if (otherMembers.isNotEmpty) {
         if (otherMembers.length == 1) {
           // Two members total: show the other person
           return otherMembers.first;
         } else {
           // Multiple other members: show list
-          return otherMembers.length <= 2 
-            ? otherMembers.join(', ')
-            : '${otherMembers.take(2).join(', ')} +${otherMembers.length - 2}';
+          return otherMembers.length <= 2
+              ? otherMembers.join(', ')
+              : '${otherMembers.take(2).join(', ')} +${otherMembers.length - 2}';
         }
       }
     }

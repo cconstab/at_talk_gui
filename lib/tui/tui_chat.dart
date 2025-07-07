@@ -617,7 +617,7 @@ class TuiChatApp {
           newParticipant != myAtSign) {
         // Simply add the participant to the existing session
         session.participants.add(newParticipant);
-        
+
         addMessage(
           activeSession!,
           '[Added $newParticipant to the chat]',
@@ -625,7 +625,11 @@ class TuiChatApp {
         );
 
         // Send membership change notifications to all participants
-        onGroupMembershipChange?.call(activeSession!, session.participants, session.groupName);
+        onGroupMembershipChange?.call(
+          activeSession!,
+          session.participants,
+          session.groupName,
+        );
 
         // Close the participants panel
         _showingParticipantsPanel = false;
@@ -1128,7 +1132,7 @@ class TuiChatApp {
               if (!session.participants.contains(newParticipant)) {
                 // Simply add the participant to the existing session
                 session.participants.add(newParticipant);
-                
+
                 addMessage(
                   activeSession!,
                   '[Added $newParticipant to the chat]',

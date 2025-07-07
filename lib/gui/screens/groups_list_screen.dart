@@ -24,10 +24,12 @@ class GroupsListScreenWithSidePanel extends StatefulWidget {
   });
 
   @override
-  State<GroupsListScreenWithSidePanel> createState() => _GroupsListScreenWithSidePanelState();
+  State<GroupsListScreenWithSidePanel> createState() =>
+      _GroupsListScreenWithSidePanelState();
 }
 
-class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSidePanel> {
+class _GroupsListScreenWithSidePanelState
+    extends State<GroupsListScreenWithSidePanel> {
   final TextEditingController _newGroupController = TextEditingController();
   final TextEditingController _groupNameController = TextEditingController();
 
@@ -44,7 +46,10 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
       appBar: AppBar(
         title: Consumer<AuthProvider>(
           builder: (context, authProvider, child) {
-            final currentAtSign = authProvider.currentAtSign ?? AtTalkService.instance.currentAtSign ?? 'Unknown';
+            final currentAtSign =
+                authProvider.currentAtSign ??
+                AtTalkService.instance.currentAtSign ??
+                'Unknown';
             return GestureDetector(
               onTap: _showAtSignMenu,
               child: Row(
@@ -72,12 +77,24 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
         backgroundColor: const Color(0xFF2196F3),
         foregroundColor: Colors.white,
         leading: widget.showMenuButton && widget.onMenuPressed != null
-            ? IconButton(onPressed: widget.onMenuPressed, icon: const Icon(Icons.menu), tooltip: 'Show conversations')
+            ? IconButton(
+                onPressed: widget.onMenuPressed,
+                icon: const Icon(Icons.menu),
+                tooltip: 'Show conversations',
+              )
             : null,
         automaticallyImplyLeading: false,
         actions: [
-          IconButton(onPressed: _showNewChatDialog, icon: const Icon(Icons.person_add), tooltip: 'Start 1-on-1 Chat'),
-          IconButton(onPressed: _showNewGroupDialog, icon: const Icon(Icons.group_add), tooltip: 'New Group'),
+          IconButton(
+            onPressed: _showNewChatDialog,
+            icon: const Icon(Icons.person_add),
+            tooltip: 'Start 1-on-1 Chat',
+          ),
+          IconButton(
+            onPressed: _showNewGroupDialog,
+            icon: const Icon(Icons.group_add),
+            tooltip: 'New Group',
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'logout') {
@@ -97,26 +114,56 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'switch_atsign',
-                child: Row(children: [Icon(Icons.switch_account, size: 20), SizedBox(width: 8), Text('Switch atSign')]),
+                child: Row(
+                  children: [
+                    Icon(Icons.switch_account, size: 20),
+                    SizedBox(width: 8),
+                    Text('Switch atSign'),
+                  ],
+                ),
               ),
               const PopupMenuItem(
                 value: 'key_management',
-                child: Row(children: [Icon(Icons.key, size: 20), SizedBox(width: 8), Text('Key Management')]),
+                child: Row(
+                  children: [
+                    Icon(Icons.key, size: 20),
+                    SizedBox(width: 8),
+                    Text('Key Management'),
+                  ],
+                ),
               ),
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'clear_all',
-                child: Row(children: [Icon(Icons.clear_all, size: 20), SizedBox(width: 8), Text('Clear All Groups')]),
+                child: Row(
+                  children: [
+                    Icon(Icons.clear_all, size: 20),
+                    SizedBox(width: 8),
+                    Text('Clear All Groups'),
+                  ],
+                ),
               ),
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'settings',
-                child: Row(children: [Icon(Icons.settings, size: 20), SizedBox(width: 8), Text('Settings')]),
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, size: 20),
+                    SizedBox(width: 8),
+                    Text('Settings'),
+                  ],
+                ),
               ),
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'logout',
-                child: Row(children: [Icon(Icons.logout, size: 20), SizedBox(width: 8), Text('Logout')]),
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 20),
+                    SizedBox(width: 8),
+                    Text('Logout'),
+                  ],
+                ),
               ),
               const PopupMenuItem(
                 value: 'exit_app',
@@ -145,10 +192,17 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
                   const SizedBox(height: 16),
                   const Text(
                     'No conversations yet',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  const Text('Start a new conversation or create a group', style: TextStyle(color: Colors.grey)),
+                  const Text(
+                    'Start a new conversation or create a group',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                   const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -201,8 +255,14 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
       widget.onGroupSelected!(group);
     } else {
       // Otherwise, navigate to group chat screen normally
-      Provider.of<GroupsProvider>(context, listen: false).markGroupAsRead(group.id);
-      Navigator.push(context, MaterialPageRoute(builder: (context) => GroupChatScreen(group: group)));
+      Provider.of<GroupsProvider>(
+        context,
+        listen: false,
+      ).markGroupAsRead(group.id);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => GroupChatScreen(group: group)),
+      );
     }
   }
 
@@ -236,7 +296,10 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
               const SizedBox(height: 16),
               const Text('Members (comma-separated):'),
               const SizedBox(height: 8),
-              const Text('Example: @alice, @bob, @charlie', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text(
+                'Example: @alice, @bob, @charlie',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
               const SizedBox(height: 8),
               TextField(
                 controller: _newGroupController,
@@ -253,7 +316,10 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
               final members = _newGroupController.text.trim();
@@ -282,7 +348,10 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
           children: [
             const Text('Enter atSign:'),
             const SizedBox(height: 8),
-            const Text('Example: @alice', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Text(
+              'Example: @alice',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             const SizedBox(height: 8),
             TextField(
               controller: chatController,
@@ -296,7 +365,10 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
               final atSign = chatController.text.trim();
@@ -337,7 +409,10 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
 
     if (members.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter at least one valid atSign'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please enter at least one valid atSign'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -354,7 +429,9 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
       final groupDisplayName = group.getDisplayName(currentAtSign);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Created group "$groupDisplayName" with $memberCount member${memberCount == 1 ? '' : 's'}'),
+          content: Text(
+            'Created group "$groupDisplayName" with $memberCount member${memberCount == 1 ? '' : 's'}',
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -370,11 +447,17 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final authProvider = Provider.of<AuthProvider>(
+                context,
+                listen: false,
+              );
               authProvider.logout();
               if (mounted) {
                 Navigator.pushReplacementNamed(context, '/onboarding');
@@ -393,19 +476,33 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear All Groups'),
-        content: const Text('This will remove all groups and messages. Are you sure?'),
+        content: const Text(
+          'This will remove all groups and messages. Are you sure?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Provider.of<GroupsProvider>(context, listen: false).clearAllGroups();
-              ScaffoldMessenger.of(
+              Provider.of<GroupsProvider>(
                 context,
-              ).showSnackBar(const SnackBar(content: Text('All groups cleared'), backgroundColor: Colors.green));
+                listen: false,
+              ).clearAllGroups();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('All groups cleared'),
+                  backgroundColor: Colors.green,
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Clear All', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Clear All',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -415,9 +512,12 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
   void _showKeyManagement() {
     final currentAtSign = AtTalkService.instance.currentAtSign;
     if (currentAtSign == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No atSign is currently active'), backgroundColor: Colors.orange));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No atSign is currently active'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
@@ -442,7 +542,9 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
 
           final atSigns = snapshot.data ?? [];
           final currentAtSign = AtTalkService.instance.currentAtSign;
-          final availableAtSigns = atSigns.where((atSign) => atSign != currentAtSign).toList();
+          final availableAtSigns = atSigns
+              .where((atSign) => atSign != currentAtSign)
+              .toList();
 
           if (availableAtSigns.isEmpty) {
             return AlertDialog(
@@ -452,7 +554,12 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
                     ? 'No atSigns found in keychain.'
                     : 'No other atSigns available. Current: $currentAtSign',
               ),
-              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+              ],
             );
           }
 
@@ -468,14 +575,23 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
                       onTap: () async {
                         Navigator.pop(context);
                         // Use AuthProvider to switch to existing atSign
-                        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                        final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+                        final authProvider = Provider.of<AuthProvider>(
+                          context,
+                          listen: false,
+                        );
+                        final groupsProvider = Provider.of<GroupsProvider>(
+                          context,
+                          listen: false,
+                        );
 
                         try {
                           // Show loading indicator
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Switching to $atSign...'), duration: const Duration(seconds: 2)),
+                              SnackBar(
+                                content: Text('Switching to $atSign...'),
+                                duration: const Duration(seconds: 2),
+                              ),
                             );
                           }
 
@@ -483,13 +599,18 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
                           groupsProvider.clearAllGroups();
 
                           // Authenticate with the selected atSign
-                          await authProvider.authenticateExisting(atSign, cleanupExisting: true);
+                          await authProvider.authenticateExisting(
+                            atSign,
+                            cleanupExisting: true,
+                          );
 
                           // Reinitialize groups provider for the new atSign
                           groupsProvider.reinitialize();
 
                           // Wait a moment for UI to update
-                          await Future.delayed(const Duration(milliseconds: 500));
+                          await Future.delayed(
+                            const Duration(milliseconds: 500),
+                          );
 
                           // Force widget rebuild
                           if (mounted) {
@@ -500,7 +621,10 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
                           if (mounted) {
                             ScaffoldMessenger.of(context).clearSnackBars();
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Switched to $atSign'), backgroundColor: Colors.green),
+                              SnackBar(
+                                content: Text('Switched to $atSign'),
+                                backgroundColor: Colors.green,
+                              ),
                             );
                           }
                         } catch (e) {
@@ -508,7 +632,10 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
                           if (mounted) {
                             ScaffoldMessenger.of(context).clearSnackBars();
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Failed to switch atSign: $e'), backgroundColor: Colors.red),
+                              SnackBar(
+                                content: Text('Failed to switch atSign: $e'),
+                                backgroundColor: Colors.red,
+                              ),
                             );
                           }
                         }
@@ -517,7 +644,12 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
                   )
                   .toList(),
             ),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
           );
         },
       ),
@@ -531,7 +663,10 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
         title: const Text('Exit App'),
         content: const Text('Are you sure you want to exit?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
@@ -561,7 +696,10 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
           ),
           ListTile(
             leading: const Icon(Icons.delete, color: Colors.red),
-            title: const Text('Delete Group', style: TextStyle(color: Colors.red)),
+            title: const Text(
+              'Delete Group',
+              style: TextStyle(color: Colors.red),
+            ),
             onTap: () {
               Navigator.pop(context);
               _deleteGroup(group);
@@ -587,17 +725,27 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
             ...group.members.map((member) => Text('• $member')),
             if (group.lastMessage != null) ...[
               const SizedBox(height: 16),
-              const Text('Last Message:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'Last Message:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               Text(group.lastMessage!),
               if (group.lastMessageTime != null)
                 Text(
-                  DateFormat('MMM d, yyyy HH:mm').format(group.lastMessageTime!),
+                  DateFormat(
+                    'MMM d, yyyy HH:mm',
+                  ).format(group.lastMessageTime!),
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
             ],
           ],
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
@@ -611,14 +759,22 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
           'Are you sure you want to delete "${group.getDisplayName(AtTalkService.instance.currentAtSign)}"?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Provider.of<GroupsProvider>(context, listen: false).deleteGroup(group.id);
+              Provider.of<GroupsProvider>(
+                context,
+                listen: false,
+              ).deleteGroup(group.id);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Deleted group "${group.getDisplayName(AtTalkService.instance.currentAtSign)}"'),
+                  content: Text(
+                    'Deleted group "${group.getDisplayName(AtTalkService.instance.currentAtSign)}"',
+                  ),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -671,7 +827,12 @@ class GroupListTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
-  const GroupListTile({super.key, required this.group, required this.onTap, required this.onLongPress});
+  const GroupListTile({
+    super.key,
+    required this.group,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -682,18 +843,28 @@ class GroupListTile extends StatelessWidget {
         backgroundColor: const Color(0xFF2196F3),
         child: Text(
           group.getDisplayName(currentAtSign).substring(0, 1).toUpperCase(),
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
-      title: Text(group.getDisplayName(currentAtSign), style: const TextStyle(fontWeight: FontWeight.w500)),
+      title: Text(
+        group.getDisplayName(currentAtSign),
+        style: const TextStyle(fontWeight: FontWeight.w500),
+      ),
       subtitle: group.lastMessage != null
           ? Text(
               group.lastMessage!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: group.unreadCount > 0 ? Colors.black87 : Colors.grey[600],
-                fontWeight: group.unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
+                color: group.unreadCount > 0
+                    ? Colors.black87
+                    : Colors.grey[600],
+                fontWeight: group.unreadCount > 0
+                    ? FontWeight.w500
+                    : FontWeight.normal,
               ),
             )
           : const Text('No messages yet', style: TextStyle(color: Colors.grey)),
@@ -705,19 +876,30 @@ class GroupListTile extends StatelessWidget {
             Text(
               _formatTime(group.lastMessageTime!),
               style: TextStyle(
-                color: group.unreadCount > 0 ? const Color(0xFF2196F3) : Colors.grey,
+                color: group.unreadCount > 0
+                    ? const Color(0xFF2196F3)
+                    : Colors.grey,
                 fontSize: 12,
-                fontWeight: group.unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
+                fontWeight: group.unreadCount > 0
+                    ? FontWeight.w500
+                    : FontWeight.normal,
               ),
             ),
           if (group.unreadCount > 0) ...[
             const SizedBox(height: 4),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: const Color(0xFF2196F3), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2196F3),
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Text(
                 group.unreadCount > 99 ? '99+' : group.unreadCount.toString(),
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],

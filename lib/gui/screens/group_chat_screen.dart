@@ -569,11 +569,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   void _renameGroup(String newName) async {
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
 
-    final newGroupId = await groupsProvider.renameGroup(widget.group.id, newName);
+    final newGroupId = await groupsProvider.renameGroup(
+      widget.group.id,
+      newName,
+    );
 
     if (newGroupId != null && mounted) {
       final displayText = newName.isNotEmpty ? newName : 'Unnamed Group';
-      
+
       // In the current architecture, group ID never changes during rename
       // (only display name changes), so we just show success message
       ScaffoldMessenger.of(context).showSnackBar(
