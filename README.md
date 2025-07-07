@@ -359,7 +359,7 @@ AtTalk implements robust storage handling with automatic conflict resolution:
 - **Cross-Platform**: Adapts to platform-specific storage conventions
 
 #### TUI Storage
-- **Interactive Mode**: Uses persistent storage in `~/.ai6bh/$atsign/storage`
+- **Interactive Mode**: Uses persistent storage in `~/.default.attalk/$atsign/storage`
 - **Message Mode (`-m`)**: Always uses ephemeral storage for faster, conflict-free operation
 - **Ephemeral Flag (`--ephemeral`)**: Forces ephemeral storage regardless of conflicts
 - **Multi-Instance**: Automatic fallback to ephemeral storage when persistent storage in use

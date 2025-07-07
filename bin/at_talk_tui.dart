@@ -458,7 +458,7 @@ Future<void> atTalk(List<String> args) async {
     'namespace',
     abbr: 'n',
     mandatory: false,
-    help: 'Namespace (defaults to ai6bh)',
+    help: 'Namespace (defaults to attalk)',
   );
   parser.addOption(
     'message',
@@ -490,7 +490,7 @@ Future<void> atTalk(List<String> args) async {
   String fromAtsign = 'unknown';
   String toAtsign = 'unknown';
   String? homeDirectory = getHomeDirectory();
-  String nameSpace = 'ai6bh';
+  String nameSpace = 'default.attalk';
   String rootDomain = 'root.atsign.org';
   String? message;
   bool hasTerminal = stdin.hasTerminal;
@@ -517,7 +517,7 @@ Future<void> atTalk(List<String> args) async {
     }
 
     if (parsedArgs['namespace'] != null) {
-      nameSpace = parsedArgs['namespace'];
+      nameSpace = parsedArgs['namespace'] + '.attalk';
     }
     if (parsedArgs['message'] != null) {
       message = parsedArgs['message'];
@@ -766,7 +766,8 @@ Future<void> atTalk(List<String> args) async {
         // Recreate onboarding config
         atOnboardingConfig = AtOnboardingPreference()
           ..hiveStoragePath = storagePath
-          ..namespace = ephemeralNamespace
+          ..namespace =
+              nameSpace // Always use the original namespace, even for ephemeral
           ..downloadPath = downloadPath
           ..isLocalStoreRequired = true
           ..monitorHeartbeatInterval = Duration(seconds: 5)
@@ -879,7 +880,7 @@ Future<void> atTalk(List<String> args) async {
         ..isEncrypted = true
         ..namespaceAware = true;
       var key = AtKey()
-        ..key = 'attalk'
+        ..key = 'message'
         ..sharedBy = fromAtsign
         ..sharedWith = atSign
         ..namespace = nameSpace
@@ -968,7 +969,7 @@ Future<void> atTalk(List<String> args) async {
   // Each instance needs a unique subscription to avoid notification load balancing
   // Use instanceId to make subscription unique while still receiving all attalk messages
   atClient.notificationService
-      .subscribe(regex: 'attalk.$nameSpace@', shouldDecrypt: true)
+      .subscribe(regex: 'message.$nameSpace@', shouldDecrypt: true)
       .listen(
         ((notification) async {
           try {
@@ -1281,7 +1282,7 @@ Future<void> atTalk(List<String> args) async {
         ..isEncrypted = true
         ..namespaceAware = true;
       var key = AtKey()
-        ..key = 'attalk'
+        ..key = 'message'
         ..sharedBy = fromAtsign
         ..sharedWith = atSign
         ..namespace = nameSpace
@@ -1322,7 +1323,7 @@ Future<void> atTalk(List<String> args) async {
         ..isEncrypted = true
         ..namespaceAware = true;
       var key = AtKey()
-        ..key = 'attalk'
+        ..key = 'message'
         ..sharedBy = fromAtsign
         ..sharedWith = atSign
         ..namespace = nameSpace
@@ -1355,7 +1356,7 @@ Future<void> atTalk(List<String> args) async {
             ..isEncrypted = true
             ..namespaceAware = true;
           var key = AtKey()
-            ..key = 'attalk'
+            ..key = 'message'
             ..sharedBy = fromAtsign
             ..sharedWith = atSign
             ..namespace = nameSpace
