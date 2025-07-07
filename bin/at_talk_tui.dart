@@ -849,6 +849,15 @@ Future<void> atTalk(List<String> args) async {
               final sessionParticipants = group.toSet().toList()..sort();
               final sessionKey = sessionParticipants.join(',');
 
+              print('🔄 TUI: Received group rename notification');
+              print('   New name: $newGroupName');
+              print('   Members: $sessionParticipants');
+              print('   Computed session key: $sessionKey');
+              print('   Current sessions:');
+              for (final entry in tui.sessions.entries) {
+                print('     - ${entry.key}: ${entry.value.participants} (name: "${entry.value.groupName}")');
+              }
+
               // Find existing session with matching participants (regardless of session ID)
               String? existingSessionId;
               for (final entry in tui.sessions.entries) {
@@ -856,33 +865,29 @@ Future<void> atTalk(List<String> args) async {
                 final sessionMembers = session.participants.toSet();
                 final incomingMembers = sessionParticipants.toSet();
 
+                print('   Comparing session ${entry.key}: $sessionMembers vs incoming: $incomingMembers');
+                print('     Lengths match: ${sessionMembers.length == incomingMembers.length}');
+                print('     Contains all: ${sessionMembers.containsAll(incomingMembers)}');
+
                 if (sessionMembers.length == incomingMembers.length && sessionMembers.containsAll(incomingMembers)) {
                   existingSessionId = entry.key;
+                  print('   ✅ MATCH FOUND!');
                   break;
                 }
-              }              if (existingSessionId != null) {
+              }
+
+              if (existingSessionId != null) {
                 // Update existing session name
                 final oldName = tui.sessions[existingSessionId]!.groupName;
                 tui.sessions[existingSessionId]!.groupName = newGroupName;
+
+                print('   ✅ Updated existing session $existingSessionId from "$oldName" to "$newGroupName"');
 
                 final displayName = newGroupName?.isNotEmpty == true ? newGroupName! : 'Unnamed Group';
                 tui.addMessage(existingSessionId, '[Group renamed to "$displayName"]', incoming: true);
               } else {
                 // No existing session found, create new one
-                tui.addSession(sessionKey, sessionParticipants, newGroupName);
-                final displayName = newGroupName?.isNotEmpty == true ? newGroupName! : 'Unnamed Group';
-                tui.addMessage(sessionKey, '[Group renamed to "$displayName"]', incoming: true);
-              }
-   Group name: $newGroupName
-''';
-                
-                try {
-                  final debugFile = File('tui_debug.log');
-                  debugFile.writeAsStringSync(failInfo, mode: FileMode.append);
-                } catch (e) {
-                  // Ignore file errors
-                }
-                
+                print('   ❌ No matching session found, creating new session with key: $sessionKey');
                 tui.addSession(sessionKey, sessionParticipants, newGroupName);
                 final displayName = newGroupName?.isNotEmpty == true ? newGroupName! : 'Unnamed Group';
                 tui.addMessage(sessionKey, '[Group renamed to "$displayName"]', incoming: true);
