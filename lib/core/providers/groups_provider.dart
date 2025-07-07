@@ -209,36 +209,76 @@ class GroupsProvider extends ChangeNotifier {
     if (isActualGroup) {
       // Send as group message with JSON metadata (for 3+ person groups)
       final groupMembersList = group.members.toList();
+      
+      // Generate TUI-compatible session key for consistent message routing
+      final sortedMembers = group.members.toList()..sort();
+      final sessionKey = sortedMembers.join(',');
 
-      for (String recipient in recipients) {
-        final success = await AtTalkService.instance.sendGroupMessage(
-          toAtSign: recipient,
-          message: message,
-          groupMembers: groupMembersList,
-          groupInstanceId: groupId,
-          groupName: group.name,
-        );
-        if (!success) allSuccess = false;
-      }
-      print('Sent as GROUP message to ${recipients.length} recipients');
-
-      // Add our own message to the chat immediately for instant feedback
-      // Even though we send to ourselves, we want immediate UI feedback for groups too
+      // Add our own message to the chat BEFORE sending to prevent race conditions
+      // This ensures our immediate message is always added before any notifications arrive
       final ourMessage = ChatMessage(
         text: message,
         fromAtSign: currentAtSign,
         timestamp: DateTime.now(),
         isFromMe: true,
       );
+      
+      // Use canonical group to ensure consistency with notification handling
+      final canonicalGroupId = _getOrCreateCanonicalGroup(groupId, currentAtSign, currentAtSign);
+      if (canonicalGroupId != groupId) {
+        print('🔀 Using canonical group for immediate GROUP message: $canonicalGroupId (was: $groupId)');
+        groupId = canonicalGroupId;
+      }
+      
+      print('➕ Adding our own GROUP message immediately (BEFORE sending): ID=${ourMessage.id}, text="$message", timestamp=${ourMessage.timestamp}');
+      print('   Target groupId: $groupId');
+      print('   Group members: ${group.members}');
+      print('   Current message count before adding: ${_groupMessages[groupId]?.length ?? 0}');
       addMessageToGroup(groupId, ourMessage);
       print(
         'Added our own GROUP message to chat immediately for instant feedback',
       );
+
+      for (String recipient in recipients) {
+        final success = await AtTalkService.instance.sendGroupMessage(
+          toAtSign: recipient,
+          message: message,
+          groupMembers: groupMembersList,
+          groupInstanceId: sessionKey, // Use consistent session key, not internal group ID
+          groupName: group.name,
+        );
+        if (!success) allSuccess = false;
+      }
+      print('Sent as GROUP message to ${recipients.length} recipients');
     } else {
       // Send as JSON message with isGroup:false (for 1-on-1 conversations)
       // Send to ALL recipients including ourselves for proper TUI multi-instance support
       final groupMembersList = group.members.toList()
         ..sort(); // Consistent group member list
+
+      // Add our own message to the chat BEFORE sending to prevent race conditions
+      // This ensures our immediate message is always added before any notifications arrive
+      final ourMessage = ChatMessage(
+        text: message,
+        fromAtSign: currentAtSign,
+        timestamp: DateTime.now(),
+        isFromMe: true,
+      );
+      
+      // Use canonical group to ensure consistency with notification handling
+      final canonicalGroupId = _getOrCreateCanonicalGroup(groupId, currentAtSign, currentAtSign);
+      if (canonicalGroupId != groupId) {
+        print('🔀 Using canonical group for immediate message: $canonicalGroupId (was: $groupId)');
+        groupId = canonicalGroupId;
+      }
+      
+      print('➕ Adding our own 1-on-1 message immediately (BEFORE sending): ID=${ourMessage.id}, text="$message", timestamp=${ourMessage.timestamp}');
+      print('   Target groupId: $groupId');
+      print('   Group members: ${group.members}');
+      print('   Current message count before adding: ${_groupMessages[groupId]?.length ?? 0}');
+      addMessageToGroup(groupId, ourMessage);
+      print('Added our own message to chat immediately for instant feedback');
+
       for (String recipient in recipients) {
         final success = await AtTalkService.instance.sendMessage(
           toAtSign: recipient,
@@ -250,17 +290,6 @@ class GroupsProvider extends ChangeNotifier {
       print(
         'Sent as 1-ON-1 JSON message to ${recipients.length} recipients (including self for TUI multi-instance support)',
       );
-
-      // Add our own message to the chat immediately for instant feedback
-      // Even though we send to ourselves, we want immediate UI feedback
-      final ourMessage = ChatMessage(
-        text: message,
-        fromAtSign: currentAtSign,
-        timestamp: DateTime.now(),
-        isFromMe: true,
-      );
-      addMessageToGroup(groupId, ourMessage);
-      print('Added our own message to chat immediately for instant feedback');
     }
 
     if (allSuccess) {
@@ -303,12 +332,25 @@ class GroupsProvider extends ChangeNotifier {
           final jsonData = jsonDecode(rawValue);
           if (jsonData is Map<String, dynamic>) {
             final messageType = jsonData['type'] as String?;
+            
+            // Get current atSign for filtering
+            final currentAtSign = AtTalkService.instance.currentAtSign;
 
             // Handle special message types first
             if (messageType == 'groupRename') {
+              // Skip processing our own rename notifications to prevent duplicate groups
+              if (fromAtSign == currentAtSign) {
+                print('🚫 Ignoring rename notification from ourselves');
+                return;
+              }
               _handleGroupRename(jsonData);
               return;
             } else if (messageType == 'groupMembershipChange') {
+              // Skip processing our own membership change notifications
+              if (fromAtSign == currentAtSign) {
+                print('🚫 Ignoring membership change notification from ourselves');
+                return;
+              }
               _handleGroupMembershipChange(jsonData);
               return;
             }
@@ -323,10 +365,11 @@ class GroupsProvider extends ChangeNotifier {
             );
 
             // Filter out messages from our own GUI instance to prevent self-chat
-            final currentAtSign = AtTalkService.instance.currentAtSign;
             final ourInstanceId = AtTalkService.instance.instanceId;
+            
+            // Legacy check: filter out messages using old instanceId matching 
             if (fromAtSign == currentAtSign && instanceId == ourInstanceId) {
-              print('🚫 Ignoring message from our own instance: $instanceId');
+              print('🚫 Ignoring message from our own instance (legacy check): $instanceId');
               return;
             }
 
@@ -341,7 +384,6 @@ class GroupsProvider extends ChangeNotifier {
               print('Current groups: ${_groups.keys.toList()}');
 
               // Use TUI-compatible session finding and generation logic
-              final currentAtSign = AtTalkService.instance.currentAtSign;
               if (currentAtSign == null) {
                 print('❌ No current atSign - cannot process message');
                 return;
@@ -349,25 +391,17 @@ class GroupsProvider extends ChangeNotifier {
 
               // Use TUI logic to determine session key
               String sessionKey;
-              if (!isGroupMessage &&
-                  groupMembers.length == 2 &&
-                  groupMembers.contains(currentAtSign)) {
-                // Individual chat: use the other person's atSign as the key (TUI style)
-                sessionKey = groupMembers.firstWhere((p) => p != currentAtSign);
-                print(
-                  '📱 Individual chat session key: $sessionKey (TUI-compatible)',
-                );
-              } else if (groupMembers.length == 1 &&
+              if (groupMembers.length == 1 &&
                   groupMembers.first == currentAtSign) {
                 // Self-chat session
                 sessionKey = currentAtSign;
                 print('📱 Self-chat session key: $sessionKey');
               } else {
-                // Group chat: use comma-separated sorted list (TUI style)
+                // All groups: use comma-separated sorted list (consistent format)
                 final sortedParticipants = groupMembers.toList()..sort();
                 sessionKey = sortedParticipants.join(',');
                 print(
-                  '👥 Group chat session key: $sessionKey (TUI-compatible)',
+                  '📱 Group session key: $sessionKey (consistent format)',
                 );
               }
 
@@ -494,16 +528,14 @@ class GroupsProvider extends ChangeNotifier {
               );
               return; // Don't process ambiguous own messages
             } else {
-              // Message from someone else - use TUI-compatible group creation
+              // Message from someone else - use consistent group ID format
               groupMembers = {fromAtSign, currentAtSign};
               print('📱 1-on-1 members for incoming message: $groupMembers');
 
-              // Use TUI-compatible session key generation
+              // Use consistent session key generation (comma-separated sorted list)
               final sortedParticipants = groupMembers.toList()..sort();
-              final sessionKey = sortedParticipants.firstWhere(
-                (p) => p != currentAtSign,
-              );
-              print('📱 TUI-compatible session key: $sessionKey');
+              final sessionKey = sortedParticipants.join(',');
+              print('📱 Consistent session key: $sessionKey');
 
               // Check if a group already exists for these members
               final existingGroup = _findGroupByMembers(groupMembers);
@@ -513,10 +545,10 @@ class GroupsProvider extends ChangeNotifier {
                   '✅ Using existing 1-on-1 chat: ${existingGroup.id} for members: ${existingGroup.members}',
                 );
               } else {
-                groupId = sessionKey; // Use TUI-compatible key
+                groupId = sessionKey; // Use consistent key format
                 createOrUpdateGroup(groupMembers, instanceId: groupId);
                 print(
-                  '🆕 Created new 1-on-1 chat: $groupId for members: $groupMembers (TUI-compatible)',
+                  '🆕 Created new 1-on-1 chat: $groupId for members: $groupMembers (consistent format)',
                 );
               }
             }
@@ -542,16 +574,53 @@ class GroupsProvider extends ChangeNotifier {
             timestamp: DateTime.now(),
             isFromMe: isFromCurrentUser,
           );
+          print('📨 Created ChatMessage from notification: ID=${chatMessage.id}, text="$message", fromAtSign=$fromAtSign, isFromMe=$isFromCurrentUser, timestamp=${chatMessage.timestamp}');
 
           // Check if we already have a message with this exact ID to avoid duplicates
-          // This is much more reliable than text/timestamp-based detection
+          // For messages from current user, also check for content-based duplicates
           bool isDuplicate = false;
 
           // Check the target group first
           final existingMessages = _groupMessages[groupId] ?? [];
+          
+          print('🔍 Duplicate check for groupId: $groupId');
+          print('   Current groups with same members:');
+          if (currentAtSign != null) {
+            final messageGroupMembers = {fromAtSign, currentAtSign};
+            for (final entry in _groups.entries) {
+              final group = entry.value;
+              if (group.members.length == messageGroupMembers.length &&
+                  group.members.containsAll(messageGroupMembers)) {
+                print('     - Group ${entry.key}: ${group.members} (${_groupMessages[entry.key]?.length ?? 0} messages)');
+              }
+            }
+          }
+          
+          // First check for exact ID match (for messages from other users)
           isDuplicate = existingMessages.any(
             (existingMsg) => existingMsg.id == chatMessage.id,
           );
+          
+          // For messages from current user, also check for content-based duplicates
+          // (since we add our own messages immediately and they get different IDs when received back)
+          if (!isDuplicate && isFromCurrentUser) {
+            final now = DateTime.now();
+            print('🔍 Checking for content-based duplicates in ${existingMessages.length} messages for: "$message"');
+            
+            for (final existingMsg in existingMessages) {
+              if (existingMsg.text == message &&
+                  existingMsg.fromAtSign == fromAtSign &&
+                  existingMsg.isFromMe == true) {
+                final timeDiff = now.difference(existingMsg.timestamp).inSeconds;
+                print('🕐 Found matching message with time diff: ${timeDiff}s');
+                if (timeDiff < 30) {
+                  isDuplicate = true;
+                  print('🚫 Content-based duplicate detected: "$message" from $fromAtSign (time diff: ${timeDiff}s)');
+                  break;
+                }
+              }
+            }
+          }
 
           // If from current user, also check all other groups in case of misrouting
           if (!isDuplicate && isFromCurrentUser) {
@@ -573,8 +642,17 @@ class GroupsProvider extends ChangeNotifier {
           }
 
           if (!isDuplicate) {
+            // Before adding the message, check if we need to consolidate groups
+            // If there are multiple groups with the same members, consolidate to the canonical one
+            final canonicalGroupId = _getOrCreateCanonicalGroup(groupId, fromAtSign, currentAtSign);
+            
+            if (canonicalGroupId != groupId) {
+              print('🔀 Consolidating message to canonical group: $canonicalGroupId (was: $groupId)');
+              groupId = canonicalGroupId;
+            }
+            
             addMessageToGroup(groupId, chatMessage);
-            print('✅ Message added successfully to UI');
+            print('✅ Message added successfully to UI (group: $groupId)');
           } else {
             print('⚠️ Skipped duplicate message from ourselves');
           }
@@ -648,9 +726,8 @@ class GroupsProvider extends ChangeNotifier {
     return bestMatch;
   }
 
-  /// Generates group ID using TUI-compatible logic with UUID support:
-  /// - For individual chats (2 participants): Use the other person's atSign as the key
-  /// - For group chats (3+ participants): Use comma-separated sorted participant list
+  /// Generates group ID using consistent logic for all group sizes:
+  /// - Use comma-separated sorted participant list for all groups
   /// - Add timestamp suffix for disambiguation if needed
   /// - Use UUIDs for new group creation to prevent overwrites
   String _generateTUICompatibleGroupId(
@@ -658,25 +735,15 @@ class GroupsProvider extends ChangeNotifier {
     bool forceUniqueForGroup = false,
   }) {
     final sortedMembers = members.toList()..sort();
-    final currentAtSign = AtTalkService.instance.currentAtSign;
+    
+    // Use comma-separated sorted list for all groups (consistent approach)
+    String groupId = sortedMembers.join(',');
+    print('🔑 Generated group ID: $groupId (${members.length} members)');
 
-    String groupId;
-
-    if (sortedMembers.length == 2 && sortedMembers.contains(currentAtSign)) {
-      // Individual chat: use the other person's atSign as the key (TUI style)
-      groupId = sortedMembers.firstWhere((m) => m != currentAtSign);
-      print('🔑 Generated individual chat ID: $groupId (TUI-compatible)');
-    } else {
-      // Group chat: use comma-separated sorted list (TUI style)
-      groupId = sortedMembers.join(',');
-      print('🔑 Generated group chat ID: $groupId (TUI-compatible)');
-
-      // For group chats, if we're forcing uniqueness (like when creating a NEW group),
-      // add timestamp suffix like TUI does
-      if (forceUniqueForGroup || _groups.containsKey(groupId)) {
-        groupId = _generateUniqueGroupId(groupId);
-        print('🔧 Added unique suffix for group ID: $groupId (TUI-style)');
-      }
+    // If we're forcing uniqueness or there's a conflict, add unique suffix
+    if (forceUniqueForGroup || _groups.containsKey(groupId)) {
+      groupId = _generateUniqueGroupId(groupId);
+      print('🔧 Added unique suffix for group ID: $groupId');
     }
 
     // Check if this ID would conflict with an existing group with different members
@@ -691,7 +758,7 @@ class GroupsProvider extends ChangeNotifier {
         print('⚠️ Group ID conflict detected for $groupId');
         print('   Existing members: ${existingGroup.members}');
         print('   New members: $members');
-        // In case of conflict, add a unique suffix (TUI style)
+        // In case of conflict, add a unique suffix
         groupId = _generateUniqueGroupId(groupId);
         print('🔧 Resolved conflict with unique suffix: $groupId');
       }
@@ -721,7 +788,7 @@ class GroupsProvider extends ChangeNotifier {
   }
 
   /// Create a new group with a unique ID (used when explicitly creating groups to avoid overwrites)
-  String createNewGroupWithUniqueId(Set<String> members, {String? name}) {
+  Future<String> createNewGroupWithUniqueId(Set<String> members, {String? name}) async {
     // Force unique ID generation for new groups to prevent overwrites
     final baseId = _generateTUICompatibleGroupId(members);
     final groupId = _generateUniqueGroupId(baseId);
@@ -740,6 +807,22 @@ class GroupsProvider extends ChangeNotifier {
       '🆕 Created new group with guaranteed unique ID: $groupId (${members.length} members)',
     );
     notifyListeners();
+
+    // Notify all other participants about the new group
+    final currentAtSign = AtTalkService.instance.currentAtSign;
+    if (currentAtSign != null) {
+      final otherMembers = members.where((member) => member != currentAtSign);
+      for (String recipient in otherMembers) {
+        await AtTalkService.instance.sendGroupMembershipChange(
+          toAtSign: recipient,
+          groupMembers: members.toList(),
+          groupName: name,
+          groupInstanceId: groupId,
+        );
+        print('📤 Notified $recipient about new group: $groupId');
+      }
+    }
+
     return groupId;
   }
 
@@ -774,19 +857,27 @@ class GroupsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> renameGroup(String groupId, String newName) async {
+  Future<String?> renameGroup(String groupId, String newName) async {
     final group = _groups[groupId];
-    if (group == null) return false;
+    if (group == null) return null;
 
     try {
-      // Update local group name
+      // Simply update the group name - no special handling needed
       _groups[groupId] = group.copyWith(name: newName);
       notifyListeners();
 
-      // Notify all group members about the rename
-      final recipients = group.members.toList();
-      bool allSuccess = true;
+      // Notify other group members about the rename (exclude self)
+      final currentAtSign = AtTalkService.instance.currentAtSign;
+      if (currentAtSign == null) return null;
 
+      final recipients = group.members
+          .where((member) => member != currentAtSign)
+          .toList();
+
+      print('📝 Renaming group $groupId to "$newName"');
+      print('   Recipients: $recipients');
+
+      bool allSuccess = true;
       for (String recipient in recipients) {
         final success = await AtTalkService.instance.sendGroupRename(
           toAtSign: recipient,
@@ -797,10 +888,10 @@ class GroupsProvider extends ChangeNotifier {
         if (!success) allSuccess = false;
       }
 
-      return allSuccess;
+      return allSuccess ? groupId : null;
     } catch (e) {
       print('Error renaming group: $e');
-      return false;
+      return null;
     }
   }
 
@@ -856,20 +947,53 @@ class GroupsProvider extends ChangeNotifier {
       final instanceId = jsonData['instanceId'] as String?;
       final fromAtSign = jsonData['from'] as String?;
 
-      if (groupMembers.isEmpty) return;
+      if (groupMembers.isEmpty || instanceId == null) return;
 
       String? groupId;
 
-      // Try to find group by instance ID first
-      if (instanceId != null && _groups.containsKey(instanceId)) {
+      // Try to find group by exact instance ID first
+      if (_groups.containsKey(instanceId)) {
         groupId = instanceId;
+        print('✅ Found group by exact instanceId: $instanceId');
       } else {
-        // Fall back to finding by members
+        // Try to find group by members
         final existingGroup = _findGroupByMembers(groupMembers.toSet());
-        groupId = existingGroup?.id;
+        if (existingGroup != null) {
+          groupId = existingGroup.id;
+          print('✅ Found group by members: $groupId for instanceId: $instanceId');
+        } else {
+          // Try to find group by base session key (without timestamp suffix)
+          // This handles cases where GUI created groups with unique IDs but TUI uses base keys
+          final baseSessionKey = groupMembers.toSet().toList()..sort();
+          final expectedBaseId = baseSessionKey.join(',');
+          
+          // Look for any group whose ID starts with the expected base ID
+          for (final entry in _groups.entries) {
+            final existingId = entry.key;
+            final existingGroup = entry.value;
+            
+            // Check if this group ID is based on the expected session key
+            if (existingId.startsWith(expectedBaseId)) {
+              // Verify the members match exactly to ensure it's the right group
+              if (existingGroup.members.length == groupMembers.length &&
+                  existingGroup.members.containsAll(groupMembers)) {
+                groupId = existingId;
+                print('✅ Found group by base session key match: $groupId for instanceId: $instanceId');
+                break;
+              }
+            }
+          }
+          
+          if (groupId == null) {
+            // As a last resort, create new group with the provided instance ID
+            print('🆕 Creating new group for rename with instanceId: $instanceId');
+            createOrUpdateGroup(groupMembers.toSet(), instanceId: instanceId);
+            groupId = instanceId;
+          }
+        }
       }
 
-      if (groupId != null && _groups.containsKey(groupId)) {
+      if (_groups.containsKey(groupId)) {
         final group = _groups[groupId]!;
         _groups[groupId] = group.copyWith(name: newGroupName);
 
@@ -892,7 +1016,33 @@ class GroupsProvider extends ChangeNotifier {
         addMessageToGroup(groupId, systemMessage);
 
         notifyListeners();
-        print('Group $groupId renamed to "$displayName" by $fromAtSign');
+        print('✅ Group $groupId renamed to "$displayName" by $fromAtSign');
+        print('   Original instanceId from TUI: $instanceId');
+        
+        // Debug: Check for multiple groups with same members after rename
+        print('🔍 Post-rename group check:');
+        final renamedGroupMembers = groupMembers.toSet();
+        for (final entry in _groups.entries) {
+          final group = entry.value;
+          if (group.members.length == renamedGroupMembers.length &&
+              group.members.containsAll(renamedGroupMembers)) {
+            print('   - Group ${entry.key}: name="${group.name}", messages=${_groupMessages[entry.key]?.length ?? 0}');
+          }
+        }
+        
+        // Debug: If the group ID we found is different from the instanceId,
+        // this indicates a potential ID mismatch issue
+        if (groupId != instanceId) {
+          print('⚠️ Group ID mismatch detected:');
+          print('   TUI sent instanceId: $instanceId');
+          print('   GUI found group with ID: $groupId');
+          print('   This may cause message routing issues');
+        }
+      } else {
+        print('⚠️ Could not find group for rename operation:');
+        print('   Instance ID: $instanceId');
+        print('   Group members: $groupMembers');
+        print('   Available groups: ${_groups.keys.toList()}');
       }
     } catch (e) {
       print('Error handling group rename: $e');
@@ -1054,5 +1204,152 @@ class GroupsProvider extends ChangeNotifier {
     } catch (e) {
       print('Error handling group membership change: $e');
     }
+  }
+
+  /// Get or create the canonical group for a set of members
+  /// This helps consolidate multiple groups with identical members into one
+  String _getOrCreateCanonicalGroup(String suggestedGroupId, String fromAtSign, String? currentAtSign) {
+    if (currentAtSign == null) return suggestedGroupId;
+    
+    // Determine the members for this conversation
+    final members = {fromAtSign, currentAtSign};
+    
+    // Find all groups with these exact members
+    final matchingGroups = <String, Group>{};
+    for (final entry in _groups.entries) {
+      final group = entry.value;
+      if (group.members.length == members.length &&
+          group.members.containsAll(members)) {
+        matchingGroups[entry.key] = group;
+      }
+    }
+    
+    if (matchingGroups.length <= 1) {
+      // No consolidation needed
+      return suggestedGroupId;
+    }
+    
+    print('🔍 Found ${matchingGroups.length} groups with identical members: $members');
+    
+    // Choose the canonical group - prefer:
+    // 1. The suggested group ID if it exists
+    // 2. The base session key (no timestamp suffix)
+    // 3. The group with the most messages
+    // 4. The group with the most recent activity
+    
+    String? canonicalGroupId;
+    
+    // Strategy 1: Use suggested group if it's one of the matching groups
+    if (matchingGroups.containsKey(suggestedGroupId)) {
+      canonicalGroupId = suggestedGroupId;
+      print('   Using suggested group as canonical: $canonicalGroupId');
+    } else {
+      // Strategy 2: Prefer base session key format (no timestamp suffix)
+      final baseSessionKey = members.toList()..sort();
+      final expectedBaseId = baseSessionKey.join(',');
+      
+      if (matchingGroups.containsKey(expectedBaseId)) {
+        canonicalGroupId = expectedBaseId;
+        print('   Using base session key as canonical: $canonicalGroupId');
+      } else {
+        // Strategy 3: Choose group with most messages, then most recent activity
+        String? bestGroupId;
+        int maxMessages = -1;
+        DateTime? mostRecentActivity;
+        
+        for (final entry in matchingGroups.entries) {
+          final groupId = entry.key;
+          final group = entry.value;
+          final messageCount = _groupMessages[groupId]?.length ?? 0;
+          
+          bool isBetter = false;
+          
+          if (messageCount > maxMessages) {
+            isBetter = true;
+          } else if (messageCount == maxMessages) {
+            if (group.lastMessageTime != null) {
+              if (mostRecentActivity == null || group.lastMessageTime!.isAfter(mostRecentActivity)) {
+                isBetter = true;
+              }
+            }
+          }
+          
+          if (isBetter) {
+            bestGroupId = groupId;
+            maxMessages = messageCount;
+            mostRecentActivity = group.lastMessageTime;
+          }
+        }
+        
+        canonicalGroupId = bestGroupId ?? matchingGroups.keys.first;
+        print('   Using group with most activity as canonical: $canonicalGroupId (${maxMessages} messages)');
+      }
+    }
+    
+    // If we chose a different group than suggested, consolidate messages
+    if (canonicalGroupId != suggestedGroupId) {
+      _consolidateGroupMessages(matchingGroups, canonicalGroupId);
+    }
+    
+    return canonicalGroupId;
+  }
+  
+  /// Consolidate messages from multiple groups with identical members into the canonical group
+  void _consolidateGroupMessages(Map<String, Group> matchingGroups, String canonicalGroupId) {
+    print('🔀 Consolidating ${matchingGroups.length} groups into canonical group: $canonicalGroupId');
+    
+    final canonicalGroup = matchingGroups[canonicalGroupId];
+    if (canonicalGroup == null) return;
+    
+    // Collect all messages from non-canonical groups
+    final allMessages = <ChatMessage>[];
+    final canonicalMessages = _groupMessages[canonicalGroupId] ?? [];
+    allMessages.addAll(canonicalMessages);
+    
+    for (final entry in matchingGroups.entries) {
+      final groupId = entry.key;
+      
+      if (groupId != canonicalGroupId) {
+        final messages = _groupMessages[groupId] ?? [];
+        print('   Moving ${messages.length} messages from group $groupId');
+        
+        // Add messages that aren't already in the canonical group
+        for (final message in messages) {
+          // Check for duplicate by content and timestamp (more robust than ID)
+          final isDuplicate = allMessages.any((existing) =>
+            existing.text == message.text &&
+            existing.fromAtSign == message.fromAtSign &&
+            existing.timestamp.difference(message.timestamp).abs().inSeconds < 5
+          );
+          
+          if (!isDuplicate) {
+            allMessages.add(message);
+          }
+        }
+        
+        // Remove the non-canonical group
+        _groups.remove(groupId);
+        _groupMessages.remove(groupId);
+        print('   Removed duplicate group: $groupId');
+      }
+    }
+    
+    // Sort all messages by timestamp
+    allMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    
+    // Update the canonical group with all messages
+    _groupMessages[canonicalGroupId] = allMessages;
+    
+    // Update group metadata based on the latest message
+    if (allMessages.isNotEmpty) {
+      final latestMessage = allMessages.last;
+      _groups[canonicalGroupId] = canonicalGroup.copyWith(
+        lastMessage: latestMessage.text,
+        lastMessageTime: latestMessage.timestamp,
+      );
+    }
+    
+    print('   Consolidated to ${allMessages.length} total messages in $canonicalGroupId');
+    notifyListeners();
   }
 }

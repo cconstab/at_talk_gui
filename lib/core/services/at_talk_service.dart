@@ -198,12 +198,16 @@ class AtTalkService {
       if (currentUser == null) return false;
 
       final actualGroupMembers = groupMembers ?? [currentUser, toAtSign];
+      
+      // Generate consistent session key to match TUI behavior
+      final sortedParticipants = actualGroupMembers.toSet().toList()..sort();
+      final sessionKey = sortedParticipants.join(',');
+      
       final messageData = {
         'msg': message,
         'isGroup': false,
-        'group':
-            actualGroupMembers, // Use provided group members or default to sender+recipient
-        'instanceId': _instanceId,
+        'group': actualGroupMembers, 
+        'instanceId': sessionKey, // Use group session key, not app instance ID
         'from': currentUser,
       };
 
@@ -271,7 +275,7 @@ class AtTalkService {
         'msg': message,
         'isGroup': true,
         'group': groupMembers,
-        'instanceId': _instanceId, // Use this instance's ID
+        'instanceId': groupInstanceId, // Use the passed group session key, not app instance ID
         'from': currentAtSign,
         if (groupName != null && groupName.isNotEmpty) 'groupName': groupName,
       };

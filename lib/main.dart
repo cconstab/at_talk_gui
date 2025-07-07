@@ -155,17 +155,18 @@ class _AtTalkAppState extends State<AtTalkApp>
       child: MaterialApp(
         title: 'AtTalk GUI',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2196F3),
-            brightness: Brightness.light,
-          ).copyWith(
-            surface: const Color(0xFFFAFBFF),
-            surfaceVariant: const Color(0xFFF4F6FA),
-            primary: const Color(0xFF2196F3),
-            primaryContainer: const Color(0xFFE3F2FD),
-            secondary: const Color(0xFF00BCD4),
-            tertiary: const Color(0xFF9C27B0),
-          ),
+          colorScheme:
+              ColorScheme.fromSeed(
+                seedColor: const Color(0xFF2196F3),
+                brightness: Brightness.light,
+              ).copyWith(
+                surface: const Color(0xFFFAFBFF),
+                surfaceVariant: const Color(0xFFF4F6FA),
+                primary: const Color(0xFF2196F3),
+                primaryContainer: const Color(0xFFE3F2FD),
+                secondary: const Color(0xFF00BCD4),
+                tertiary: const Color(0xFF9C27B0),
+              ),
           useMaterial3: true,
           typography: Typography.material2021(),
           appBarTheme: const AppBarTheme(
@@ -198,10 +199,7 @@ class _AtTalkAppState extends State<AtTalkApp>
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF2196F3),
-                width: 2,
-              ),
+              borderSide: const BorderSide(color: Color(0xFF2196F3), width: 2),
             ),
           ),
         ),

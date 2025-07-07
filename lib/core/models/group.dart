@@ -24,25 +24,31 @@ class Group {
       return name!;
     }
 
-    // Generate a name from members
+    // Generate a name from members - treat all groups consistently
     if (members.isEmpty) return 'Empty Group';
     if (members.length == 1) return members.first;
 
-    // For 1-on-1 chats (2 members), show only the other participant
-    if (members.length == 2 && currentAtSign != null) {
-      final otherMembers = members.where((member) => member != currentAtSign);
+    // For any group, show meaningful member display
+    if (currentAtSign != null && members.contains(currentAtSign)) {
+      final otherMembers = members.where((member) => member != currentAtSign).toList();
       if (otherMembers.isNotEmpty) {
-        return otherMembers.first;
+        if (otherMembers.length == 1) {
+          // Two members total: show the other person
+          return otherMembers.first;
+        } else {
+          // Multiple other members: show list
+          return otherMembers.length <= 2 
+            ? otherMembers.join(', ')
+            : '${otherMembers.take(2).join(', ')} +${otherMembers.length - 2}';
+        }
       }
-      // Fallback if current user not found in members
-      return members.join(', ');
     }
 
-    // For 1-on-1 without currentAtSign or groups with more members
-    if (members.length == 2) return members.join(', ');
-
+    // Fallback: show all members
     final membersList = members.toList();
-    return '${membersList.take(2).join(', ')} +${members.length - 2}';
+    return membersList.length <= 3
+        ? membersList.join(', ')
+        : '${membersList.take(3).join(', ')} +${membersList.length - 3}';
   }
 
   Group copyWith({

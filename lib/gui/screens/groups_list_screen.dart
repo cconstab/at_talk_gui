@@ -369,10 +369,12 @@ class _GroupsListScreenWithSidePanelState
 
   void _startOneOnOneChat(String atSign) {
     final normalizedAtSign = atSign.startsWith('@') ? atSign : '@$atSign';
+    // For 2-member groups, we can create them without an explicit name
+    // The Group.getDisplayName() method will handle showing just the other person's name
     _createNewGroup(normalizedAtSign, null);
   }
 
-  void _createNewGroup(String input, String? groupName) {
+  void _createNewGroup(String input, String? groupName) async {
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final currentAtSign = authProvider.currentAtSign;
@@ -398,7 +400,7 @@ class _GroupsListScreenWithSidePanelState
       return;
     }
 
-    final groupId = groupsProvider.createNewGroupWithUniqueId(
+    final groupId = await groupsProvider.createNewGroupWithUniqueId(
       members,
       name: groupName?.isNotEmpty == true ? groupName : null,
     );

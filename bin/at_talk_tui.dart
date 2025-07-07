@@ -957,10 +957,10 @@ Future<void> atTalk(List<String> args) async {
     tui.addSession(groupKey, allParticipants);
     tui.switchSession(groupKey);
   } else {
-    // Individual chat: include both participants for consistency
+    // Individual chat: use consistent comma-separated format like groups
     final individualParticipants = {fromAtsign, participants[0]}.toList()
       ..sort();
-    final sessionKey = participants[0]; // Use the other person's atSign as key
+    final sessionKey = individualParticipants.join(','); // Use consistent format!
     tui.addSession(sessionKey, individualParticipants);
     tui.switchSession(sessionKey);
   }
@@ -1134,23 +1134,10 @@ Future<void> atTalk(List<String> args) async {
               sessionParticipants = group.toSet().toList()..sort();
               sessionKey = sessionParticipants.join(',');
             } else {
-              // Individual chat: use all participants for consistency
+              // Individual chat: use consistent comma-separated format
               sessionParticipants = group.toSet().toList()..sort();
-
-              if (sessionParticipants.length == 2 &&
-                  sessionParticipants.contains(fromAtsign)) {
-                // Standard individual chat: use the other person's atSign as the key
-                sessionKey = sessionParticipants.firstWhere(
-                  (p) => p != fromAtsign,
-                );
-              } else if (sessionParticipants.length == 1 &&
-                  sessionParticipants[0] == fromAtsign) {
-                // Self-chat session
-                sessionKey = fromAtsign;
-              } else {
-                // Fallback: use the sorted participant list
-                sessionKey = sessionParticipants.join(',');
-              }
+              // Always use comma-separated format for consistency with GUI
+              sessionKey = sessionParticipants.join(',');
             }
 
             // Try to find existing session with same participants first
@@ -1255,26 +1242,13 @@ Future<void> atTalk(List<String> args) async {
     final session = tui.sessions[sessionId];
     if (session == null) return;
 
-    // Determine if this is a group chat or individual chat
-    // Individual chats have exactly 2 participants (sender and receiver)
-    // Group chats have 3 or more participants
-    final isGroupChat = session.participants.length > 2;
+    // Send messages to OTHER participants only (exclude self to prevent duplicate messages)
+    final recipients = session.participants
+        .where((atSign) => atSign != fromAtsign)
+        .toList();
 
-    List<String> recipients;
-    List<String> groupForMessage;
-
-    if (isGroupChat) {
-      // Group chat: send to all participants (including self for multi-instance support)
-      recipients = session.participants.toSet().toList()..sort();
-      groupForMessage =
-          recipients; // Include all participants in the message group
-    } else {
-      // Individual chat: send to the other person AND to myself for multi-instance support
-      recipients = session.participants.toSet().toList()
-        ..sort(); // includes both sender and receiver
-      groupForMessage = session.participants.toSet().toList()
-        ..sort(); // Include all participants for consistency
-    }
+    // Use all participants for the group field (for message organization)
+    final groupForMessage = session.participants.toSet().toList()..sort();
 
     for (final atSign in recipients) {
       var metaData = Metadata()
@@ -1291,8 +1265,8 @@ Future<void> atTalk(List<String> args) async {
         'group': groupForMessage,
         'from': fromAtsign,
         'msg': message,
-        'instanceId': instanceId,
-        'isGroup': isGroupChat,
+        'instanceId': sessionId,  // Use the session ID, not the global instance ID
+        'isGroup': session.participants.length > 2,  // Determine if group based on participant count
         'groupName': session.groupName,
       });
       var success = await sendNotification(
@@ -1317,7 +1291,10 @@ Future<void> atTalk(List<String> args) async {
     final session = tui.sessions[sessionId];
     if (session == null) return;
 
+    // Send rename notifications to other participants only (exclude self)
     for (final atSign in session.participants) {
+      if (atSign == fromAtsign) continue; // Skip sending to self
+
       var metaData = Metadata()
         ..isPublic = false
         ..isEncrypted = true
@@ -1333,7 +1310,7 @@ Future<void> atTalk(List<String> args) async {
         'group': session.participants,
         'from': fromAtsign,
         'groupName': newGroupName,
-        'instanceId': instanceId,
+        'instanceId': sessionId,  // Use the session ID, not the global instance ID
       });
       await sendNotification(
         atClient.notificationService,
@@ -1350,7 +1327,9 @@ Future<void> atTalk(List<String> args) async {
         final session = tui.sessions[sessionId];
         if (session == null) return;
 
+        // Send membership change notifications to other participants only (exclude self)
         for (final atSign in participants) {
+          if (atSign == fromAtsign) continue; // Skip sending to self
           var metaData = Metadata()
             ..isPublic = false
             ..isEncrypted = true
@@ -1366,7 +1345,7 @@ Future<void> atTalk(List<String> args) async {
             'group': participants,
             'from': fromAtsign,
             'groupName': groupName,
-            'instanceId': instanceId,
+            'instanceId': sessionId,  // Use the session ID, not the global instance ID
           });
           await sendNotification(
             atClient.notificationService,

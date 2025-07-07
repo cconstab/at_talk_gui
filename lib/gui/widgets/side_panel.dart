@@ -45,10 +45,7 @@ class _SidePanelState extends State<SidePanel> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            colorScheme.surface,
-            colorScheme.surface.withOpacity(0.98),
-          ],
+          colors: [colorScheme.surface, colorScheme.surface.withOpacity(0.98)],
         ),
         border: Border(
           right: BorderSide(
@@ -141,7 +138,9 @@ class _SidePanelState extends State<SidePanel> {
                   child: IconButton(
                     onPressed: widget.onClose,
                     icon: Icon(
-                      widget.selectedGroup != null ? Icons.list_rounded : Icons.close_rounded,
+                      widget.selectedGroup != null
+                          ? Icons.list_rounded
+                          : Icons.close_rounded,
                       color: Colors.white,
                       size: 22,
                     ),
@@ -187,7 +186,9 @@ class _SidePanelState extends State<SidePanel> {
                       ? Padding(
                           padding: const EdgeInsets.all(8),
                           child: Material(
-                            color: colorScheme.onSurfaceVariant.withOpacity(0.1),
+                            color: colorScheme.onSurfaceVariant.withOpacity(
+                              0.1,
+                            ),
                             borderRadius: BorderRadius.circular(8),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(8),
@@ -255,15 +256,19 @@ class _SidePanelState extends State<SidePanel> {
                           Container(
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              color: colorScheme.surfaceVariant.withOpacity(0.3),
+                              color: colorScheme.surfaceVariant.withOpacity(
+                                0.3,
+                              ),
                               borderRadius: BorderRadius.circular(24),
                             ),
                             child: Icon(
-                              _searchQuery.isEmpty 
-                                ? Icons.chat_bubble_outline_rounded 
-                                : Icons.search_off_rounded,
+                              _searchQuery.isEmpty
+                                  ? Icons.chat_bubble_outline_rounded
+                                  : Icons.search_off_rounded,
                               size: 48,
-                              color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                              color: colorScheme.onSurfaceVariant.withOpacity(
+                                0.6,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 20),
@@ -282,7 +287,9 @@ class _SidePanelState extends State<SidePanel> {
                             Text(
                               'Start a new conversation to get started',
                               style: TextStyle(
-                                color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                color: colorScheme.onSurfaceVariant.withOpacity(
+                                  0.7,
+                                ),
                                 fontSize: 14,
                               ),
                               textAlign: TextAlign.center,
@@ -297,7 +304,8 @@ class _SidePanelState extends State<SidePanel> {
                 return ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   itemCount: filteredGroups.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 4),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 4),
                   itemBuilder: (context, index) {
                     final group = filteredGroups[index];
                     final isSelected = widget.selectedGroup?.id == group.id;
@@ -368,8 +376,11 @@ class SidePanelGroupTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: (isSelected ? colorScheme.primary : colorScheme.primary.withOpacity(0.4))
-                            .withOpacity(0.3),
+                        color:
+                            (isSelected
+                                    ? colorScheme.primary
+                                    : colorScheme.primary.withOpacity(0.4))
+                                .withOpacity(0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -381,7 +392,10 @@ class SidePanelGroupTile extends StatelessWidget {
                         ? colorScheme.primary
                         : colorScheme.primary.withOpacity(0.8),
                     child: Text(
-                      group.getDisplayName(currentAtSign).substring(0, 1).toUpperCase(),
+                      group
+                          .getDisplayName(currentAtSign)
+                          .substring(0, 1)
+                          .toUpperCase(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -404,11 +418,13 @@ class SidePanelGroupTile extends StatelessWidget {
                           child: Text(
                             group.getDisplayName(currentAtSign),
                             style: TextStyle(
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
                               fontSize: 15,
-                              color: isSelected 
-                                ? colorScheme.primary 
-                                : colorScheme.onSurface,
+                              color: isSelected
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurface,
                               letterSpacing: 0.2,
                             ),
                             maxLines: 1,
@@ -422,7 +438,9 @@ class SidePanelGroupTile extends StatelessWidget {
                             style: TextStyle(
                               color: group.unreadCount > 0
                                   ? colorScheme.primary
-                                  : colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                  : colorScheme.onSurfaceVariant.withOpacity(
+                                      0.7,
+                                    ),
                               fontSize: 11,
                               fontWeight: group.unreadCount > 0
                                   ? FontWeight.w600
@@ -445,7 +463,8 @@ class SidePanelGroupTile extends StatelessWidget {
                                   style: TextStyle(
                                     color: group.unreadCount > 0
                                         ? colorScheme.onSurface.withOpacity(0.8)
-                                        : colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                        : colorScheme.onSurfaceVariant
+                                              .withOpacity(0.7),
                                     fontWeight: group.unreadCount > 0
                                         ? FontWeight.w500
                                         : FontWeight.normal,
@@ -456,7 +475,8 @@ class SidePanelGroupTile extends StatelessWidget {
                               : Text(
                                   'No messages yet',
                                   style: TextStyle(
-                                    color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                                    color: colorScheme.onSurfaceVariant
+                                        .withOpacity(0.6),
                                     fontSize: 13,
                                     fontStyle: FontStyle.italic,
                                   ),
@@ -465,7 +485,10 @@ class SidePanelGroupTile extends StatelessWidget {
                         if (group.unreadCount > 0) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
@@ -484,7 +507,9 @@ class SidePanelGroupTile extends StatelessWidget {
                             ),
                             constraints: const BoxConstraints(minWidth: 20),
                             child: Text(
-                              group.unreadCount > 99 ? '99+' : group.unreadCount.toString(),
+                              group.unreadCount > 99
+                                  ? '99+'
+                                  : group.unreadCount.toString(),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,

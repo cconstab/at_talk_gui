@@ -17,14 +17,18 @@ class ChatSession {
       return groupName!;
     }
 
-    // For individual chats (2 participants including me), show only the other person
-    if (participants.length == 2 && participants.contains(myAtSign)) {
-      return participants.firstWhere((p) => p != myAtSign);
-    }
-
-    // For group chats or other cases, show all participants except me
+    // For all groups, show participants excluding me
     var others = participants.where((p) => p != myAtSign).toList();
-    return others.isEmpty ? participants.join(', ') : others.join(', ');
+    if (others.isEmpty) {
+      // Fallback: show all participants
+      return participants.join(', ');
+    } else if (others.length == 1) {
+      // Single other participant
+      return others.first;
+    } else {
+      // Multiple other participants
+      return others.join(', ');
+    }
   }
 }
 
@@ -108,17 +112,11 @@ class TuiChatApp {
     return null;
   }
 
-  // Generate session key based on participants
+  // Generate session key based on participants - consistent for all group sizes
   String generateSessionKey(List<String> participants) {
     var sortedParticipants = participants.toSet().toList()..sort();
-    if (sortedParticipants.length == 2 &&
-        sortedParticipants.contains(myAtSign)) {
-      // Individual chat: use the other person's atSign as the key
-      return sortedParticipants.firstWhere((p) => p != myAtSign);
-    } else {
-      // Group chat: use comma-separated sorted list
-      return sortedParticipants.join(',');
-    }
+    // Use comma-separated sorted list for all groups (consistent approach)
+    return sortedParticipants.join(',');
   }
 
   void requestRedraw() {
@@ -617,100 +615,27 @@ class TuiChatApp {
       var newParticipant = _participantsInputBuffer.trim();
       if (!session.participants.contains(newParticipant) &&
           newParticipant != myAtSign) {
-        // Check if this will create a group (3+ participants)
-        if (session.participants.length == 2) {
-          // Converting from individual chat to group - create NEW group session
-          var newParticipants = session.participants.toList()
-            ..add(newParticipant);
+        // Simply add the participant to the existing session
+        session.participants.add(newParticipant);
+        
+        addMessage(
+          activeSession!,
+          '[Added $newParticipant to the chat]',
+          incoming: true,
+        );
 
-          // Create a unique session key for the new group to avoid conflicts
-          var sortedParticipants = newParticipants.toSet().toList()..sort();
-          var timestamp = DateTime.now().millisecondsSinceEpoch;
-          var groupKey = '${sortedParticipants.join(',')}#$timestamp';
+        // Send membership change notifications to all participants
+        onGroupMembershipChange?.call(activeSession!, session.participants, session.groupName);
 
-          // Create the new group session directly
-          sessions[groupKey] = ChatSession(groupKey, newParticipants);
+        // Close the participants panel
+        _showingParticipantsPanel = false;
+        _participantsInputMode = false;
+        _participantsInputBuffer = '';
+        _participantsInputAction = 0;
+        _participantsScroll = 0;
 
-          // Switch to the new group session
-          activeSession = groupKey;
-          windowOffset = sessionList.indexOf(groupKey);
-
-          // Set up for group name prompting for the NEW session
-          _waitingForGroupName = true;
-          _pendingParticipants = newParticipants;
-          _pendingSessionKey = groupKey;
-
-          addMessage(
-            activeSession!,
-            '[Added $newParticipant to the chat]',
-            incoming: true,
-          );
-          addMessage(
-            activeSession!,
-            '[Enter a name for this group (or press Enter for no name):]',
-            incoming: true,
-          );
-
-          // Close the participants panel since we're now in group naming mode
-          _showingParticipantsPanel = false;
-          _participantsInputMode = false;
-          _participantsInputBuffer = '';
-          _participantsInputAction = 0;
-          _participantsScroll = 0;
-
-          requestRedraw();
-          return;
-        } else {
-          // Already a group - add participant and update session key if needed
-          session.participants.add(newParticipant);
-
-          // Check if session key needs to be updated
-          var newSessionKey = generateSessionKey(session.participants);
-          var currentSessionKey = activeSession!;
-
-          if (newSessionKey != currentSessionKey) {
-            // Need to migrate to new session key
-            var groupName = session.groupName;
-            var messages = session.messages.toList();
-
-            // Create new session with updated participants
-            addSession(newSessionKey, session.participants.toList(), groupName);
-            sessions[newSessionKey]!.messages.addAll(messages);
-
-            // Remove old session
-            sessions.remove(currentSessionKey);
-
-            // Switch to new session
-            activeSession = newSessionKey;
-            windowOffset = sessionList.indexOf(newSessionKey);
-          }
-
-          addMessage(
-            activeSession!,
-            '[Added $newParticipant to the chat]',
-            incoming: true,
-          );
-
-          // Notify other participants of the membership change
-          if (onGroupMembershipChange != null) {
-            onGroupMembershipChange!(
-              activeSession!,
-              session.participants.toList(),
-              session.groupName,
-            );
-          }
-
-          // Close the participants panel immediately to avoid Windows terminal state issues
-          _showingParticipantsPanel = false;
-          _participantsInputMode = false;
-          _participantsInputBuffer = '';
-          _participantsInputAction = 0;
-          _participantsScroll = 0;
-
-          // Force a full redraw to ensure terminal state is properly reset on Windows
-          requestRedraw();
-          return;
-        }
+        requestRedraw();
+        return;
       }
     } else if (_participantsInputAction == 3) {
       // Remove participant
@@ -1201,87 +1126,21 @@ class TuiChatApp {
             if (activeSession != null && newParticipant.isNotEmpty) {
               var session = sessions[activeSession!]!;
               if (!session.participants.contains(newParticipant)) {
-                // Check if this will create a group (3+ participants)
-                if (session.participants.length == 2) {
-                  // Converting from individual chat to group
-                  // Create a NEW group session instead of migrating the existing 2-person chat
-                  var newParticipants = session.participants.toList()
-                    ..add(newParticipant);
+                // Simply add the participant to the existing session
+                session.participants.add(newParticipant);
+                
+                addMessage(
+                  activeSession!,
+                  '[Added $newParticipant to the chat]',
+                  incoming: true,
+                );
 
-                  // Create a unique session key for the new group to avoid conflicts
-                  var sortedParticipants = newParticipants.toSet().toList()
-                    ..sort();
-                  var timestamp = DateTime.now().millisecondsSinceEpoch;
-                  var groupKey = '${sortedParticipants.join(',')}#$timestamp';
-
-                  // Create the new group session directly
-                  sessions[groupKey] = ChatSession(groupKey, newParticipants);
-
-                  // Switch to the new group session
-                  activeSession = groupKey;
-                  windowOffset = sessionList.indexOf(groupKey);
-
-                  // Set up for group name prompting for the NEW session
-                  _waitingForGroupName = true;
-                  _pendingParticipants = newParticipants;
-                  _pendingSessionKey =
-                      groupKey; // Use the new group session key
-
-                  addMessage(
-                    activeSession!,
-                    '[Added $newParticipant to the chat]',
-                    incoming: true,
-                  );
-                  addMessage(
-                    activeSession!,
-                    '[Enter a name for this group (or press Enter for no name):]',
-                    incoming: true,
-                  );
-                  requestRedraw();
-                } else {
-                  // Already a group - add participant and update session key if needed
-                  session.participants.add(newParticipant);
-
-                  // Check if session key needs to be updated
-                  var newSessionKey = generateSessionKey(session.participants);
-                  var currentSessionKey = activeSession!;
-
-                  if (newSessionKey != currentSessionKey) {
-                    // Need to migrate to new session key
-                    var groupName = session.groupName;
-                    var messages = session.messages.toList();
-
-                    // Create new session with updated participants
-                    addSession(
-                      newSessionKey,
-                      session.participants.toList(),
-                      groupName,
-                    );
-                    sessions[newSessionKey]!.messages.addAll(messages);
-
-                    // Remove old session
-                    sessions.remove(currentSessionKey);
-
-                    // Switch to new session
-                    activeSession = newSessionKey;
-                    windowOffset = sessionList.indexOf(newSessionKey);
-                  }
-
-                  addMessage(
-                    activeSession!,
-                    '[Added $newParticipant to the chat]',
-                    incoming: true,
-                  );
-
-                  // Notify other participants of the membership change
-                  if (onGroupMembershipChange != null) {
-                    onGroupMembershipChange!(
-                      activeSession!,
-                      session.participants.toList(),
-                      session.groupName,
-                    );
-                  }
-                }
+                // Notify other participants of the membership change
+                onGroupMembershipChange?.call(
+                  activeSession!,
+                  session.participants.toList(),
+                  session.groupName,
+                );
               } else {
                 addMessage(
                   activeSession!,
