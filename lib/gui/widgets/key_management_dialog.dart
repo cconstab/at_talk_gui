@@ -4,6 +4,7 @@ import 'package:at_client_mobile/at_client_mobile.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../../core/utils/atsign_manager.dart';
+import '../../core/services/at_talk_service.dart';
 
 class KeyManagementDialog extends StatefulWidget {
   final String atSign;
@@ -244,30 +245,14 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
     });
 
     try {
-      // Remove from keychain - use resetAtSignFromKeychain for complete cleanup
-      final keyChainManager = KeyChainManager.getInstance();
-      await keyChainManager.resetAtSignFromKeychain(widget.atSign);
-
-      // Remove from local storage
-      final appSupportDir = await getApplicationSupportDirectory();
-      final keysDir = Directory('${appSupportDir.path}/keys');
-
-      if (keysDir.existsSync()) {
-        final keyFiles = keysDir
-            .listSync()
-            .where((file) => file.path.contains(widget.atSign.replaceAll('@', '')))
-            .toList();
-
-        for (final file in keyFiles) {
-          await file.delete();
-        }
-      }
+      // Use comprehensive cleanup for complete removal
+      await AtTalkService.completeAtSignCleanup(widget.atSign);
 
       // Remove from atsign information
       await removeAtsignInformation(widget.atSign);
 
       setState(() {
-        _statusMessage = 'Keys removed successfully. Please restart the app.';
+        _statusMessage = 'Keys and all storage completely removed. Please restart the app.';
       });
     } catch (e) {
       setState(() {

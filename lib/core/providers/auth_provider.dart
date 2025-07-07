@@ -43,8 +43,9 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       // Configure atSign-specific storage before authentication
+      // Always clean up existing AtClient when authenticating a new atSign
       print('🔧 Configuring atSign-specific storage for: $atSign');
-      await AtTalkService.configureAtSignStorage(atSign!);
+      await AtTalkService.configureAtSignStorage(atSign!, cleanupExisting: true);
 
       await AtTalkService.instance.onboard(
         atSign: atSign,
@@ -79,10 +80,11 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       // Configure atSign-specific storage before authentication
+      // Always clean up existing AtClient when switching to a different atSign
       print(
         '🔧 Configuring atSign-specific storage for existing atSign: $atSign',
       );
-      await AtTalkService.configureAtSignStorage(atSign);
+      await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: true);
 
       // Initialize the AtTalkService with the existing atSign
       await AtTalkService.instance.onboard(

@@ -50,6 +50,23 @@ This ensures that after changing the namespace in the GUI:
 - New subscriptions are created with the correct namespace
 - The GUI can receive messages from TUI with the custom namespace
 
+## Additional Fix - AtClient Cleanup for Multiple atSigns
+Fixed the issue where adding a second atSign would immediately look for APKAM instead of going through proper onboarding:
+
+**Root Cause**: When adding a second atSign, the AtClient from the first atSign remained active and wasn't properly cleaned up, causing the onboarding process to expect APKAM instead of performing fresh onboarding.
+
+**Solution**: 
+1. **AtClient Cleanup**: Added `cleanupExisting` parameter to `configureAtSignStorage()` method
+2. **Automatic Detection**: The method now detects when switching to a different atSign and automatically cleans up the existing AtClient
+3. **Onboarding Integration**: Updated onboarding screen and AuthProvider to enable cleanup when authenticating new atSigns
+4. **Namespace Preservation**: Ensured namespace changes don't trigger unnecessary cleanup
+
+This ensures that:
+- Each atSign gets a fresh, clean AtClient environment
+- No residual state from previous atSigns interferes with onboarding
+- Proper storage isolation between different atSigns
+- Correct onboarding flow (CRAM activation) instead of APKAM lookup
+
 ## Files Modified
 - `/Users/cconstab/Documents/GitHub/cconstab/at_talk_gui/lib/core/services/at_talk_service.dart`
   - Fixed `configureAtSignStorage()` namespace assignment

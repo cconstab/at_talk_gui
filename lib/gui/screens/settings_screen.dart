@@ -458,12 +458,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     try {
-      // Remove from keychain first - this is crucial for PKAM authentication
-      final keyChainManager = KeyChainManager.getInstance();
-      await keyChainManager.resetAtSignFromKeychain(atSign);
-      print('Removed $atSign from keychain');
+      // Use comprehensive cleanup for complete removal
+      await AtTalkService.completeAtSignCleanup(atSign);
 
-      // Remove from local storage and atsign information
+      // Remove from atsign information
       await removeAtsignInformation(atSign);
 
       // If we're removing the current atSign, logout

@@ -524,11 +524,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     try {
       // Configure atSign-specific storage before onboarding
+      // Always clean up existing AtClient when onboarding a new atSign
       print(
         '🔧 Configuring atSign-specific storage for CRAM onboarding: $atSign',
       );
       final atClientPreference = await AtTalkService.configureAtSignStorage(
         atSign,
+        cleanupExisting: true,
       );
 
       print('AtClient preference found, proceeding with CRAM onboarding...');
