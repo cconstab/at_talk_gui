@@ -73,18 +73,18 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> authenticateExisting(String atSign) async {
+  Future<void> authenticateExisting(String atSign, {bool cleanupExisting = true}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
       // Configure atSign-specific storage before authentication
-      // Always clean up existing AtClient when switching to a different atSign
+      // For namespace changes, cleanup is already handled by changeNamespace()
       print(
-        '🔧 Configuring atSign-specific storage for existing atSign: $atSign',
+        '🔧 Configuring atSign-specific storage for existing atSign: $atSign (cleanup: $cleanupExisting)',
       );
-      await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: true);
+      await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: cleanupExisting);
 
       // Initialize the AtTalkService with the existing atSign
       await AtTalkService.instance.onboard(

@@ -636,7 +636,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Step 3: If user is authenticated, re-authenticate with new namespace
       if (currentAtSign != null) {
         print('🔄 Re-authenticating $currentAtSign with new namespace...');
-        await authProvider.authenticateExisting(currentAtSign);
+        await authProvider.authenticateExisting(currentAtSign, cleanupExisting: false);
 
         if (!authProvider.isAuthenticated) {
           throw Exception('Failed to re-authenticate with new namespace');
