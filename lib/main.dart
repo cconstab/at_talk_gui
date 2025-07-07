@@ -83,8 +83,7 @@ class AtTalkApp extends StatefulWidget {
   State<AtTalkApp> createState() => _AtTalkAppState();
 }
 
-class _AtTalkAppState extends State<AtTalkApp>
-    with WidgetsBindingObserver, WindowListener {
+class _AtTalkAppState extends State<AtTalkApp> with WidgetsBindingObserver, WindowListener {
   @override
   void initState() {
     super.initState();
@@ -136,8 +135,7 @@ class _AtTalkAppState extends State<AtTalkApp>
     super.didChangeAppLifecycleState(state);
 
     // Cleanup when app is terminated, backgrounded indefinitely, or paused for extended periods
-    if (state == AppLifecycleState.detached ||
-        state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.detached || state == AppLifecycleState.paused) {
       print('🧹 App lifecycle change ($state), cleaning up GUI resources...');
       AtTalkService.instance.cleanup().catchError((e) {
         print('⚠️ Error during lifecycle cleanup: $e');
@@ -153,50 +151,35 @@ class _AtTalkAppState extends State<AtTalkApp>
         ChangeNotifierProvider(create: (_) => GroupsProvider()),
       ],
       child: MaterialApp(
-        title: 'AtTalk GUI',
+        title: 'atTalk',
         theme: ThemeData(
-          colorScheme:
-              ColorScheme.fromSeed(
-                seedColor: const Color(0xFF2196F3),
-                brightness: Brightness.light,
-              ).copyWith(
-                surface: const Color(0xFFFAFBFF),
-                surfaceVariant: const Color(0xFFF4F6FA),
-                primary: const Color(0xFF2196F3),
-                primaryContainer: const Color(0xFFE3F2FD),
-                secondary: const Color(0xFF00BCD4),
-                tertiary: const Color(0xFF9C27B0),
-              ),
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2196F3), brightness: Brightness.light).copyWith(
+            surface: const Color(0xFFFAFBFF),
+            surfaceVariant: const Color(0xFFF4F6FA),
+            primary: const Color(0xFF2196F3),
+            primaryContainer: const Color(0xFFE3F2FD),
+            secondary: const Color(0xFF00BCD4),
+            tertiary: const Color(0xFF9C27B0),
+          ),
           useMaterial3: true,
           typography: Typography.material2021(),
-          appBarTheme: const AppBarTheme(
-            elevation: 0,
-            scrolledUnderElevation: 1,
-            centerTitle: false,
-          ),
+          appBarTheme: const AppBarTheme(elevation: 0, scrolledUnderElevation: 1, centerTitle: false),
           cardTheme: CardThemeData(
             elevation: 2,
             shadowColor: Colors.black.withOpacity(0.1),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
               elevation: 2,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
             fillColor: const Color(0xFFF4F6FA),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFF2196F3), width: 2),
@@ -235,8 +218,7 @@ class _SplashScreenState extends State<SplashScreen> {
     // Note: Storage path will be determined when user authenticates with an atSign
     // For now, use a temporary generic path that will be updated during onboarding
     final dir = await getApplicationSupportDirectory();
-    String storagePath =
-        '${dir.path}/.${AtTalkEnv.namespace}/temp_initialization/storage';
+    String storagePath = '${dir.path}/.${AtTalkEnv.namespace}/temp_initialization/storage';
     String commitLogPath = '$storagePath/commitLog';
     bool usingEphemeral = false;
 
@@ -296,34 +278,18 @@ class _SplashScreenState extends State<SplashScreen> {
             Container(
               width: 100,
               height: 100,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.chat_bubble_outline,
-                size: 50,
-                color: Color(0xFF2196F3),
-              ),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              child: const Icon(Icons.chat_bubble_outline, size: 50, color: Color(0xFF2196F3)),
             ),
             const SizedBox(height: 24),
             const Text(
-              'AtTalk',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+              'atTalk',
+              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Secure Messaging with atSigns',
-              style: TextStyle(fontSize: 16, color: Colors.white70),
-            ),
+            const Text('Secure Messaging with atSigns', style: TextStyle(fontSize: 16, color: Colors.white70)),
             const SizedBox(height: 48),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
+            const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
           ],
         ),
       ),
@@ -336,26 +302,16 @@ void _parseCommandLineArgs(List<String> args) {
   final parser = ArgParser();
 
   // Add namespace option like TUI
-  parser.addOption(
-    'namespace',
-    abbr: 'n',
-    mandatory: false,
-    help: 'Namespace (defaults to default.attalk)',
-  );
+  parser.addOption('namespace', abbr: 'n', mandatory: false, help: 'Namespace (defaults to default.attalk)');
 
-  parser.addFlag(
-    'help',
-    abbr: 'h',
-    help: 'Show this help message',
-    negatable: false,
-  );
+  parser.addFlag('help', abbr: 'h', help: 'Show this help message', negatable: false);
 
   try {
     final parsedArgs = parser.parse(args);
 
     // Check for help flag
     if (parsedArgs['help']) {
-      print('AtTalk GUI - Flutter-based chat for the atPlatform');
+      print('atTalk - Flutter-based chat for the atPlatform');
       print('');
       print(parser.usage);
       exit(0);

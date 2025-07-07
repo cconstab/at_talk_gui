@@ -239,7 +239,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       children: [
                         Text(
-                          'AtTalk GUI',
+                          'atTalk',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
                         ),
                         const SizedBox(height: 4),

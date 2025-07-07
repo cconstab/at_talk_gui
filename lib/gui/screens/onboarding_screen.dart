@@ -68,10 +68,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24.0,
-                      vertical: 16.0,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -82,24 +79,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         Container(
                           width: 120,
                           height: 120,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          child: const Icon(
-                            Icons.chat_bubble_outline,
-                            size: 60,
-                            color: Color(0xFF2196F3),
-                          ),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+                          child: const Icon(Icons.chat_bubble_outline, size: 60, color: Color(0xFF2196F3)),
                         ),
                         const SizedBox(height: 32),
                         const Text(
-                          'Welcome to AtTalk',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                          'atTalk',
+                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
@@ -131,10 +117,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(
-                                      Icons.account_circle,
-                                      color: Color(0xFF2196F3),
-                                    ),
+                                    const Icon(Icons.account_circle, color: Color(0xFF2196F3)),
                                     const SizedBox(width: 8),
                                     const Text(
                                       'Your atSigns',
@@ -153,23 +136,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   return Container(
                                     margin: const EdgeInsets.only(bottom: 8),
                                     child: ListTile(
-                                      leading: const Icon(
-                                        Icons.person,
-                                        color: Color(0xFF2196F3),
-                                      ),
+                                      leading: const Icon(Icons.person, color: Color(0xFF2196F3)),
                                       title: Text(atSign),
-                                      subtitle: Text(
-                                        'Domain: ${_availableAtSigns[atSign]!.rootDomain}',
-                                      ),
-                                      trailing: const Icon(
-                                        Icons.arrow_forward_ios,
-                                        size: 16,
-                                      ),
-                                      onTap: () =>
-                                          _loginWithExistingAtSign(atSign),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
+                                      subtitle: Text('Domain: ${_availableAtSigns[atSign]!.rootDomain}'),
+                                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                      onTap: () => _loginWithExistingAtSign(atSign),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                       tileColor: Colors.grey[50],
                                     ),
                                   );
@@ -190,16 +162,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   width: double.infinity,
                                   height: 56,
                                   child: ElevatedButton.icon(
-                                    onPressed: authProvider.isLoading
-                                        ? null
-                                        : _showOnboardingDialog,
+                                    onPressed: authProvider.isLoading ? null : _showOnboardingDialog,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.white,
                                       foregroundColor: const Color(0xFF2196F3),
                                       elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                     ),
                                     icon: authProvider.isLoading
                                         ? const SizedBox(
@@ -207,25 +175,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                             height: 20,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                    Color(0xFF2196F3),
-                                                  ),
+                                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2196F3)),
                                             ),
                                           )
-                                        : Icon(
-                                            _availableAtSigns.isEmpty
-                                                ? Icons.rocket_launch
-                                                : Icons.person_add,
-                                          ),
+                                        : Icon(_availableAtSigns.isEmpty ? Icons.rocket_launch : Icons.person_add),
                                     label: Text(
-                                      _availableAtSigns.isEmpty
-                                          ? 'Get Started'
-                                          : 'Add New atSign',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      _availableAtSigns.isEmpty ? 'Get Started' : 'Add New atSign',
+                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                                     ),
                                   ),
                                 ),
@@ -234,15 +190,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                                 // Refresh Button
                                 OutlinedButton.icon(
-                                  onPressed: _isLoadingAtSigns
-                                      ? null
-                                      : _loadAvailableAtSigns,
+                                  onPressed: _isLoadingAtSigns ? null : _loadAvailableAtSigns,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.white,
                                     side: const BorderSide(color: Colors.white),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
                                   icon: _isLoadingAtSigns
                                       ? const SizedBox(
@@ -250,10 +202,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                           height: 16,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  Colors.white,
-                                                ),
+                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                           ),
                                         )
                                       : const Icon(Icons.refresh, size: 18),
@@ -273,35 +222,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             decoration: BoxDecoration(
                               color: Colors.red.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.red.withOpacity(0.3),
-                              ),
+                              border: Border.all(color: Colors.red.withOpacity(0.3)),
                             ),
                             child: Row(
                               children: [
-                                const Icon(
-                                  Icons.error_outline,
-                                  color: Colors.red,
-                                  size: 20,
-                                ),
+                                const Icon(Icons.error_outline, color: Colors.red, size: 20),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    _errorMessage!,
-                                    style: const TextStyle(
-                                      color: Colors.red,
-                                      fontSize: 14,
-                                    ),
-                                  ),
+                                  child: Text(_errorMessage!, style: const TextStyle(color: Colors.red, fontSize: 14)),
                                 ),
                                 IconButton(
-                                  onPressed: () =>
-                                      setState(() => _errorMessage = null),
-                                  icon: const Icon(
-                                    Icons.close,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
+                                  onPressed: () => setState(() => _errorMessage = null),
+                                  icon: const Icon(Icons.close, color: Colors.red, size: 20),
                                 ),
                               ],
                             ),
@@ -317,34 +249,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.red.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.red.withOpacity(0.3),
-                                  ),
+                                  border: Border.all(color: Colors.red.withOpacity(0.3)),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(
-                                      Icons.error_outline,
-                                      color: Colors.red,
-                                      size: 20,
-                                    ),
+                                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
                                         authProvider.errorMessage!,
-                                        style: const TextStyle(
-                                          color: Colors.red,
-                                          fontSize: 14,
-                                        ),
+                                        style: const TextStyle(color: Colors.red, fontSize: 14),
                                       ),
                                     ),
                                     IconButton(
                                       onPressed: authProvider.clearError,
-                                      icon: const Icon(
-                                        Icons.close,
-                                        color: Colors.red,
-                                        size: 20,
-                                      ),
+                                      icon: const Icon(Icons.close, color: Colors.red, size: 20),
                                     ),
                                   ],
                                 ),
@@ -361,69 +280,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.3),
-                            ),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Row(
                                 children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
+                                  Icon(Icons.info_outline, color: Colors.white, size: 20),
                                   SizedBox(width: 8),
                                   Text(
                                     'Need an atSign?',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               const Text(
                                 'Visit atsign.com to get your free atSign.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white,
-                                ),
+                                style: TextStyle(fontSize: 14, color: Colors.white),
                               ),
                               const SizedBox(height: 12),
                               const Text(
                                 'Already have an atSign? You can use:',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w500),
                               ),
                               const SizedBox(height: 6),
-                              _buildInfoItem(
-                                '📁',
-                                '.atKeys file from your device or app',
-                              ),
-                              _buildInfoItem(
-                                '📱',
-                                'Authenticator app with OTP verification',
-                              ),
-                              _buildInfoItem(
-                                '🆕',
-                                'CRAM secret for new atSigns',
-                              ),
+                              _buildInfoItem('📁', '.atKeys file from your device or app'),
+                              _buildInfoItem('📱', 'Authenticator app with OTP verification'),
+                              _buildInfoItem('🆕', 'CRAM secret for new atSigns'),
                               const SizedBox(height: 8),
                               const Text(
                                 'Tip: Save your .atKeys file safely - it is your backup!',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white70,
-                                  fontStyle: FontStyle.italic,
-                                ),
+                                style: TextStyle(fontSize: 12, color: Colors.white70, fontStyle: FontStyle.italic),
                               ),
                             ],
                           ),
@@ -457,22 +346,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         print('Authentication failed');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Authentication failed. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
+            const SnackBar(content: Text('Authentication failed. Please try again.'), backgroundColor: Colors.red),
           );
         }
       }
     } catch (e) {
       print('Exception during authentication: ${e.toString()}');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
       }
     }
   }
@@ -493,9 +376,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (parts.length >= 3) {
         final method = parts[0];
         final domain = parts[1];
-        final atSign = parts
-            .sublist(2)
-            .join(':'); // In case atSign contains ':'
+        final atSign = parts.sublist(2).join(':'); // In case atSign contains ':'
 
         if (method == 'onboard') {
           await _startOnboarding(atSign, domain);
@@ -525,13 +406,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     try {
       // Configure atSign-specific storage before onboarding
       // Always clean up existing AtClient when onboarding a new atSign
-      print(
-        '🔧 Configuring atSign-specific storage for CRAM onboarding: $atSign',
-      );
-      final atClientPreference = await AtTalkService.configureAtSignStorage(
-        atSign,
-        cleanupExisting: true,
-      );
+      print('🔧 Configuring atSign-specific storage for CRAM onboarding: $atSign');
+      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: true);
 
       print('AtClient preference found, proceeding with CRAM onboarding...');
 
@@ -563,9 +439,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
           // Save the atSign information for future use
           if (result.atsign != null) {
-            await saveAtsignInformation(
-              AtsignInformation(atSign: result.atsign!, rootDomain: domain),
-            );
+            await saveAtsignInformation(AtsignInformation(atSign: result.atsign!, rootDomain: domain));
             print('Saved atSign information');
           }
 
@@ -579,10 +453,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             print('Authentication failed or widget unmounted');
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Authentication failed. Please try again.'),
-                  backgroundColor: Colors.red,
-                ),
+                const SnackBar(content: Text('Authentication failed. Please try again.'), backgroundColor: Colors.red),
               );
             }
           }
@@ -596,9 +467,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           if (errorMessage.contains('CRAM Secret cannot be null or empty') ||
               errorMessage.contains('CRAM') ||
               errorMessage.contains('already registered')) {
-            print(
-              'AtSign appears to be already registered, suggesting alternatives',
-            );
+            print('AtSign appears to be already registered, suggesting alternatives');
 
             if (mounted) {
               _showAlreadyRegisteredDialog(atSign);
@@ -606,26 +475,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             return;
           }
 
-          if (errorMessage.contains('not found') ||
-              errorMessage.contains('does not exist')) {
+          if (errorMessage.contains('not found') || errorMessage.contains('does not exist')) {
             errorMessage =
                 'This atSign does not exist or is not available for activation.\n\n'
                 'Please check:\n'
                 '• The spelling of your atSign\n'
                 '• That you own this atSign\n'
                 '• Get a new atSign from atsign.com if needed';
-          } else if (errorMessage.contains('network') ||
-              errorMessage.contains('connection')) {
-            errorMessage =
-                'Network connection failed. Please check your internet connection and try again.';
-          } else if (errorMessage.contains('timeout') ||
-              errorMessage.contains('time out')) {
-            errorMessage =
-                'Request timed out. Please check your connection and try again.';
-          } else if (errorMessage.contains('API key') ||
-              errorMessage.contains('unauthorized')) {
-            errorMessage =
-                'API key issue. This may require registrar support for CRAM activation.';
+          } else if (errorMessage.contains('network') || errorMessage.contains('connection')) {
+            errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+          } else if (errorMessage.contains('timeout') || errorMessage.contains('time out')) {
+            errorMessage = 'Request timed out. Please check your connection and try again.';
+          } else if (errorMessage.contains('API key') || errorMessage.contains('unauthorized')) {
+            errorMessage = 'API key issue. This may require registrar support for CRAM activation.';
           } else if (errorMessage.contains('Unknown error')) {
             errorMessage =
                 'Activation failed. This might be because:\n'
@@ -664,21 +526,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     } catch (e) {
       print('Exception during CRAM onboarding: ${e.toString()}');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
       }
     }
   }
 
   // Handle onboarding result for CRAM-based APKAM
-  Future<void> _handleOnboardingResult(
-    AtOnboardingResult result,
-    String domain,
-  ) async {
+  Future<void> _handleOnboardingResult(AtOnboardingResult result, String domain) async {
     print('AtOnboarding.onboard result for APKAM: ${result.status}');
 
     switch (result.status) {
@@ -686,9 +542,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         print('APKAM onboarding successful');
 
         if (result.atsign != null) {
-          await saveAtsignInformation(
-            AtsignInformation(atSign: result.atsign!, rootDomain: domain),
-          );
+          await saveAtsignInformation(AtsignInformation(atSign: result.atsign!, rootDomain: domain));
           print('Saved atSign information');
         }
 
@@ -703,9 +557,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text(
-                  'Authentication failed after APKAM enrollment. Please try again.',
-                ),
+                content: Text('Authentication failed after APKAM enrollment. Please try again.'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -747,9 +599,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'For already-registered atSigns, please use one of these methods:',
-                ),
+                const Text('For already-registered atSigns, please use one of these methods:'),
                 const SizedBox(height: 8),
                 const Text('📁 Upload .atKeys File (Recommended)'),
                 const SizedBox(height: 4),
@@ -777,10 +627,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               },
               child: const Text('Try Different Method'),
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Got it'),
-            ),
+            ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Got it')),
           ],
         );
       },
@@ -805,28 +652,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'New atSign Activation:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
+                Text('New atSign Activation:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 SizedBox(height: 8),
-                Text(
-                  'This method is for activating brand new atSigns that have never been used before.',
-                ),
+                Text('This method is for activating brand new atSigns that have never been used before.'),
                 SizedBox(height: 12),
-                Text(
-                  'Requirements:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                Text('Requirements:', style: TextStyle(fontWeight: FontWeight.bold)),
                 SizedBox(height: 4),
                 Text('• A new, unregistered atSign'),
                 Text('• CRAM secret (provided when you get the atSign)'),
                 Text('• Valid API key (may be required)'),
                 SizedBox(height: 12),
-                Text(
-                  'If this method fails:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                Text('If this method fails:', style: TextStyle(fontWeight: FontWeight.bold)),
                 SizedBox(height: 4),
                 Text('• The atSign might already be registered'),
                 Text('• Try the ".atKeys File" method instead'),
@@ -835,12 +671,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Got it'),
-            ),
-          ],
+          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Got it'))],
         );
       },
     );
@@ -890,9 +721,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       try {
         keysMap = jsonDecode(fileContents);
       } catch (e) {
-        throw Exception(
-          'The selected file is not a valid .atKeys file (invalid JSON)',
-        );
+        throw Exception('The selected file is not a valid .atKeys file (invalid JSON)');
       }
 
       // Validate required keys are present
@@ -904,12 +733,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'selfEncryptionKey',
       ];
       for (String key in requiredKeys) {
-        if (!keysMap.containsKey(key) ||
-            keysMap[key] == null ||
-            keysMap[key].toString().isEmpty) {
-          throw Exception(
-            'The selected .atKeys file is missing required key: $key',
-          );
+        if (!keysMap.containsKey(key) || keysMap[key] == null || keysMap[key].toString().isEmpty) {
+          throw Exception('The selected .atKeys file is missing required key: $key');
         }
       }
 
@@ -930,10 +755,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           try {
             final List<String> keyData = fileContents.split(',"@');
             if (keyData.length > 1) {
-              final List<String> params = keyData[1]
-                  .toString()
-                  .substring(0, keyData[1].length - 2)
-                  .split('":"');
+              final List<String> params = keyData[1].toString().substring(0, keyData[1].length - 2).split('":"');
               fileAtSign = "@${params[0]}";
             }
           } catch (e) {
@@ -948,9 +770,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       // Normalize both atSigns for comparison
       final normalizedExpected = atSign.startsWith('@') ? atSign : '@$atSign';
-      final normalizedFile = fileAtSign.startsWith('@')
-          ? fileAtSign
-          : '@$fileAtSign';
+      final normalizedFile = fileAtSign.startsWith('@') ? fileAtSign : '@$fileAtSign';
 
       if (normalizedExpected.toLowerCase() != normalizedFile.toLowerCase()) {
         throw Exception(
@@ -961,12 +781,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       print('Validated .atKeys file for $normalizedFile');
 
       // Configure atSign-specific storage before onboarding
-      print(
-        '🔧 Configuring atSign-specific storage for .atKeys upload: $normalizedFile',
-      );
-      final atClientPreference = await AtTalkService.configureAtSignStorage(
-        normalizedFile,
-      );
+      print('🔧 Configuring atSign-specific storage for .atKeys upload: $normalizedFile');
+      final atClientPreference = await AtTalkService.configureAtSignStorage(normalizedFile);
 
       // Create onboarding preference with the specified domain
       final onboardingPreference = AtClientPreference()
@@ -985,8 +801,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // Authenticate using the file contents (PKAM authentication)
       final authStatus = await onboardingService.authenticate(
         normalizedFile,
-        jsonData:
-            fileContents, // This triggers PKAM authentication instead of CRAM
+        jsonData: fileContents, // This triggers PKAM authentication instead of CRAM
       );
 
       print('PKAM authentication result: $authStatus');
@@ -995,9 +810,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         print('PKAM authentication successful for: $normalizedFile');
 
         // Save the atSign information for future use
-        await saveAtsignInformation(
-          AtsignInformation(atSign: normalizedFile, rootDomain: domain),
-        );
+        await saveAtsignInformation(AtsignInformation(atSign: normalizedFile, rootDomain: domain));
         print('Saved atSign information');
 
         print('Authenticating with AuthProvider...');
@@ -1012,9 +825,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text(
-                  'Authentication failed after importing keys. Please try again.',
-                ),
+                content: Text('Authentication failed after importing keys. Please try again.'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -1027,16 +838,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // Provide user-friendly error messages based on status
         switch (authStatus) {
           case AtOnboardingResponseStatus.serverNotReached:
-            errorMessage =
-                'Could not reach the atSign server. Please check your internet connection and try again.';
+            errorMessage = 'Could not reach the atSign server. Please check your internet connection and try again.';
             break;
           case AtOnboardingResponseStatus.authFailed:
-            errorMessage =
-                'Authentication failed. The .atKeys file may be corrupted or invalid.';
+            errorMessage = 'Authentication failed. The .atKeys file may be corrupted or invalid.';
             break;
           case AtOnboardingResponseStatus.timeOut:
-            errorMessage =
-                'Authentication timed out. Please check your internet connection and try again.';
+            errorMessage = 'Authentication timed out. Please check your internet connection and try again.';
             break;
           default:
             errorMessage =
@@ -1045,11 +853,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 8),
-            ),
+            SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 8)),
           );
         }
       }
@@ -1057,37 +861,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       print('Exception during .atKeys upload: ${e.toString()}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error uploading .atKeys file: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error uploading .atKeys file: ${e.toString()}'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
   // Start onboarding using authenticator app (APKAM enrollment flow)
-  Future<void> _startAuthenticatorOnboarding(
-    String atSign,
-    String domain,
-  ) async {
+  Future<void> _startAuthenticatorOnboarding(String atSign, String domain) async {
     if (atSign.isEmpty) {
       print('No atSign provided, cannot start authenticator onboarding');
       return;
     }
 
-    print(
-      'Starting authenticator/APKAM onboarding for: $atSign with domain: $domain',
-    );
+    print('Starting authenticator/APKAM onboarding for: $atSign with domain: $domain');
 
     try {
       // Configure atSign-specific storage before onboarding
-      print(
-        '🔧 Configuring atSign-specific storage for APKAM onboarding: $atSign',
-      );
-      final atClientPreference = await AtTalkService.configureAtSignStorage(
-        atSign,
-      );
+      print('🔧 Configuring atSign-specific storage for APKAM onboarding: $atSign');
+      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign);
 
       // Create a modified preference with the specified domain
       final customPreference = AtClientPreference()
@@ -1103,10 +895,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final result = await showDialog<AtOnboardingResult>(
         context: context,
         barrierDismissible: false,
-        builder: (context) => _ApkamOnboardingDialog(
-          atsign: normalizedAtSign,
-          atClientPreference: customPreference,
-        ),
+        builder: (context) => _ApkamOnboardingDialog(atsign: normalizedAtSign, atClientPreference: customPreference),
       );
 
       if (result != null) {
@@ -1136,12 +925,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
           content: Text(errorMessage),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
+          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK'))],
         );
       },
     );
@@ -1157,10 +941,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Text(emoji, style: const TextStyle(fontSize: 14)),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 14, color: Colors.white),
-            ),
+            child: Text(text, style: const TextStyle(fontSize: 14, color: Colors.white)),
           ),
         ],
       ),
@@ -1178,8 +959,7 @@ class _OnboardingDialog extends StatefulWidget {
 
 class _OnboardingDialogState extends State<_OnboardingDialog> {
   final TextEditingController _atSignController = TextEditingController();
-  String _selectedRootDomain =
-      'root.atsign.org'; // Default to production (non-nullable)
+  String _selectedRootDomain = 'root.atsign.org'; // Default to production (non-nullable)
 
   @override
   void initState() {
@@ -1217,10 +997,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Enter your atSign:',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
+              const Text('Enter your atSign:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               const SizedBox(height: 16),
 
               TextFormField(
@@ -1249,14 +1026,8 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                   helperText: 'Choose your atSign network',
                 ),
                 items: const [
-                  DropdownMenuItem(
-                    value: 'root.atsign.org',
-                    child: Text('Production (root.atsign.org)'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'vip.ve.atsign.zone',
-                    child: Text('VIP (vip.ve.atsign.zone)'),
-                  ),
+                  DropdownMenuItem(value: 'root.atsign.org', child: Text('Production (root.atsign.org)')),
+                  DropdownMenuItem(value: 'vip.ve.atsign.zone', child: Text('VIP (vip.ve.atsign.zone)')),
                 ],
                 onChanged: (value) {
                   setState(() {
@@ -1267,10 +1038,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
 
               const SizedBox(height: 24),
 
-              const Text(
-                'Choose your activation method:',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
+              const Text('Choose your activation method:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
               const Text(
                 'Select the method that matches your situation:',
@@ -1284,24 +1052,14 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                 title: 'New atSign Activation',
                 description: 'Activate a brand new atSign with CRAM secret',
                 color: Colors.blue,
-                enabled:
-                    AtTalkEnv.appApiKey != null &&
-                    AtTalkEnv.appApiKey!.isNotEmpty,
-                warningText:
-                    AtTalkEnv.appApiKey == null || AtTalkEnv.appApiKey!.isEmpty
-                    ? 'Requires API key'
-                    : null,
-                onTap:
-                    _isFormValid &&
-                        AtTalkEnv.appApiKey != null &&
-                        AtTalkEnv.appApiKey!.isNotEmpty
+                enabled: AtTalkEnv.appApiKey != null && AtTalkEnv.appApiKey!.isNotEmpty,
+                warningText: AtTalkEnv.appApiKey == null || AtTalkEnv.appApiKey!.isEmpty ? 'Requires API key' : null,
+                onTap: _isFormValid && AtTalkEnv.appApiKey != null && AtTalkEnv.appApiKey!.isNotEmpty
                     ? () {
                         final atSign = _atSignController.text.startsWith('@')
                             ? _atSignController.text
                             : '@${_atSignController.text}';
-                        Navigator.of(
-                          context,
-                        ).pop('onboard:$_selectedRootDomain:$atSign');
+                        Navigator.of(context).pop('onboard:$_selectedRootDomain:$atSign');
                       }
                     : null,
               ),
@@ -1311,8 +1069,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
               _buildMethodCard(
                 icon: Icons.file_upload,
                 title: 'Upload .atKeys File',
-                description:
-                    'Use existing .atKeys file from your device or downloads',
+                description: 'Use existing .atKeys file from your device or downloads',
                 color: Colors.green,
                 enabled: true,
                 recommendedText: 'Recommended for existing atSigns',
@@ -1321,9 +1078,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                         final atSign = _atSignController.text.startsWith('@')
                             ? _atSignController.text
                             : '@${_atSignController.text}';
-                        Navigator.of(
-                          context,
-                        ).pop('upload:$_selectedRootDomain:$atSign');
+                        Navigator.of(context).pop('upload:$_selectedRootDomain:$atSign');
                       }
                     : null,
               ),
@@ -1333,8 +1088,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
               _buildMethodCard(
                 icon: Icons.smartphone,
                 title: 'Authenticator (APKAM)',
-                description:
-                    'Enroll using OTP from authenticator app or license key (CRAM secret)',
+                description: 'Enroll using OTP from authenticator app or license key (CRAM secret)',
                 color: Colors.orange,
                 enabled: true, // APKAM doesn't require API key
                 onTap: _isFormValid
@@ -1342,9 +1096,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                         final atSign = _atSignController.text.startsWith('@')
                             ? _atSignController.text
                             : '@${_atSignController.text}';
-                        Navigator.of(
-                          context,
-                        ).pop('authenticator:$_selectedRootDomain:$atSign');
+                        Navigator.of(context).pop('authenticator:$_selectedRootDomain:$atSign');
                       }
                     : null,
               ),
@@ -1364,19 +1116,11 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.lightbulb_outline,
-                          size: 16,
-                          color: Colors.blue,
-                        ),
+                        Icon(Icons.lightbulb_outline, size: 16, color: Colors.blue),
                         SizedBox(width: 4),
                         Text(
                           'Need help choosing?',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
                         ),
                       ],
                     ),
@@ -1394,12 +1138,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-      ],
+      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel'))],
     );
   }
 
@@ -1416,14 +1155,8 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: enabled
-              ? color.withValues(alpha: 0.3)
-              : Colors.grey.withValues(alpha: 0.3),
-        ),
-        color: enabled
-            ? color.withValues(alpha: 0.05)
-            : Colors.grey.withValues(alpha: 0.05),
+        border: Border.all(color: enabled ? color.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.3)),
+        color: enabled ? color.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.05),
       ),
       child: Material(
         color: Colors.transparent,
@@ -1449,43 +1182,25 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        description,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: enabled ? Colors.black87 : Colors.grey,
-                        ),
-                      ),
+                      Text(description, style: TextStyle(fontSize: 12, color: enabled ? Colors.black87 : Colors.grey)),
                       if (recommendedText != null) ...[
                         const SizedBox(height: 4),
                         Text(
                           recommendedText,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.green,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w500),
                         ),
                       ],
                       if (warningText != null) ...[
                         const SizedBox(height: 4),
                         Text(
                           warningText,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.orange,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w500),
                         ),
                       ],
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: enabled ? color : Colors.grey,
-                ),
+                Icon(Icons.arrow_forward_ios, size: 16, color: enabled ? color : Colors.grey),
               ],
             ),
           ),
@@ -1500,24 +1215,14 @@ class _ApkamOnboardingDialog extends StatefulWidget {
   final String atsign;
   final AtClientPreference atClientPreference;
 
-  const _ApkamOnboardingDialog({
-    required this.atsign,
-    required this.atClientPreference,
-  });
+  const _ApkamOnboardingDialog({required this.atsign, required this.atClientPreference});
 
   @override
   State<_ApkamOnboardingDialog> createState() => _ApkamOnboardingDialogState();
 }
 
 // Onboarding status enum for APKAM flow
-enum OnboardingStatus {
-  preparing,
-  otpRequired,
-  validatingOtp,
-  pendingApproval,
-  success,
-  denied,
-}
+enum OnboardingStatus { preparing, otpRequired, validatingOtp, pendingApproval, success, denied }
 
 class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
   String get atsign => widget.atsign;
@@ -1604,11 +1309,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       if (sentEnrollRequest != null) {
         if (DateTime.now()
                 .toUtc()
-                .difference(
-                  DateTime.fromMillisecondsSinceEpoch(
-                    sentEnrollRequest.enrollmentSubmissionTimeEpoch,
-                  ),
-                )
+                .difference(DateTime.fromMillisecondsSinceEpoch(sentEnrollRequest.enrollmentSubmissionTimeEpoch))
                 .inHours >=
             48) {
           await _setStateOnStatus(EnrollmentStatus.expired);
@@ -1654,9 +1355,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
     // Wait for a bit to show the error message
     await Future.delayed(const Duration(milliseconds: 3000));
     if (mounted) {
-      Navigator.of(
-        context,
-      ).pop(AtOnboardingResult.error(message: 'Enrollment request denied'));
+      Navigator.of(context).pop(AtOnboardingResult.error(message: 'Enrollment request denied'));
     }
   }
 
@@ -1696,10 +1395,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
     log('About to enroll with $enrollmentRequest');
 
     try {
-      final enrollResponse = await onboardingService.enroll(
-        atsign,
-        enrollmentRequest,
-      );
+      final enrollResponse = await onboardingService.enroll(atsign, enrollmentRequest);
       log('Enroll response: $enrollResponse');
     } on AtException catch (e, st) {
       log('AtException - Error enrolling: $e');
@@ -1716,9 +1412,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
         final errorStr = e.toString();
         if (errorStr.contains('AT0011')) {
           log('Invalid OTP');
-          Navigator.of(
-            context,
-          ).pop(AtOnboardingResult.error(message: 'Invalid OTP'));
+          Navigator.of(context).pop(AtOnboardingResult.error(message: 'Invalid OTP'));
         } else if (errorStr.contains('pending enrollment')) {
           Navigator.of(context).pop(
             AtOnboardingResult.error(
@@ -1726,19 +1420,10 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                   'A previous enrollment request for this atSign is still pending.\n\n• Open your authenticator app and check for any pending requests.\n• Approve or deny the request if you see one.\n• If you do not see a pending request, wait 10–15 minutes for it to expire, then try again.\n• If the problem persists, contact atPlatform support to clear the stuck request.',
             ),
           );
-        } else if (errorStr.contains('duplicate') ||
-            errorStr.contains('already exists')) {
-          Navigator.of(context).pop(
-            AtOnboardingResult.error(
-              message: 'Device name already exists. Please try again.',
-            ),
-          );
+        } else if (errorStr.contains('duplicate') || errorStr.contains('already exists')) {
+          Navigator.of(context).pop(AtOnboardingResult.error(message: 'Device name already exists. Please try again.'));
         } else {
-          Navigator.of(context).pop(
-            AtOnboardingResult.error(
-              message: 'Unknown error during enrollment: $errorStr',
-            ),
-          );
+          Navigator.of(context).pop(AtOnboardingResult.error(message: 'Unknown error during enrollment: $errorStr'));
         }
       }
       return;
@@ -1780,10 +1465,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Your atSign has been successfully enrolled!',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+              Text('Your atSign has been successfully enrolled!', style: TextStyle(fontWeight: FontWeight.w600)),
               SizedBox(height: 12),
               Text('Would you like to save a backup of your atKeys file now?'),
               SizedBox(height: 8),
@@ -1794,14 +1476,8 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Skip'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Save Backup'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Skip')),
+            ElevatedButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save Backup')),
           ],
         );
       },
@@ -1820,10 +1496,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       }
 
       // Find the key file for this atSign
-      final keyFiles = keysDir
-          .listSync()
-          .where((file) => file.path.contains(atsign.replaceAll('@', '')))
-          .toList();
+      final keyFiles = keysDir.listSync().where((file) => file.path.contains(atsign.replaceAll('@', ''))).toList();
 
       if (keyFiles.isEmpty) {
         throw Exception('No key files found for $atsign');
@@ -1845,23 +1518,15 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Keys backed up successfully to ${backupFile.path}',
-              ),
-              backgroundColor: Colors.green,
-            ),
+            SnackBar(content: Text('Keys backed up successfully to ${backupFile.path}'), backgroundColor: Colors.green),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Backup failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Backup failed: ${e.toString()}'), backgroundColor: Colors.red));
       }
     }
   }
@@ -1887,14 +1552,9 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
             OnboardingStatus.preparing => const Column(
               key: Key('preparing'),
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Checking enrollment status...'),
-              ],
+              children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Checking enrollment status...')],
             ),
-            OnboardingStatus.otpRequired ||
-            OnboardingStatus.validatingOtp => SingleChildScrollView(
+            OnboardingStatus.otpRequired || OnboardingStatus.validatingOtp => SingleChildScrollView(
               child: Column(
                 key: const Key('otp'),
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1952,24 +1612,17 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                         return ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             textStyle: const TextStyle(fontSize: 16),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 32,
-                              vertical: 20,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           onPressed:
                               pinController.text.length == _kPinLength &&
-                                  onboardingStatus !=
-                                      OnboardingStatus.validatingOtp
+                                  onboardingStatus != OnboardingStatus.validatingOtp
                               ? () async {
                                   await otpSubmit(pinController.text);
                                 }
                               : null,
-                          child:
-                              onboardingStatus == OnboardingStatus.validatingOtp
+                          child: onboardingStatus == OnboardingStatus.validatingOtp
                               ? const CircularProgressIndicator()
                               : const Text('Submit OTP'),
                         );
@@ -1989,19 +1642,11 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                       children: [
                         const Row(
                           children: [
-                            Icon(
-                              Icons.info_outline,
-                              size: 16,
-                              color: Colors.orange,
-                            ),
+                            Icon(Icons.info_outline, size: 16, color: Colors.orange),
                             SizedBox(width: 4),
                             Text(
                               'Important',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange,
-                              ),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange),
                             ),
                           ],
                         ),
@@ -2010,10 +1655,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                           '• Make sure $atsign is enrolled in your authenticator app\n'
                           '• The OTP changes every 30 seconds\n'
                           '• Enter the current 6-digit code shown in the app',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.black87,
-                          ),
+                          style: const TextStyle(fontSize: 11, color: Colors.black87),
                         ),
                       ],
                     ),
@@ -2029,11 +1671,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                 SizedBox(height: 16),
                 Text(
                   'Waiting for Approval',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.orange,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.orange),
                 ),
                 SizedBox(height: 8),
                 Text(
@@ -2052,11 +1690,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                 SizedBox(height: 16),
                 Text(
                   'Enrollment Approved!',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.green),
                 ),
                 SizedBox(height: 8),
                 Text(
@@ -2074,18 +1708,10 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                 SizedBox(height: 16),
                 Text(
                   'Enrollment Denied',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.red,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.red),
                 ),
                 SizedBox(height: 8),
-                Text(
-                  'The enrollment request was denied.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14),
-                ),
+                Text('The enrollment request was denied.', textAlign: TextAlign.center, style: TextStyle(fontSize: 14)),
               ],
             ),
           },
@@ -2093,32 +1719,21 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       ),
       actions: switch (onboardingStatus) {
         OnboardingStatus.preparing => [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         ],
         OnboardingStatus.otpRequired => [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         ],
         OnboardingStatus.validatingOtp => [],
         OnboardingStatus.pendingApproval => [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         ],
         OnboardingStatus.success => [
           TextButton(
             onPressed: () async {
               // Complete without backup
               if (mounted) {
-                Navigator.of(
-                  context,
-                ).pop(AtOnboardingResult.success(atsign: atsign));
+                Navigator.of(context).pop(AtOnboardingResult.success(atsign: atsign));
               }
             },
             child: const Text('Continue'),
@@ -2131,9 +1746,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                 await _showBackupKeysDialog();
               }
               if (mounted) {
-                Navigator.of(
-                  context,
-                ).pop(AtOnboardingResult.success(atsign: atsign));
+                Navigator.of(context).pop(AtOnboardingResult.success(atsign: atsign));
               }
             },
             child: const Text('Backup & Continue'),
@@ -2142,9 +1755,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
         OnboardingStatus.denied => [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(
-                AtOnboardingResult.error(message: 'Enrollment request denied'),
-              );
+              Navigator.of(context).pop(AtOnboardingResult.error(message: 'Enrollment request denied'));
             },
             child: const Text('Close'),
           ),
