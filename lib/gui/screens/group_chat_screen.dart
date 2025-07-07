@@ -68,91 +68,211 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 1,
         title: Consumer<GroupsProvider>(
           builder: (context, groupsProvider, child) {
             // Get the updated group from the provider
             final updatedGroup =
                 groupsProvider.groups[widget.group.id] ?? widget.group;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            return Row(
               children: [
-                Text(
-                  '${updatedGroup.getDisplayName(currentAtSign)} - ${currentAtSign ?? 'Unknown'}',
+                Hero(
+                  tag: 'avatar_${updatedGroup.id}',
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      child: Text(
+                        updatedGroup.getDisplayName(currentAtSign).substring(0, 1).toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-                Text(
-                  '${updatedGroup.members.length} members',
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        updatedGroup.getDisplayName(currentAtSign),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${updatedGroup.members.length} members',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.8),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             );
           },
         ),
-        backgroundColor: const Color(0xFF2196F3),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Theme.of(context).colorScheme.primary,
+                Theme.of(context).colorScheme.primary.withOpacity(0.8),
+              ],
+            ),
+          ),
+        ),
         foregroundColor: Colors.white,
         leading: widget.onBack != null
-            ? IconButton(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back),
-                tooltip: 'Back to conversations',
+            ? Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: IconButton(
+                  onPressed: widget.onBack,
+                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                  tooltip: 'Back to conversations',
+                  padding: EdgeInsets.zero,
+                ),
               )
             : widget.showMenuButton && widget.onMenuPressed != null
-            ? IconButton(
-                onPressed: widget.onMenuPressed,
-                icon: const Icon(Icons.menu),
-                tooltip: 'Show conversations',
+            ? Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: IconButton(
+                  onPressed: widget.onMenuPressed,
+                  icon: const Icon(Icons.menu_rounded, size: 20),
+                  tooltip: 'Show conversations',
+                  padding: EdgeInsets.zero,
+                ),
               )
             : null,
         automaticallyImplyLeading:
             widget.onBack == null && !widget.showMenuButton,
         actions: [
-          IconButton(
-            onPressed: _showAddMemberDialog,
-            icon: const Icon(Icons.person_add),
-            tooltip: 'Add member',
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: IconButton(
+              onPressed: _showAddMemberDialog,
+              icon: const Icon(Icons.person_add_rounded, size: 20),
+              tooltip: 'Add member',
+              padding: const EdgeInsets.all(8),
+            ),
           ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'rename') {
-                _showRenameGroupDialog();
-              } else if (value == 'info') {
-                _showGroupInfo();
-              } else if (value == 'leave') {
-                _showLeaveGroupDialog();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'rename',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit),
-                    SizedBox(width: 8),
-                    Text('Rename Group'),
-                  ],
-                ),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'rename') {
+                  _showRenameGroupDialog();
+                } else if (value == 'info') {
+                  _showGroupInfo();
+                } else if (value == 'leave') {
+                  _showLeaveGroupDialog();
+                }
+              },
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 20),
+              padding: const EdgeInsets.all(8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              const PopupMenuItem(
-                value: 'info',
-                child: Row(
-                  children: [
-                    Icon(Icons.info),
-                    SizedBox(width: 8),
-                    Text('Group Info'),
-                  ],
+              color: Theme.of(context).colorScheme.surface,
+              elevation: 8,
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'rename',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.edit_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Rename Group',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'leave',
-                child: Row(
-                  children: [
-                    Icon(Icons.exit_to_app, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Leave Group', style: TextStyle(color: Colors.red)),
-                  ],
+                PopupMenuItem(
+                  value: 'info',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Group Info',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                PopupMenuItem(
+                  value: 'leave',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.exit_to_app_rounded,
+                        color: Colors.red.shade400,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Leave Group',
+                        style: TextStyle(
+                          color: Colors.red.shade400,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -209,13 +329,25 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
           // Message input
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Theme.of(context).colorScheme.surface,
+                  Theme.of(context).colorScheme.surface.withOpacity(0.95),
+                ],
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 4,
+                  color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
+                  blurRadius: 12,
+                  offset: const Offset(0, -4),
+                ),
+                BoxShadow(
+                  color: Theme.of(context).colorScheme.shadow.withOpacity(0.05),
+                  blurRadius: 6,
                   offset: const Offset(0, -2),
                 ),
               ],
@@ -223,35 +355,84 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    focusNode: _messageFocusNode,
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                        width: 1.5,
                       ),
                     ),
-                    onSubmitted: (text) => _sendMessage(),
-                    onTap: () {
-                      // User intentionally tapped the text field, ensure focus maintenance is enabled
-                      _shouldMaintainFocus = true;
-                    },
+                    child: TextField(
+                      controller: _messageController,
+                      focusNode: _messageFocusNode,
+                      decoration: InputDecoration(
+                        hintText: 'Type a message...',
+                        hintStyle: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                          fontSize: 15,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      onSubmitted: (text) => _sendMessage(),
+                      onTap: () {
+                        // User intentionally tapped the text field, ensure focus maintenance is enabled
+                        _shouldMaintainFocus = true;
+                      },
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: const Color(0xFF2196F3),
-                  child: IconButton(
-                    onPressed: _sendMessage,
-                    icon: const Icon(Icons.send, color: Colors.white),
+                const SizedBox(width: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Theme.of(context).colorScheme.primary,
+                        Theme.of(context).colorScheme.primary.withOpacity(0.8),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _sendMessage,
+                      borderRadius: BorderRadius.circular(24),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        child: const Icon(
+                          Icons.send_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
