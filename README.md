@@ -1,14 +1,14 @@
 # AtTalk Unified GUI/TUI
 
-A unified messaging application built on the atPlatform that supports both graphical (Flutter) and terminal (CLI) interfaces, sharing the same core business logic for consistent behavior across different environments.
+A modern, responsive messaging application built on the atPlatform with both graphical (Flutter) and terminal (CLI) interfaces. Features a comprehensive side panel navigation system, real-time messaging, and intelligent unread message management.
 
 ## 🌟 Overview
 
-AtTalk is a secure, peer-to-peer messaging application that leverages atSigns for identity and end-to-end encryption. This repository contains a unified codebase that supports:
+AtTalk is a secure, peer-to-peer messaging application that leverages atSigns for identity and end-to-end encryption. This repository contains a unified codebase supporting:
 
-- **GUI Mode**: Full-featured Flutter application with rich UI
-- **TUI Mode**: Terminal-based interface for command-line environments
-- **Shared Core**: Common business logic, models, and services used by both interfaces
+- **GUI Mode**: Full-featured Flutter app with responsive design and side panel navigation
+- **TUI Mode**: Terminal-based interface for command-line environments  
+- **Shared Core**: Common business logic, models, and services for consistent behavior
 
 ## 🏗️ Architecture
 
@@ -37,41 +37,43 @@ bin/
 
 ### Core Features (Both GUI & TUI)
 - ✅ AtSign authentication and key management
+## 🎯 Key Features
+
+### 🖼️ Modern GUI Interface
+- **Responsive Side Panel**: Desktop-style fixed panel, mobile-style sliding overlay
+- **Real-time Navigation**: Instant conversation switching with live updates
+- **Smart Unread Management**: Floating notification badge for unread messages
+- **Smooth Animations**: Hardware-accelerated 300ms transitions
+- **Search & Filter**: Real-time conversation search with multi-field support
+- **Auto-Read Intelligence**: Multi-layer system ensuring accurate unread counts
+- **Material Design 3**: Modern, accessible UI with proper theming
+- **Touch Optimized**: Responsive controls for both desktop and mobile
+- **Visual Onboarding**: Guided setup with AtKeys management
+
+### 💻 Terminal Interface (TUI)  
+- **Full CLI Control**: Complete messaging functionality in terminal
+- **Keyboard Navigation**: Vim-style shortcuts and intuitive controls
+- **Cross-platform**: Works on Windows, macOS, and Linux terminals
+- **Resource Efficient**: Minimal memory footprint for server environments
+- **Signal Handling**: Graceful cleanup on Ctrl+C and SIGTERM
+- **Command Arguments**: Rich CLI options for automation
+
+### � Core Security & Messaging
+- ✅ AtSign authentication with keychain management
+- ✅ End-to-end encryption for all communications
 - ✅ Real-time peer-to-peer messaging
-- ✅ End-to-end encryption
-- ✅ Group messaging and management
-- ✅ Conversation history
-- ✅ Message notifications
-- ✅ Cross-platform support
-- ✅ Multi-instance support with automatic storage conflict resolution
-- ✅ Robust resource cleanup and signal handling
+- ✅ Group messaging with member management
+- ✅ Conversation history with persistent storage
+- ✅ Cross-platform support (Windows, macOS, Linux)
+- ✅ Multi-instance support with conflict resolution
+- ✅ Robust cleanup and signal handling
 
-### GUI-Specific Features
-- 🎨 Modern Material Design interface
-- 📱 Touch-friendly controls
-- 🔐 Visual onboarding flow
-- 👥 Rich group management UI
-- 🔧 AtKeys file management and backup
-- ⚙️ Settings and preferences
-- 🔄 Automatic ephemeral storage fallback for multi-instance scenarios
-
-### TUI-Specific Features
-- 🎨 Colored terminal output
-- ⌨️ Command-line argument parsing
-- 📊 Real-time message streaming
-- 🔧 Multi-session chat management
-- 🔧 Verbose logging options
-- 🌐 Cross-platform terminal support
-- 👥 Interactive group management commands
-- ⚡ Ephemeral storage for one-shot message mode (`-m` flag)
-- 🛡️ Signal handlers for graceful cleanup (Ctrl+C, SIGTERM)
-
-### Platform Compatibility
-- **Windows**: Full support with PowerShell, Command Prompt, or Windows Terminal
-- **macOS/Linux**: Full support with any ANSI-compatible terminal
-- **Input Handling**: Uses Enter key for all panel confirmations (Escape key may not work consistently on Windows)
-- **Terminal Colors**: Automatically adapts to terminal capabilities
-- **Multi-Instance**: Both GUI and TUI can run simultaneously without storage conflicts
+### 📱 Platform Compatibility
+- **Windows**: Full support with PowerShell, Command Prompt, Windows Terminal
+- **macOS/Linux**: Complete compatibility with ANSI-capable terminals
+- **Responsive Design**: Adapts to screen sizes from mobile to ultrawide
+- **Multi-Instance**: GUI and TUI can run simultaneously without conflicts
+- **Performance**: Optimized for 60fps animations and real-time updates
 
 ## 📦 Installation & Setup
 
@@ -388,7 +390,23 @@ This architecture ensures that multiple instances of AtTalk can run simultaneous
 - Maintain consistency between GUI and TUI interfaces
 - Update both interfaces when adding new core features
 
-## 📝 License
+## � Documentation
+
+For comprehensive project documentation, see the [`docs/`](docs/) directory:
+
+- **[docs/README.md](docs/README.md)** - Complete documentation index and navigation guide
+- **[docs/development-history/](docs/development-history/)** - Detailed development history and technical documentation
+- **[doc/api/](doc/api/)** - Generated Dart API documentation
+
+### Key Documentation Files
+
+- **[Side Panel Implementation](docs/development-history/SIDE_PANEL_IMPLEMENTATION.md)** - Modern navigation system design and implementation
+- **[Collaborative Development Story](docs/development-history/COLLABORATIVE_DEVELOPMENT_STORY.md)** - AI-human collaboration process and outcomes
+- **[Unified Architecture](docs/development-history/UNIFIED_ARCHITECTURE.md)** - Overall project architecture and design decisions
+
+For API reference and technical details, browse the auto-generated documentation at [`doc/api/index.html`](doc/api/index.html).
+
+## �📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
