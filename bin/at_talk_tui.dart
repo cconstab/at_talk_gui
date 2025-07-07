@@ -126,9 +126,7 @@ String? getTempDirectory() {
     case 'macos':
       return Platform.environment['TMPDIR'] ?? '/tmp';
     case 'windows':
-      return Platform.environment['TEMP'] ??
-          Platform.environment['TMP'] ??
-          r'C:\Windows\Temp';
+      return Platform.environment['TEMP'] ?? Platform.environment['TMP'] ?? r'C:\Windows\Temp';
     case 'android':
       return '/data/local/tmp';
     case 'ios':
@@ -182,10 +180,7 @@ Future<bool> tryClaimStorage(String storagePath, String instanceId) async {
 
       // Double-check that we're still the only lock after a brief pause
       await Future.delayed(Duration(milliseconds: 100));
-      bool hasOtherLocks = await _hasActiveLocks(
-        storagePath,
-        excludeOurLock: lockFileName,
-      );
+      bool hasOtherLocks = await _hasActiveLocks(storagePath, excludeOurLock: lockFileName);
 
       if (hasOtherLocks) {
         // We lost the race - another process claimed storage
@@ -216,10 +211,7 @@ Future<bool> tryClaimStorage(String storagePath, String instanceId) async {
 }
 
 // Check for active lock files, optionally excluding our own
-Future<bool> _hasActiveLocks(
-  String storagePath, {
-  String? excludeOurLock,
-}) async {
+Future<bool> _hasActiveLocks(String storagePath, {String? excludeOurLock}) async {
   try {
     final directory = Directory(storagePath);
     if (!await directory.exists()) {
@@ -259,8 +251,7 @@ Future<bool> _hasActiveLocks(
 
 // Check if a lock file is one of our app lock files (not a Hive internal lock file)
 bool _isOurAppLockFile(String fileName) {
-  return fileName.startsWith('at_talk_gui_') ||
-      fileName.startsWith('at_talk_tui_');
+  return fileName.startsWith('at_talk_gui_') || fileName.startsWith('at_talk_tui_');
 }
 
 // Check if a specific lock file represents an active process
@@ -273,8 +264,7 @@ Future<bool> _isActiveLock(File lockFile) async {
     final lockContent = await lockFile.readAsString();
     final lockStat = await lockFile.stat();
     final isStale =
-        DateTime.now().difference(lockStat.modified).inSeconds >
-        30; // 30 seconds should be plenty for normal shutdown
+        DateTime.now().difference(lockStat.modified).inSeconds > 30; // 30 seconds should be plenty for normal shutdown
 
     if (lockContent.isEmpty || isStale) {
       // Clean up stale lock
@@ -295,9 +285,7 @@ Future<bool> _isActiveLock(File lockFile) async {
       if (lockData is Map && lockData.containsKey('pid')) {
         final lockPid = lockData['pid'] as int;
         if (!_isProcessRunning(lockPid)) {
-          print(
-            '🧹 Removing lock for dead process $lockPid: ${lockFile.path.split('/').last}',
-          );
+          print('🧹 Removing lock for dead process $lockPid: ${lockFile.path.split('/').last}');
           try {
             await lockFile.delete();
           } catch (e) {
@@ -312,15 +300,11 @@ Future<bool> _isActiveLock(File lockFile) async {
           final processType = lockData['type'] as String?;
           if (processType != null && (processType.contains('at_talk'))) {
             // This is probably a real at_talk process, keep the lock
-            print(
-              '🔒 Active at_talk lock detected: ${lockFile.path.split('/').last}',
-            );
+            print('🔒 Active at_talk lock detected: ${lockFile.path.split('/').last}');
             return true;
           } else {
             // Unknown process type, might be orphaned
-            print(
-              '🧹 Removing lock for unknown process type: ${lockFile.path.split('/').last}',
-            );
+            print('🧹 Removing lock for unknown process type: ${lockFile.path.split('/').last}');
             try {
               await lockFile.delete();
             } catch (e) {
@@ -337,9 +321,7 @@ Future<bool> _isActiveLock(File lockFile) async {
     print('🔒 Active lock detected: ${lockFile.path.split('/').last}');
     return true;
   } catch (e) {
-    print(
-      '🔒 Cannot read lock file, assuming active: ${lockFile.path.split('/').last}',
-    );
+    print('🔒 Cannot read lock file, assuming active: ${lockFile.path.split('/').last}');
     return true; // Assume active on error
   }
 }
@@ -442,47 +424,14 @@ Future<void> atTalk(List<String> args) async {
     help: 'Your atSign\'s atKeys file if not in ~/.atsign/keys/',
   );
   parser.addOption('atsign', abbr: 'a', mandatory: true, help: 'Your atSign');
-  parser.addOption(
-    'toatsign',
-    abbr: 't',
-    mandatory: true,
-    help: 'Talk to this atSign',
-  );
-  parser.addOption(
-    'root-domain',
-    abbr: 'd',
-    mandatory: false,
-    help: 'Root Domain (defaults to root.atsign.org)',
-  );
-  parser.addOption(
-    'namespace',
-    abbr: 'n',
-    mandatory: false,
-    help: 'Namespace (defaults to attalk)',
-  );
-  parser.addOption(
-    'message',
-    abbr: 'm',
-    mandatory: false,
-    help: 'send a message then exit',
-  );
+  parser.addOption('toatsign', abbr: 't', mandatory: true, help: 'Talk to this atSign');
+  parser.addOption('root-domain', abbr: 'd', mandatory: false, help: 'Root Domain (defaults to root.atsign.org)');
+  parser.addOption('namespace', abbr: 'n', mandatory: false, help: 'Namespace (defaults to attalk)');
+  parser.addOption('message', abbr: 'm', mandatory: false, help: 'send a message then exit');
   parser.addFlag('verbose', abbr: 'v', help: 'More logging', negatable: false);
-  parser.addFlag(
-    'never-sync',
-    help: 'Completely disable sync',
-    negatable: false,
-  );
-  parser.addFlag(
-    'ephemeral',
-    help: 'Use ephemeral storage (no offline message persistence)',
-    negatable: false,
-  );
-  parser.addFlag(
-    'help',
-    abbr: 'h',
-    help: 'Show this help message',
-    negatable: false,
-  );
+  parser.addFlag('never-sync', help: 'Completely disable sync', negatable: false);
+  parser.addFlag('ephemeral', help: 'Use ephemeral storage (no offline message persistence)', negatable: false);
+  parser.addFlag('help', abbr: 'h', help: 'Show this help message', negatable: false);
 
   // Check the arguments
   dynamic parsedArgs;
@@ -542,9 +491,7 @@ Future<void> atTalk(List<String> args) async {
 
   AtServiceFactory? atServiceFactory;
   if (parsedArgs['never-sync']) {
-    stdout.writeln(
-      chalk.brightBlue('Creating ServiceFactoryWithNoOpSyncService'),
-    );
+    stdout.writeln(chalk.brightBlue('Creating ServiceFactoryWithNoOpSyncService'));
     atServiceFactory = ServiceFactoryWithNoOpSyncService();
   }
 
@@ -571,17 +518,9 @@ Future<void> atTalk(List<String> args) async {
     downloadPath = '$tempDir/at_talk_tui/$fromAtsign/$uuid/files';
 
     if (message != null) {
-      stdout.writeln(
-        chalk.brightYellow(
-          'Using ephemeral storage for message mode (faster, no conflicts)',
-        ),
-      );
+      stdout.writeln(chalk.brightYellow('Using ephemeral storage for message mode (faster, no conflicts)'));
     } else {
-      stdout.writeln(
-        chalk.brightYellow(
-          'Using ephemeral storage (no offline message persistence)',
-        ),
-      );
+      stdout.writeln(chalk.brightYellow('Using ephemeral storage (no offline message persistence)'));
     }
 
     if (parsedArgs['verbose']) {
@@ -590,37 +529,19 @@ Future<void> atTalk(List<String> args) async {
     }
   } else {
     // Try to claim persistent storage atomically
-    String persistentStoragePath =
-        '$homeDirectory/.$nameSpace/$fromAtsign/storage';
+    String persistentStoragePath = '$homeDirectory/.$nameSpace/$fromAtsign/storage';
 
     if (parsedArgs['verbose']) {
-      stdout.writeln(
-        chalk.gray(
-          'Attempting to claim persistent storage: $persistentStoragePath',
-        ),
-      );
+      stdout.writeln(chalk.gray('Attempting to claim persistent storage: $persistentStoragePath'));
     }
 
-    bool storageClaimed = await tryClaimStorage(
-      persistentStoragePath,
-      instanceId,
-    );
+    bool storageClaimed = await tryClaimStorage(persistentStoragePath, instanceId);
 
     if (!storageClaimed) {
       // Storage claim failed, fall back to ephemeral mode
-      stdout.writeln(
-        chalk.brightYellow(
-          '⚠️  Could not claim persistent storage (another instance may be using it)',
-        ),
-      );
-      stdout.writeln(
-        chalk.brightYellow(
-          '   Automatically using ephemeral storage instead...',
-        ),
-      );
-      stdout.writeln(
-        chalk.gray('   (Offline messages will not persist across sessions)'),
-      );
+      stdout.writeln(chalk.brightYellow('⚠️  Could not claim persistent storage (another instance may be using it)'));
+      stdout.writeln(chalk.brightYellow('   Automatically using ephemeral storage instead...'));
+      stdout.writeln(chalk.gray('   (Offline messages will not persist across sessions)'));
 
       String? tempDir = getTempDirectory();
       storagePath = '$tempDir/at_talk_tui/$fromAtsign/$uuid/storage';
@@ -629,17 +550,13 @@ Future<void> atTalk(List<String> args) async {
 
       if (parsedArgs['verbose']) {
         stdout.writeln(chalk.gray('Ephemeral storage path: $storagePath'));
-        stdout.writeln(
-          chalk.gray('Ephemeral commit log: $storagePath/commitLog'),
-        );
+        stdout.writeln(chalk.gray('Ephemeral commit log: $storagePath/commitLog'));
       }
     } else {
       // Successfully claimed persistent storage
       storagePath = persistentStoragePath;
       downloadPath = '$homeDirectory/.$nameSpace/$fromAtsign/files';
-      stdout.writeln(
-        chalk.brightBlue('✅ Claimed persistent storage for offline messages'),
-      );
+      stdout.writeln(chalk.brightBlue('✅ Claimed persistent storage for offline messages'));
       if (parsedArgs['verbose']) {
         stdout.writeln(chalk.gray('Storage path: $storagePath'));
         stdout.writeln(chalk.gray('Commit log: $storagePath/commitLog'));
@@ -666,16 +583,12 @@ Future<void> atTalk(List<String> args) async {
     atServiceFactory: atServiceFactory,
   );
   bool onboarded = false;
-  bool hasTriedEphemeral =
-      parsedArgs['ephemeral'] ||
-      forcedEphemeral; // Track if we've already tried ephemeral
+  bool hasTriedEphemeral = parsedArgs['ephemeral'] || forcedEphemeral; // Track if we've already tried ephemeral
   Duration retryDuration = Duration(seconds: 3);
   while (!onboarded) {
     try {
       stdout.write(chalk.brightBlue('\r\x1b[KConnecting ... '));
-      await Future.delayed(
-        Duration(milliseconds: 1000),
-      ); // Pause just long enough for the retry to be visible
+      await Future.delayed(Duration(milliseconds: 1000)); // Pause just long enough for the retry to be visible
       onboarded = await onboardingService.authenticate();
     } catch (exception) {
       String exceptionStr = exception.toString().toLowerCase();
@@ -698,14 +611,8 @@ Future<void> atTalk(List<String> args) async {
 
       if (isHiveError && !hasTriedEphemeral) {
         stdout.writeln('');
-        stdout.writeln(
-          chalk.brightRed('💥 Storage conflict detected during onboarding!'),
-        );
-        stdout.writeln(
-          chalk.brightYellow(
-            '   Automatically falling back to ephemeral storage...',
-          ),
-        );
+        stdout.writeln(chalk.brightRed('💥 Storage conflict detected during onboarding!'));
+        stdout.writeln(chalk.brightYellow('   Automatically falling back to ephemeral storage...'));
 
         if (parsedArgs['verbose']) {
           stdout.writeln(chalk.gray('   Original storage path: $storagePath'));
@@ -744,9 +651,7 @@ Future<void> atTalk(List<String> args) async {
 
         if (parsedArgs['verbose']) {
           stdout.writeln(chalk.gray('   Ephemeral storage: $storagePath'));
-          stdout.writeln(
-            chalk.gray('   Ephemeral namespace: $ephemeralNamespace'),
-          );
+          stdout.writeln(chalk.gray('   Ephemeral namespace: $ephemeralNamespace'));
         }
 
         // Create ephemeral directories
@@ -778,20 +683,12 @@ Future<void> atTalk(List<String> args) async {
           ..atProtocolEmitted = Version(2, 0, 0);
 
         // Recreate onboarding service
-        onboardingService = AtOnboardingServiceImpl(
-          fromAtsign,
-          atOnboardingConfig,
-          atServiceFactory: atServiceFactory,
-        );
+        onboardingService = AtOnboardingServiceImpl(fromAtsign, atOnboardingConfig, atServiceFactory: atServiceFactory);
 
         hasTriedEphemeral = true;
         nameSpace = ephemeralNamespace;
 
-        stdout.writeln(
-          chalk.brightYellow(
-            '   Using ephemeral storage (no offline message persistence)',
-          ),
-        );
+        stdout.writeln(chalk.brightYellow('   Using ephemeral storage (no offline message persistence)'));
         if (parsedArgs['verbose']) {
           stdout.writeln(chalk.gray('   Retrying authentication...'));
         }
@@ -799,11 +696,7 @@ Future<void> atTalk(List<String> args) async {
         continue; // Try again with ephemeral storage
       }
 
-      stdout.write(
-        chalk.brightRed(
-          '$exception. Will retry in ${retryDuration.inSeconds} seconds',
-        ),
-      );
+      stdout.write(chalk.brightRed('$exception. Will retry in ${retryDuration.inSeconds} seconds'));
     }
     if (!onboarded) {
       await Future.delayed(retryDuration);
@@ -819,21 +712,9 @@ Future<void> atTalk(List<String> args) async {
 
   // Inform user if we fell back to ephemeral storage
   if (hasTriedEphemeral && !parsedArgs['ephemeral']) {
-    stdout.writeln(
-      chalk.brightYellow(
-        '⚠️  Note: Using ephemeral storage due to storage conflict',
-      ),
-    );
-    stdout.writeln(
-      chalk.brightYellow(
-        '   Messages will not persist after this session ends',
-      ),
-    );
-    stdout.writeln(
-      chalk.brightYellow(
-        '   To avoid this, ensure only one AtTalk instance runs per atSign',
-      ),
-    );
+    stdout.writeln(chalk.brightYellow('⚠️  Note: Using ephemeral storage due to storage conflict'));
+    stdout.writeln(chalk.brightYellow('   Messages will not persist after this session ends'));
+    stdout.writeln(chalk.brightYellow('   To avoid this, ensure only one AtTalk instance runs per atSign'));
     stdout.writeln('');
   }
 
@@ -842,8 +723,7 @@ Future<void> atTalk(List<String> args) async {
     try {
       // Read all input from stdin
       List<String> lines = [];
-      await for (final line
-          in stdin.transform(utf8.decoder).transform(const LineSplitter())) {
+      await for (final line in stdin.transform(utf8.decoder).transform(const LineSplitter())) {
         lines.add(line);
       }
       if (lines.isNotEmpty) {
@@ -859,12 +739,7 @@ Future<void> atTalk(List<String> args) async {
   // If -m is used OR pipe input, send message(s) and exit cleanly
   if (message != null && message.isNotEmpty) {
     // Support comma-separated list for -t
-    var recipients = toAtsign
-        .split(',')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toSet()
-        .toList();
+    var recipients = toAtsign.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet().toList();
 
     final isGroupMessage = recipients.length > 1;
     // Group should include all participants: sender + recipients
@@ -892,12 +767,7 @@ Future<void> atTalk(List<String> args) async {
         'instanceId': instanceId,
         'isGroup': isGroupMessage,
       });
-      var success = await sendNotification(
-        atClient.notificationService,
-        key,
-        payload,
-        logger,
-      );
+      var success = await sendNotification(atClient.notificationService, key, payload, logger);
       if (!success) {
         if (hasTerminal) {
           stdout.writeln(chalk.red('[Error: Unable to send to $atSign]'));
@@ -943,12 +813,7 @@ Future<void> atTalk(List<String> args) async {
   tui.onCleanup = cleanup;
 
   // If -m is not used, support group chat creation from comma-separated -t
-  List<String> participants = toAtsign
-      .split(',')
-      .map((s) => s.trim())
-      .where((s) => s.isNotEmpty)
-      .toSet()
-      .toList();
+  List<String> participants = toAtsign.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet().toList();
   if (participants.length > 1) {
     // Group chat: include myself in the participants list for consistency
     participants.add(fromAtsign);
@@ -958,8 +823,7 @@ Future<void> atTalk(List<String> args) async {
     tui.switchSession(groupKey);
   } else {
     // Individual chat: use consistent comma-separated format like groups
-    final individualParticipants = {fromAtsign, participants[0]}.toList()
-      ..sort();
+    final individualParticipants = {fromAtsign, participants[0]}.toList()..sort();
     final sessionKey = individualParticipants.join(','); // Use consistent format!
     tui.addSession(sessionKey, individualParticipants);
     tui.switchSession(sessionKey);
@@ -980,39 +844,62 @@ Future<void> atTalk(List<String> args) async {
 
             // Check if this is a group rename notification
             if (data['type'] == 'groupRename') {
-              final group = (data['group'] as List)
-                  .map((e) => e.toString())
-                  .toList();
+              final group = (data['group'] as List).map((e) => e.toString()).toList();
               final newGroupName = data['groupName'] as String?;
               final sessionParticipants = group.toSet().toList()..sort();
               final sessionKey = sessionParticipants.join(',');
 
-              // Update the group name
-              tui.addSession(sessionKey, sessionParticipants, newGroupName);
-              final displayName = newGroupName?.isNotEmpty == true
-                  ? newGroupName!
-                  : 'Unnamed Group';
-              tui.addMessage(
-                sessionKey,
-                '[Group renamed to "$displayName"]',
-                incoming: true,
-              );
+              // Find existing session with matching participants (regardless of session ID)
+              String? existingSessionId;
+              for (final entry in tui.sessions.entries) {
+                final session = entry.value;
+                final sessionMembers = session.participants.toSet();
+                final incomingMembers = sessionParticipants.toSet();
+
+                if (sessionMembers.length == incomingMembers.length && sessionMembers.containsAll(incomingMembers)) {
+                  existingSessionId = entry.key;
+                  break;
+                }
+              }              if (existingSessionId != null) {
+                // Update existing session name
+                final oldName = tui.sessions[existingSessionId]!.groupName;
+                tui.sessions[existingSessionId]!.groupName = newGroupName;
+
+                final displayName = newGroupName?.isNotEmpty == true ? newGroupName! : 'Unnamed Group';
+                tui.addMessage(existingSessionId, '[Group renamed to "$displayName"]', incoming: true);
+              } else {
+                // No existing session found, create new one
+                tui.addSession(sessionKey, sessionParticipants, newGroupName);
+                final displayName = newGroupName?.isNotEmpty == true ? newGroupName! : 'Unnamed Group';
+                tui.addMessage(sessionKey, '[Group renamed to "$displayName"]', incoming: true);
+              }
+   Group name: $newGroupName
+''';
+                
+                try {
+                  final debugFile = File('tui_debug.log');
+                  debugFile.writeAsStringSync(failInfo, mode: FileMode.append);
+                } catch (e) {
+                  // Ignore file errors
+                }
+                
+                tui.addSession(sessionKey, sessionParticipants, newGroupName);
+                final displayName = newGroupName?.isNotEmpty == true ? newGroupName! : 'Unnamed Group';
+                tui.addMessage(sessionKey, '[Group renamed to "$displayName"]', incoming: true);
+              }
+
               tui.draw();
               return;
             }
 
             // Check if this is a group membership change notification
             if (data['type'] == 'groupMembershipChange') {
-              final group = (data['group'] as List)
-                  .map((e) => e.toString())
-                  .toList();
+              final group = (data['group'] as List).map((e) => e.toString()).toList();
               final groupName = data['groupName'] as String?;
               final sessionParticipants = group.toSet().toList()..sort();
 
               // Try to find existing session with different participant set
-              String? existingSessionKey = tui.findSessionWithParticipants(
-                sessionParticipants,
-              );
+              String? existingSessionKey = tui.findSessionWithParticipants(sessionParticipants);
 
               if (existingSessionKey == null) {
                 // Look for a session that has some of the same participants but different membership
@@ -1029,13 +916,9 @@ Future<void> atTalk(List<String> args) async {
                   if (entryParticipants.length >= 3) {
                     // Existing session is already a group - safe to migrate if there's significant overlap
                     shouldMigrate =
-                        entryParticipants
-                                .intersection(newParticipants)
-                                .length >=
-                            2 &&
+                        entryParticipants.intersection(newParticipants).length >= 2 &&
                         entryParticipants.contains(fromAtsign);
-                  } else if (entryParticipants.length == 2 &&
-                      newParticipants.length == 2) {
+                  } else if (entryParticipants.length == 2 && newParticipants.length == 2) {
                     // Both are individual chats - only migrate if they have exactly the same participants
                     shouldMigrate =
                         entryParticipants.difference(newParticipants).isEmpty &&
@@ -1095,11 +978,7 @@ Future<void> atTalk(List<String> args) async {
                 }
                 for (var participant in removed) {
                   if (participant != fromAtsign) {
-                    tui.addMessage(
-                      tui.activeSession ?? newSessionKey,
-                      '[$participant left the group]',
-                      incoming: true,
-                    );
+                    tui.addMessage(tui.activeSession ?? newSessionKey, '[$participant left the group]', incoming: true);
                   }
                 }
               } else {
@@ -1112,9 +991,7 @@ Future<void> atTalk(List<String> args) async {
               return;
             }
 
-            final group = (data['group'] as List)
-                .map((e) => e.toString())
-                .toList();
+            final group = (data['group'] as List).map((e) => e.toString()).toList();
             final from = data['from'] as String? ?? notification.from;
             final msg = data['msg'] as String? ?? value;
             final messageInstanceId = data['instanceId'] as String?;
@@ -1142,9 +1019,7 @@ Future<void> atTalk(List<String> args) async {
 
             // Try to find existing session with same participants first
             // This helps avoid duplicate sessions when group membership changes
-            String? existingSessionKey = tui.findSessionWithParticipants(
-              sessionParticipants,
-            );
+            String? existingSessionKey = tui.findSessionWithParticipants(sessionParticipants);
             if (existingSessionKey != null) {
               sessionKey = existingSessionKey;
             } else {
@@ -1163,12 +1038,10 @@ Future<void> atTalk(List<String> args) async {
                 if (entryParticipants.length >= 3) {
                   // Existing session is already a group - safe to migrate if there's significant overlap
                   shouldMigrate =
-                      entryParticipants.intersection(newParticipants).length >=
-                          2 &&
+                      entryParticipants.intersection(newParticipants).length >= 2 &&
                       entryParticipants.contains(fromAtsign) &&
                       newParticipants.contains(fromAtsign);
-                } else if (entryParticipants.length == 2 &&
-                    newParticipants.length == 2) {
+                } else if (entryParticipants.length == 2 && newParticipants.length == 2) {
                   // Both are individual chats - only migrate if they have exactly the same participants
                   shouldMigrate =
                       entryParticipants.difference(newParticipants).isEmpty &&
@@ -1215,9 +1088,7 @@ Future<void> atTalk(List<String> args) async {
               sessionKey,
               msg,
               incoming: true,
-              sender: (from == fromAtsign)
-                  ? null
-                  : from, // Use null for own messages to show "me:"
+              sender: (from == fromAtsign) ? null : from, // Use null for own messages to show "me:"
             );
             tui.draw();
           } catch (e) {
@@ -1225,11 +1096,7 @@ Future<void> atTalk(List<String> args) async {
             if (notification.from == fromAtsign) return;
 
             // fallback: treat as plain message
-            tui.addMessage(
-              notification.from,
-              notification.value ?? '',
-              incoming: true,
-            );
+            tui.addMessage(notification.from, notification.value ?? '', incoming: true);
             tui.draw();
           }
         }),
@@ -1243,9 +1110,7 @@ Future<void> atTalk(List<String> args) async {
     if (session == null) return;
 
     // Send messages to OTHER participants only (exclude self to prevent duplicate messages)
-    final recipients = session.participants
-        .where((atSign) => atSign != fromAtsign)
-        .toList();
+    final recipients = session.participants.where((atSign) => atSign != fromAtsign).toList();
 
     // Use all participants for the group field (for message organization)
     final groupForMessage = session.participants.toSet().toList()..sort();
@@ -1265,22 +1130,13 @@ Future<void> atTalk(List<String> args) async {
         'group': groupForMessage,
         'from': fromAtsign,
         'msg': message,
-        'instanceId': sessionId,  // Use the session ID, not the global instance ID
-        'isGroup': session.participants.length > 2,  // Determine if group based on participant count
+        'instanceId': sessionId, // Use the session ID, not the global instance ID
+        'isGroup': session.participants.length > 2, // Determine if group based on participant count
         'groupName': session.groupName,
       });
-      var success = await sendNotification(
-        atClient.notificationService,
-        key,
-        payload,
-        logger,
-      );
+      var success = await sendNotification(atClient.notificationService, key, payload, logger);
       if (!success) {
-        tui.addMessage(
-          sessionId,
-          '[Error: Unable to send to $atSign]',
-          incoming: true,
-        );
+        tui.addMessage(sessionId, '[Error: Unable to send to $atSign]', incoming: true);
         tui.draw();
       }
     }
@@ -1310,51 +1166,40 @@ Future<void> atTalk(List<String> args) async {
         'group': session.participants,
         'from': fromAtsign,
         'groupName': newGroupName,
-        'instanceId': sessionId,  // Use the session ID, not the global instance ID
+        'instanceId': sessionId, // Use the session ID, not the global instance ID
       });
-      await sendNotification(
-        atClient.notificationService,
-        key,
-        payload,
-        logger,
-      );
+      await sendNotification(atClient.notificationService, key, payload, logger);
     }
   };
 
   // Group membership change handler
-  tui.onGroupMembershipChange =
-      (String sessionId, List<String> participants, String? groupName) async {
-        final session = tui.sessions[sessionId];
-        if (session == null) return;
+  tui.onGroupMembershipChange = (String sessionId, List<String> participants, String? groupName) async {
+    final session = tui.sessions[sessionId];
+    if (session == null) return;
 
-        // Send membership change notifications to other participants only (exclude self)
-        for (final atSign in participants) {
-          if (atSign == fromAtsign) continue; // Skip sending to self
-          var metaData = Metadata()
-            ..isPublic = false
-            ..isEncrypted = true
-            ..namespaceAware = true;
-          var key = AtKey()
-            ..key = 'message'
-            ..sharedBy = fromAtsign
-            ..sharedWith = atSign
-            ..namespace = nameSpace
-            ..metadata = metaData;
-          var payload = jsonEncode({
-            'type': 'groupMembershipChange',
-            'group': participants,
-            'from': fromAtsign,
-            'groupName': groupName,
-            'instanceId': sessionId,  // Use the session ID, not the global instance ID
-          });
-          await sendNotification(
-            atClient.notificationService,
-            key,
-            payload,
-            logger,
-          );
-        }
-      };
+    // Send membership change notifications to other participants only (exclude self)
+    for (final atSign in participants) {
+      if (atSign == fromAtsign) continue; // Skip sending to self
+      var metaData = Metadata()
+        ..isPublic = false
+        ..isEncrypted = true
+        ..namespaceAware = true;
+      var key = AtKey()
+        ..key = 'message'
+        ..sharedBy = fromAtsign
+        ..sharedWith = atSign
+        ..namespace = nameSpace
+        ..metadata = metaData;
+      var payload = jsonEncode({
+        'type': 'groupMembershipChange',
+        'group': participants,
+        'from': fromAtsign,
+        'groupName': groupName,
+        'instanceId': sessionId, // Use the session ID, not the global instance ID
+      });
+      await sendNotification(atClient.notificationService, key, payload, logger);
+    }
+  };
 
   // Run the TUI
   await tui.run();
@@ -1376,11 +1221,7 @@ Future<bool> sendNotification(
   for (int retry = 0; retry < 3; retry++) {
     try {
       NotificationResult result = await notificationService.notify(
-        NotificationParams.forUpdate(
-          key,
-          value: input,
-          notificationExpiry: Duration(days: 1),
-        ),
+        NotificationParams.forUpdate(key, value: input, notificationExpiry: Duration(days: 1)),
         waitForFinalDeliveryStatus: false,
         checkForFinalDeliveryStatus: false,
       );
