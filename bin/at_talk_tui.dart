@@ -127,6 +127,7 @@ String? getTempDirectory() {
       return Platform.environment['TMPDIR'] ?? '/tmp';
     case 'windows':
       return Platform.environment['TEMP'] ??
+          Platform.environment['TMP'] ??
           r'C:\Windows\Temp';
     case 'android':
       return '/data/local/tmp';
