@@ -846,51 +846,80 @@ Future<void> atTalk(List<String> args) async {
             if (data['type'] == 'groupRename') {
               final group = (data['group'] as List).map((e) => e.toString()).toList();
               final newGroupName = data['groupName'] as String?;
+              final fromAtSign = data['from'] as String?;
+              final instanceId = data['instanceId'] as String?;
+              
+              // Skip processing our own rename notifications to prevent loops
+              if (fromAtSign == fromAtsign) {
+                print('🚫 TUI: Ignoring rename notification from ourselves ($fromAtSign)');
+                return;
+              }
+              
               final sessionParticipants = group.toSet().toList()..sort();
               final sessionKey = sessionParticipants.join(',');
 
               print('🔄 TUI: Received group rename notification');
+              print('   From: $fromAtSign');
               print('   New name: $newGroupName');
               print('   Members: $sessionParticipants');
+              print('   InstanceId: $instanceId');
               print('   Computed session key: $sessionKey');
               print('   Current sessions:');
               for (final entry in tui.sessions.entries) {
                 print('     - ${entry.key}: ${entry.value.participants} (name: "${entry.value.groupName}")');
               }
 
-              // Find existing session with matching participants (regardless of session ID)
-              String? existingSessionId;
-              for (final entry in tui.sessions.entries) {
-                final session = entry.value;
-                final sessionMembers = session.participants.toSet();
-                final incomingMembers = sessionParticipants.toSet();
+              // Strategy 1: Try to find by exact instanceId first
+              String? targetSessionId;
+              if (instanceId != null && tui.sessions.containsKey(instanceId)) {
+                targetSessionId = instanceId;
+                print('   ✅ Found session by exact instanceId: $instanceId');
+              } else {
+                // Strategy 2: Find existing session with matching participants
+                for (final entry in tui.sessions.entries) {
+                  final session = entry.value;
+                  final sessionMembers = session.participants.toSet();
+                  final incomingMembers = sessionParticipants.toSet();
 
-                print('   Comparing session ${entry.key}: $sessionMembers vs incoming: $incomingMembers');
-                print('     Lengths match: ${sessionMembers.length == incomingMembers.length}');
-                print('     Contains all: ${sessionMembers.containsAll(incomingMembers)}');
+                  print('   Comparing session ${entry.key}: $sessionMembers vs incoming: $incomingMembers');
 
-                if (sessionMembers.length == incomingMembers.length && sessionMembers.containsAll(incomingMembers)) {
-                  existingSessionId = entry.key;
-                  print('   ✅ MATCH FOUND!');
-                  break;
+                  if (sessionMembers.length == incomingMembers.length && 
+                      sessionMembers.containsAll(incomingMembers)) {
+                    targetSessionId = entry.key;
+                    print('   ✅ Found matching session by participants: $targetSessionId');
+                    break;
+                  }
+                }
+                
+                // Strategy 3: Check if we should use the base session key
+                if (targetSessionId == null && instanceId != null) {
+                  // If the instanceId looks like a base session key format, use it
+                  if (instanceId == sessionKey) {
+                    print('   🔧 InstanceId matches computed session key, will create session: $instanceId');
+                    targetSessionId = instanceId;
+                  }
                 }
               }
 
-              if (existingSessionId != null) {
+              if (targetSessionId != null && tui.sessions.containsKey(targetSessionId)) {
                 // Update existing session name
-                final oldName = tui.sessions[existingSessionId]!.groupName;
-                tui.sessions[existingSessionId]!.groupName = newGroupName;
+                final oldName = tui.sessions[targetSessionId]!.groupName;
+                tui.sessions[targetSessionId]!.groupName = newGroupName;
 
-                print('   ✅ Updated existing session $existingSessionId from "$oldName" to "$newGroupName"');
+                print('   ✅ Updated existing session $targetSessionId from "$oldName" to "$newGroupName"');
 
                 final displayName = newGroupName?.isNotEmpty == true ? newGroupName! : 'Unnamed Group';
-                tui.addMessage(existingSessionId, '[Group renamed to "$displayName"]', incoming: true);
+                tui.addMessage(targetSessionId, '[Group renamed to "$displayName"]', incoming: true);
               } else {
-                // No existing session found, create new one
-                print('   ❌ No matching session found, creating new session with key: $sessionKey');
-                tui.addSession(sessionKey, sessionParticipants, newGroupName);
-                final displayName = newGroupName?.isNotEmpty == true ? newGroupName! : 'Unnamed Group';
-                tui.addMessage(sessionKey, '[Group renamed to "$displayName"]', incoming: true);
+                // Create new session ONLY if no existing session was found and we have a valid instanceId
+                if (instanceId != null) {
+                  print('   🆕 No matching session found, creating new session with instanceId: $instanceId');
+                  tui.addSession(instanceId, sessionParticipants, newGroupName);
+                  final displayName = newGroupName?.isNotEmpty == true ? newGroupName! : 'Unnamed Group';
+                  tui.addMessage(instanceId, '[Group renamed to "$displayName"]', incoming: true);
+                } else {
+                  print('   ❌ No instanceId provided and no matching session found - ignoring rename');
+                }
               }
 
               tui.draw();

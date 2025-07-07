@@ -386,57 +386,40 @@ class GroupsProvider extends ChangeNotifier {
                   print('📝 GUI: Updated group name to: $groupName');
                 }
               } else {
-                // No exact match found - ALWAYS create a new group to prevent overwriting different groups
+                // No exact match found - create new group with TUI-compatible ID
                 print('❌ GUI: No existing group found with members: $groupMembers');
                 print('🆕 GUI: Creating new group for incoming message');
                 print('   InstanceId from message: $instanceId');
                 print('   Session key: $sessionKey');
                 print('   Group name: $groupName');
 
-                // Migration is disabled for safety - each group should remain distinct
-                print('🚫 No exact match found, creating new group instead of migrating (safety first)');
-
-                // Create new session - ALWAYS use unique IDs to prevent overwriting existing groups
-                // This ensures that if two different groups with identical membership try to create
-                // sessions simultaneously, they won't overwrite each other
-
-                // First, try to use the natural session key (TUI-compatible)
-                String baseGroupId = sessionKey;
-
-                // Check if this base ID already exists with different context
-                // (e.g., different instanceId from the incoming message)
-                final existingWithBaseId = _groups[baseGroupId];
-                final incomingInstanceId = instanceId; // The instanceId from the incoming JSON message
-
-                if (existingWithBaseId != null && incomingInstanceId != null) {
-                  // If there's already a group with this base ID, and the incoming message
-                  // has a different instanceId, create a unique timestamped group to avoid conflict
-                  print(
-                    '⚠️ GUI: Base group ID $baseGroupId already exists, creating unique group for different instanceId: $incomingInstanceId',
-                  );
-                  final timestamp = DateTime.now().millisecondsSinceEpoch;
-                  groupId = '$baseGroupId#$timestamp';
-                  print('   Created unique ID: $groupId');
-                } else if (groupMembers.length > 2) {
-                  // For multi-person groups, always create with unique timestamp to avoid overwrites
-                  // This matches TUI behavior where /new or member additions create fresh sessions
-                  groupId = _generateTUICompatibleGroupId(groupMembers, forceUniqueForGroup: true);
-                  print('   Multi-person group, created unique ID: $groupId');
+                // CRITICAL FIX: For incoming messages, prefer the instanceId if it matches our session key format
+                // This ensures GUI and TUI use the same group ID for the same conversation
+                String newGroupId;
+                
+                if (instanceId != null && instanceId == sessionKey) {
+                  // The instanceId matches our computed session key - use it for perfect TUI compatibility
+                  newGroupId = instanceId;
+                  print('✅ GUI: Using TUI-provided instanceId for perfect compatibility: $newGroupId');
+                } else if (instanceId != null && !_groups.containsKey(instanceId)) {
+                  // The instanceId is different but available - use it to maintain TUI compatibility
+                  newGroupId = instanceId;
+                  print('🔧 GUI: Using TUI-provided instanceId for compatibility: $newGroupId');
                 } else {
-                  // For individual chats, use standard session key (but double-check for conflicts)
-                  if (_groups.containsKey(baseGroupId)) {
-                    // Conflict detected even for 1-on-1 chat, create unique ID
-                    final timestamp = DateTime.now().millisecondsSinceEpoch;
-                    groupId = '$baseGroupId#$timestamp';
-                    print('⚠️ GUI: Conflict detected for 1-on-1 chat $baseGroupId, creating unique ID: $groupId');
+                  // Fall back to our session key format
+                  if (!_groups.containsKey(sessionKey)) {
+                    newGroupId = sessionKey;
+                    print('✅ GUI: Using computed session key: $newGroupId');
                   } else {
-                    groupId = baseGroupId;
-                    print('✅ GUI: Using TUI-compatible base ID for 1-on-1: $groupId');
+                    // Session key exists, create unique ID
+                    newGroupId = _generateTUICompatibleGroupId(groupMembers, forceUniqueForGroup: true);
+                    print('🔧 GUI: Session key conflict, using unique ID: $newGroupId');
                   }
                 }
 
-                createOrUpdateGroup(groupMembers, instanceId: groupId, name: groupName);
-                print('🆕 Created new group: $groupId (unique for safety, members=${groupMembers.length})');
+                createOrUpdateGroup(groupMembers, instanceId: newGroupId, name: groupName);
+                groupId = newGroupId;
+                print('🆕 Created new group: $groupId (TUI-compatible, members=${groupMembers.length})');
               }
             }
           }
@@ -666,26 +649,51 @@ class GroupsProvider extends ChangeNotifier {
 
   /// Generates group ID using consistent logic for all group sizes:
   /// - Use comma-separated sorted participant list for all groups
-  /// - Add timestamp suffix for disambiguation if needed
-  /// - Use UUIDs for new group creation to prevent overwrites
+  /// - For 1-on-1 and 2-person groups: use simple session key format (no timestamp)
+  /// - For 3+ person groups: add timestamp suffix for disambiguation if needed
   String _generateTUICompatibleGroupId(Set<String> members, {bool forceUniqueForGroup = false}) {
     final sortedMembers = members.toList()..sort();
 
     // Use comma-separated sorted list for all groups (consistent approach)
     String groupId = sortedMembers.join(',');
-    print('🔑 Generated group ID: $groupId (${members.length} members)');
+    print('🔑 Generated base group ID: $groupId (${members.length} members)');
 
-    // If we're forcing uniqueness or there's a conflict, add unique suffix
-    if (forceUniqueForGroup || _groups.containsKey(groupId)) {
-      groupId = _generateUniqueGroupId(groupId);
-      print('🔧 Added unique suffix for group ID: $groupId');
+    // CRITICAL FIX: For 1-on-1 and 2-person conversations, prefer the base session key
+    // This ensures TUI and GUI use the same session ID for the same conversation
+    if (members.length <= 2 && !forceUniqueForGroup) {
+      // Check if this base ID would conflict with an existing group with different members
+      final existingGroup = _groups[groupId];
+      if (existingGroup != null) {
+        // Check if the members are exactly the same
+        final sameMembers = existingGroup.members.length == members.length && 
+                           existingGroup.members.containsAll(members);
+
+        if (sameMembers) {
+          print('✅ Using existing session key for same participants: $groupId');
+          return groupId; // Same participants, safe to reuse
+        } else {
+          print('⚠️ Session key conflict for different participants, adding timestamp');
+          // Different participants, need unique ID
+          groupId = _generateUniqueGroupId(groupId);
+        }
+      } else {
+        print('✅ Using base session key for new conversation: $groupId');
+        return groupId; // No conflict, use base session key
+      }
+    } else {
+      // For 3+ person groups or when forcing uniqueness, add timestamp if there's a conflict
+      if (forceUniqueForGroup || _groups.containsKey(groupId)) {
+        groupId = _generateUniqueGroupId(groupId);
+        print('🔧 Added unique suffix for multi-person group: $groupId');
+      }
     }
 
-    // Check if this ID would conflict with an existing group with different members
+    // Final conflict check regardless of group size
     final existingGroup = _groups[groupId];
     if (existingGroup != null) {
       // Check if the members are exactly the same
-      final sameMembers = existingGroup.members.length == members.length && existingGroup.members.containsAll(members);
+      final sameMembers = existingGroup.members.length == members.length && 
+                         existingGroup.members.containsAll(members);
 
       if (!sameMembers) {
         print('⚠️ Group ID conflict detected for $groupId');
@@ -788,13 +796,21 @@ class GroupsProvider extends ChangeNotifier {
       print('📝 Renaming group $groupId to "$newName"');
       print('   Recipients: $recipients');
 
+      // CRITICAL FIX: Send the TUI-compatible session key as instanceId
+      // The TUI expects the base session key format for consistent routing
+      final sortedMembers = group.members.toList()..sort();
+      final tuiSessionKey = sortedMembers.join(',');
+      
+      print('   GUI internal groupId: $groupId');
+      print('   TUI-compatible instanceId: $tuiSessionKey');
+
       bool allSuccess = true;
       for (String recipient in recipients) {
         final success = await AtTalkService.instance.sendGroupRename(
           toAtSign: recipient,
           groupMembers: group.members.toList(),
           groupName: newName,
-          groupInstanceId: groupId,
+          groupInstanceId: tuiSessionKey, // Send TUI-compatible session key, not internal group ID
         );
         if (!success) allSuccess = false;
       }
@@ -860,53 +876,46 @@ class GroupsProvider extends ChangeNotifier {
 
       String? groupId;
 
-      // Try to find group by exact instance ID first
+      // CRITICAL FIX: Try to find group by exact instance ID first
       if (_groups.containsKey(instanceId)) {
         groupId = instanceId;
         print('✅ GUI: Found group by exact instanceId: $instanceId');
       } else {
         print('❌ GUI: No group found with exact instanceId: $instanceId');
 
-        // Try to find group by members
+        // Try to find group by members (this is where we'll consolidate)
         final existingGroup = _findGroupByMembers(groupMembers.toSet());
         if (existingGroup != null) {
           groupId = existingGroup.id;
           print('✅ GUI: Found group by members: $groupId for instanceId: $instanceId');
-          print('   ⚠️ Group ID mismatch - TUI: $instanceId, GUI: $groupId');
+          
+          // CRITICAL: If we found a group with different ID, we need to consolidate
+          // This happens when GUI created a timestamped ID but TUI uses base session key
+          if (groupId != instanceId) {
+            print('🔧 GUI: Group ID mismatch detected - consolidating group IDs');
+            print('   TUI expects: $instanceId');
+            print('   GUI has: $groupId');
+            
+            // Create/update the group with the TUI's expected ID to ensure future messages route correctly
+            final group = _groups[groupId]!;
+            _groups[instanceId] = group.copyWith(name: newGroupName);
+            _groupMessages[instanceId] = _groupMessages[groupId] ?? [];
+            
+            // Remove the old group to prevent confusion
+            _groups.remove(groupId);
+            _groupMessages.remove(groupId);
+            
+            groupId = instanceId; // Use TUI's ID going forward
+            print('   ✅ Consolidated to TUI session ID: $instanceId');
+          }
         } else {
           print('❌ GUI: No group found by members: $groupMembers');
 
-          // Try to find group by base session key (without timestamp suffix)
-          // This handles cases where GUI created groups with unique IDs but TUI uses base keys
-          final baseSessionKey = groupMembers.toSet().toList()..sort();
-          final expectedBaseId = baseSessionKey.join(',');
-
-          print('🔍 GUI: Searching for groups with base session key: $expectedBaseId');
-
-          // Look for any group whose ID starts with the expected base ID
-          for (final entry in _groups.entries) {
-            final existingId = entry.key;
-            final existingGroup = entry.value;
-
-            // Check if this group ID is based on the expected session key
-            if (existingId.startsWith(expectedBaseId)) {
-              // Verify the members match exactly to ensure it's the right group
-              if (existingGroup.members.length == groupMembers.length &&
-                  existingGroup.members.containsAll(groupMembers)) {
-                groupId = existingId;
-                print('✅ GUI: Found group by base session key match: $groupId for instanceId: $instanceId');
-                break;
-              }
-            }
-          }
-
-          if (groupId == null) {
-            // As a last resort, create new group with the provided instance ID
-            print('🆕 GUI: Creating new group for rename with instanceId: $instanceId');
-            print('   This will create a DUPLICATE group - the TUI should have an existing session');
-            createOrUpdateGroup(groupMembers.toSet(), instanceId: instanceId);
-            groupId = instanceId;
-          }
+          // LAST RESORT: Create new group with the provided instance ID
+          // This shouldn't happen often but ensures rename notifications don't get lost
+          print('🆕 GUI: Creating new group for rename with instanceId: $instanceId');
+          createOrUpdateGroup(groupMembers.toSet(), instanceId: instanceId, name: newGroupName);
+          groupId = instanceId;
         }
       }
 
@@ -931,26 +940,22 @@ class GroupsProvider extends ChangeNotifier {
 
         notifyListeners();
         print('✅ Group $groupId renamed to "$displayName" by $fromAtSign');
-        print('   Original instanceId from TUI: $instanceId');
-
-        // Debug: Check for multiple groups with same members after rename
-        print('🔍 Post-rename group check:');
+        
+        // Debug: Verify no duplicate groups exist after rename
         final renamedGroupMembers = groupMembers.toSet();
+        int groupsWithSameMembers = 0;
         for (final entry in _groups.entries) {
           final group = entry.value;
-          if (group.members.length == renamedGroupMembers.length && group.members.containsAll(renamedGroupMembers)) {
+          if (group.members.length == renamedGroupMembers.length && 
+              group.members.containsAll(renamedGroupMembers)) {
+            groupsWithSameMembers++;
             print('   - Group ${entry.key}: name="${group.name}", messages=${_groupMessages[entry.key]?.length ?? 0}');
           }
         }
-
-        // Debug: If the group ID we found is different from the instanceId,
-        // this indicates a potential ID mismatch issue
-        if (groupId != instanceId) {
-          print('⚠️ Group ID mismatch detected:');
-          print('   TUI sent instanceId: $instanceId');
-          print('   GUI found group with ID: $groupId');
-          print('   This may cause message routing issues');
+        if (groupsWithSameMembers > 1) {
+          print('⚠️ Multiple groups detected with same members after rename - this may cause confusion');
         }
+        
       } else {
         print('⚠️ Could not find group for rename operation:');
         print('   Instance ID: $instanceId');

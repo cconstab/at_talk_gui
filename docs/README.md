@@ -31,6 +31,7 @@ The `development-history/` directory contains detailed documentation of the proj
 - [`MIGRATION_TO_ATTALK_SUMMARY.md`](development-history/MIGRATION_TO_ATTALK_SUMMARY.md) - Migration from previous versions
 
 #### Group Management & Messaging Fixes
+- [`GROUP_RENAME_COMPATIBILITY_FIX.md`](development-history/GROUP_RENAME_COMPATIBILITY_FIX.md) - **⭐ LATEST** - Complete fix for TUI/GUI group rename compatibility and session ID consistency
 - [`GROUP_ADD_FIX.md`](development-history/GROUP_ADD_FIX.md) - Group addition functionality fixes and improvements
 - [`MEMBER_REMOVAL_FIX.md`](development-history/MEMBER_REMOVAL_FIX.md) - Group member removal fixes
 - [`BUGFIX_GROUP_OVERWRITE.md`](development-history/BUGFIX_GROUP_OVERWRITE.md) - Group overwrite bug fixes and prevention
