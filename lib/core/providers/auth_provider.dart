@@ -81,9 +81,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       // Configure atSign-specific storage before authentication
       // For namespace changes, cleanup is already handled by changeNamespace()
-      print(
-        '🔧 Configuring atSign-specific storage for existing atSign: $atSign (cleanup: $cleanupExisting)',
-      );
+      print('🔧 Configuring atSign-specific storage for existing atSign: $atSign (cleanup: $cleanupExisting)');
       await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: cleanupExisting);
 
       // Initialize the AtTalkService with the existing atSign
@@ -106,8 +104,7 @@ class AuthProvider extends ChangeNotifier {
         },
       );
     } catch (e) {
-      _errorMessage =
-          'Failed to configure storage or authenticate: ${e.toString()}';
+      _errorMessage = 'Failed to configure storage or authenticate: ${e.toString()}';
       _isAuthenticated = false;
       _isLoading = false;
       notifyListeners();
