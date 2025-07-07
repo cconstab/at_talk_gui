@@ -73,18 +73,16 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> authenticateExisting(String atSign) async {
+  Future<void> authenticateExisting(String atSign, {bool cleanupExisting = true}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
       // Configure atSign-specific storage before authentication
-      // Always clean up existing AtClient when switching to a different atSign
-      print(
-        '🔧 Configuring atSign-specific storage for existing atSign: $atSign',
-      );
-      await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: true);
+      // For namespace changes, cleanup is already handled by changeNamespace()
+      print('🔧 Configuring atSign-specific storage for existing atSign: $atSign (cleanup: $cleanupExisting)');
+      await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: cleanupExisting);
 
       // Initialize the AtTalkService with the existing atSign
       await AtTalkService.instance.onboard(
@@ -106,8 +104,7 @@ class AuthProvider extends ChangeNotifier {
         },
       );
     } catch (e) {
-      _errorMessage =
-          'Failed to configure storage or authenticate: ${e.toString()}';
+      _errorMessage = 'Failed to configure storage or authenticate: ${e.toString()}';
       _isAuthenticated = false;
       _isLoading = false;
       notifyListeners();

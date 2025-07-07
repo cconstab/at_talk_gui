@@ -95,7 +95,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       radius: 18,
                       backgroundColor: Colors.white.withOpacity(0.2),
                       child: Text(
-                        updatedGroup.getDisplayName(currentAtSign).substring(0, 1).toUpperCase(),
+                        updatedGroup
+                            .getDisplayName(currentAtSign)
+                            .substring(0, 1)
+                            .toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
@@ -209,7 +212,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   _showLeaveGroupDialog();
                 }
               },
-              icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 20),
+              icon: const Icon(
+                Icons.more_vert_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
               padding: const EdgeInsets.all(8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -357,10 +364,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceVariant.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.outline.withOpacity(0.1),
                         width: 1.5,
                       ),
                     ),
@@ -370,7 +381,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
                         hintStyle: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant.withOpacity(0.7),
                           fontSize: 15,
                         ),
                         border: InputBorder.none,
@@ -382,7 +395,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           padding: const EdgeInsets.only(left: 8),
                           child: Icon(
                             Icons.chat_bubble_outline_rounded,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant.withOpacity(0.5),
                             size: 20,
                           ),
                         ),
@@ -413,7 +428,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withOpacity(0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -552,12 +569,21 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   void _renameGroup(String newName) async {
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
 
-    final success = await groupsProvider.renameGroup(widget.group.id, newName);
+    final newGroupId = await groupsProvider.renameGroup(
+      widget.group.id,
+      newName,
+    );
 
-    if (success && mounted) {
+    if (newGroupId != null && mounted) {
       final displayText = newName.isNotEmpty ? newName : 'Unnamed Group';
+
+      // In the current architecture, group ID never changes during rename
+      // (only display name changes), so we just show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Group renamed to "$displayText"')),
+        SnackBar(
+          content: Text('Group renamed to "$displayText"'),
+          backgroundColor: Colors.green,
+        ),
       );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -679,16 +705,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             onPressed: () async {
               final atSign = _addMemberController.text.trim();
               if (atSign.isNotEmpty) {
-                // Check if this will be a 1-on-1 to group conversion
-                final willCreateNewGroup = widget.group.members.length == 2;
-
                 await _addMember(atSign);
 
-                // Only close the dialog if we're not navigating to a new group
-                // (because Navigator.pushReplacement will handle the navigation)
-                if (mounted && !willCreateNewGroup) {
+                // Close dialog and re-enable focus maintenance
+                if (mounted) {
                   Navigator.pop(context);
-                  // Re-enable focus maintenance after dialog closes
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     _shouldMaintainFocus = true;
                     _messageFocusNode.requestFocus();
@@ -724,167 +745,27 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final updatedMembers = Set<String>.from(widget.group.members)
       ..add(formattedAtSign);
 
-    // Check if we're converting a 1-on-1 conversation to a group (TUI behavior)
-    final isConvertingToGroup =
-        widget.group.members.length == 2 && updatedMembers.length == 3;
+    // Simply update the existing group with new members
+    final success = await groupsProvider.updateGroupMembership(
+      widget.group.id,
+      updatedMembers.toList(),
+      widget.group.name,
+    );
 
-    if (isConvertingToGroup) {
-      // Show group name dialog first (TUI-compatible behavior)
-      final groupName = await _showGroupNameDialog();
-
-      if (groupName == null || groupName.isEmpty) {
-        return; // User cancelled or entered empty name
-      }
-
-      // Create a new group with unique ID (preserves the original 1-on-1)
-      final newGroup = groupsProvider.createNewGroupWithUniqueName(
-        updatedMembers,
-        name: groupName,
-      );
-
-      if (newGroup != null) {
-        // Send membership change notifications to all members
-        final success = await groupsProvider.updateGroupMembership(
-          newGroup.id,
-          updatedMembers.toList(),
-          groupName,
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Added $formattedAtSign to the group')),
         );
-
-        if (mounted) {
-          if (success) {
-            // The add member dialog will be automatically closed by the navigation
-            // Navigate to the new group (TUI behavior: focus moves to new group)
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => GroupChatScreen(group: newGroup),
-              ),
-            );
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Created new group "$groupName" with $formattedAtSign',
-                ),
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Failed to create group with $formattedAtSign'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to create new group'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } else {
-      // Normal add member to existing group
-      final success = await groupsProvider.updateGroupMembership(
-        widget.group.id,
-        updatedMembers.toList(),
-        widget.group.name,
-      );
-
-      if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Added $formattedAtSign to the group')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to add $formattedAtSign to the group'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to add $formattedAtSign to the group'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
-  }
-
-  Future<String?> _showGroupNameDialog() async {
-    _shouldMaintainFocus = false; // Disable focus maintenance during dialog
-    final groupNameController = TextEditingController();
-
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Name Your Group'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('You\'re creating a new group. Please give it a name:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: groupNameController,
-              decoration: const InputDecoration(
-                labelText: 'Group Name',
-                hintText: 'Enter group name',
-                border: OutlineInputBorder(),
-              ),
-              autofocus: true,
-              maxLength: 50,
-              onSubmitted: (value) {
-                // Allow Enter key to submit
-                final groupName = value.trim();
-                if (groupName.isNotEmpty) {
-                  Navigator.pop(context, groupName);
-                  groupNameController.dispose();
-                }
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Return null
-              groupNameController.dispose();
-              // Re-enable focus maintenance after dialog closes
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _shouldMaintainFocus = true;
-                _messageFocusNode.requestFocus();
-              });
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final groupName = groupNameController.text.trim();
-              if (groupName.isNotEmpty) {
-                Navigator.pop(context, groupName);
-              } else {
-                // Show error for empty name
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please enter a group name'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-              groupNameController.dispose();
-              // Re-enable focus maintenance after dialog closes
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _shouldMaintainFocus = true;
-                _messageFocusNode.requestFocus();
-              });
-            },
-            child: const Text('Create Group'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showGroupInfo() {

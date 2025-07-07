@@ -1,6 +1,51 @@
 # AtTalk Unified GUI/TUI
 
-A modern, responsive messaging application built on the atPlatform with both graphical (Flutter) and terminal (CLI) interfaces. Features a comprehensive side panel navigation system, real-time messaging, and intelligent unread message management.
+A modern, responsive messaging applicat### 🔧 Core Security & Messaging
+- ✅ AtSign authentication with keychain management
+- ✅ End-to-end encryption for all communications
+- ✅ Real-time peer-to-peer messaging with zero duplicates
+- ✅ Advanced group messaging with member management and automatic consolidation
+- ✅ Conversation history with persistent storage and intelligent conflict resolution
+- ✅ Cross-## 📚 Documentation
+
+For comprehensive project documentation, see the [`docs/`](docs/) directory:
+
+- **[docs/README.md](docs/README.md)** - Complete documentation index and navigation guide
+- **[docs/development-history/](docs/development-history/)** - Detailed development history and technical documentation
+- **[doc/api/](doc/api/)** - Generated Dart API documentation
+
+### Key Documentation Files
+
+#### Core Architecture & Bug Fixes
+- **[BUGFIX_1ON1_RENAME.md](docs/development-history/BUGFIX_1ON1_RENAME.md)** - **⭐ ESSENTIAL** - Complete fix for duplicate messages, race conditions, and group consolidation
+- **[REFACTOR_GROUPS_ONLY.md](docs/development-history/REFACTOR_GROUPS_ONLY.md)** - Groups-only architecture implementation and benefits
+- **[Side Panel Implementation](docs/development-history/SIDE_PANEL_IMPLEMENTATION.md)** - Modern navigation system design and implementation
+
+#### Development Process & Collaboration
+- **[Collaborative Development Story](docs/development-history/COLLABORATIVE_DEVELOPMENT_STORY.md)** - AI-human collaboration process and outcomes
+- **[Unified Architecture](docs/development-history/UNIFIED_ARCHITECTURE.md)** - Overall project architecture and design decisions
+- **[Enhanced Features](docs/development-history/ENHANCED_FEATURES.md)** - Feature enhancements and improvements
+
+#### Platform & Technical Fixes
+- **[Group Management Fixes](docs/development-history/GROUP_ADD_FIX.md)** - Group addition and member management improvements
+- **[Storage Architecture](docs/development-history/STORAGE_FIX_SUMMARY.md)** - Multi-instance storage conflict resolution
+- **[Namespace Handling](docs/development-history/TUI_GUI_NAMESPACE_FIX.md)** - TUI/GUI namespace integration
+
+### Recent Major Improvements
+
+The project has undergone significant architectural improvements documented in `BUGFIX_1ON1_RENAME.md`:
+
+✅ **Complete elimination of duplicate messages** through race condition prevention  
+✅ **Automatic group consolidation** for seamless TUI/GUI interoperability  
+✅ **Groups-only architecture** eliminating special-case logic and edge cases  
+✅ **Content-based duplicate detection** for bulletproof message handling  
+✅ **Perfect TUI/GUI sync** with consistent group identification across all interfaces  
+
+For API reference and technical details, browse the auto-generated documentation at [`doc/api/index.html`](doc/api/index.html).t (Windows, macOS, Linux)
+- ✅ Multi-instance support with automatic conflict resolution
+- ✅ Robust cleanup and signal handling
+- ✅ Race condition prevention for instant message delivery
+- ✅ Content-based duplicate detection for bulletproof message handling on the atPlatform with both graphical (Flutter) and terminal (CLI) interfaces. Features a comprehensive side panel navigation system, real-time messaging, intelligent unread message management, and robust group messaging with automatic consolidation and duplicate detection.
 
 ## 🌟 Overview
 
@@ -10,7 +55,31 @@ AtTalk is a secure, peer-to-peer messaging application that leverages atSigns fo
 - **TUI Mode**: Terminal-based interface for command-line environments  
 - **Shared Core**: Common business logic, models, and services for consistent behavior
 
+**🎯 Current Status**: ✅ **Production Ready** - All critical bugs resolved, zero-duplicate messaging architecture, perfect TUI/GUI synchronization. See [Project Status](docs/development-history/PROJECT_STATUS.md) for complete details.
+
 ## 🏗️ Architecture
+
+### Modern Messaging Architecture
+
+AtTalk features a next-generation messaging architecture that eliminates common chat application problems:
+
+#### Groups-Only Design
+- **Universal Group IDs**: All conversations use comma-separated, sorted member lists (e.g., `@alice,@bob,@charlie`)
+- **No Special Cases**: 1-on-1 conversations are simply groups with 2 members - no separate code paths
+- **Perfect Consistency**: TUI and GUI use identical group identification across all conversation types
+- **Zero ID Conflicts**: Deterministic group IDs prevent duplicate conversations with same participants
+
+#### Advanced Duplicate Prevention
+- **Race Condition Protection**: Messages are added to UI immediately before network transmission
+- **Content-Based Detection**: Duplicate messages detected by text content, sender, and timing
+- **Multi-Layer Defense**: Both ID-based and content-based duplicate detection for bulletproof handling
+- **Self-Message Filtering**: Own notifications automatically filtered to prevent echo effects
+
+#### Intelligent Group Consolidation
+- **Automatic Merging**: Multiple groups with identical members are automatically consolidated
+- **Message Preservation**: All conversation history preserved during consolidation
+- **Canonical Groups**: Smart selection of primary group based on activity and recency
+- **Legacy Compatibility**: Handles groups created by older versions or different interfaces
 
 ### Unified Project Structure
 
@@ -37,6 +106,11 @@ bin/
 
 ### Core Features (Both GUI & TUI)
 - ✅ AtSign authentication and key management
+- ✅ **Groups-Only Architecture**: All conversations use consistent comma-separated member list IDs
+- ✅ **Zero Duplicate Messages**: Robust race condition prevention and content-based duplicate detection
+- ✅ **Automatic Group Consolidation**: Intelligent merging of groups with identical members
+- ✅ **Perfect TUI/GUI Compatibility**: Seamless conversation continuity between interfaces
+- ✅ **Universal Group Support**: Both 1-on-1 and group conversations use the same robust infrastructure
 ## 🎯 Key Features
 
 ### 🖼️ Modern GUI Interface
@@ -292,11 +366,13 @@ This unified codebase was created by merging separate GUI and TUI implementation
 
 ### Key Benefits of Unified Architecture
 
-- **🔄 Consistency**: Both interfaces use identical business logic
-- **🛠️ Maintainability**: Single codebase for core functionality
-- **🐛 Bug Fixes**: Fixes apply to both GUI and TUI automatically
-- **🚀 Feature Parity**: New features can be added to both interfaces
+- **🔄 Consistency**: Both interfaces use identical business logic with bulletproof message handling
+- **🛠️ Maintainability**: Single codebase for core functionality eliminates drift between GUI and TUI
+- **🐛 Bug Fixes**: Fixes apply to both GUI and TUI automatically - no duplicate maintenance
+- **🚀 Feature Parity**: New features can be added to both interfaces simultaneously
 - **📦 Code Reuse**: Maximize shared code, minimize duplication
+- **⚡ Zero Duplicates**: Advanced duplicate detection and group consolidation across all interfaces
+- **🎯 Perfect Sync**: Seamless conversation continuity when switching between GUI and TUI modes
 
 ### Building
 

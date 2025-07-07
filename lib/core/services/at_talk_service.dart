@@ -45,12 +45,14 @@ class AtTalkService {
         ? atSign.substring(1)
         : atSign;
     final fullAtSign = '@$normalizedAtSign';
-    
+
     // Clean up existing AtClient if switching to a different atSign
     if (cleanupExisting && _instance != null) {
       final currentAtSign = _instance!.currentAtSign;
       if (currentAtSign != null && currentAtSign != fullAtSign) {
-        print('🧹 Cleaning up existing AtClient for $currentAtSign before configuring $fullAtSign');
+        print(
+          '🧹 Cleaning up existing AtClient for $currentAtSign before configuring $fullAtSign',
+        );
         await _instance!.cleanup();
       }
     }
@@ -198,12 +200,16 @@ class AtTalkService {
       if (currentUser == null) return false;
 
       final actualGroupMembers = groupMembers ?? [currentUser, toAtSign];
+
+      // Generate consistent session key to match TUI behavior
+      final sortedParticipants = actualGroupMembers.toSet().toList()..sort();
+      final sessionKey = sortedParticipants.join(',');
+
       final messageData = {
         'msg': message,
         'isGroup': false,
-        'group':
-            actualGroupMembers, // Use provided group members or default to sender+recipient
-        'instanceId': _instanceId,
+        'group': actualGroupMembers,
+        'instanceId': sessionKey, // Use group session key, not app instance ID
         'from': currentUser,
       };
 
@@ -271,7 +277,8 @@ class AtTalkService {
         'msg': message,
         'isGroup': true,
         'group': groupMembers,
-        'instanceId': _instanceId, // Use this instance's ID
+        'instanceId':
+            groupInstanceId, // Use the passed group session key, not app instance ID
         'from': currentAtSign,
         if (groupName != null && groupName.isNotEmpty) 'groupName': groupName,
       };
@@ -910,45 +917,48 @@ class AtTalkService {
   /// an atSign needs to be completely removed from the system
   static Future<void> completeAtSignCleanup(String atSign) async {
     final normalizedAtSign = atSign.startsWith('@') ? atSign : '@$atSign';
-    
+
     print('🧹 Starting complete cleanup for $normalizedAtSign...');
-    
+
     try {
       // 1. Standard AtClient cleanup
       if (_instance != null) {
         await _instance!.cleanup();
       }
-      
+
       // 2. Reset from keychain (including biometric data)
       final keyChainManager = KeyChainManager.getInstance();
       await keyChainManager.resetAtSignFromKeychain(normalizedAtSign);
       print('✅ Removed from keychain');
-      
+
       // 3. Clean up storage directories for all namespaces
       final dir = await getApplicationSupportDirectory();
       final appSupportPath = dir.path;
-      
+
       // List all possible namespace directories
-      final namespaceDirs = ['default.attalk', 'test.attalk']; // Add more as needed
-      
+      final namespaceDirs = [
+        'default.attalk',
+        'test.attalk',
+      ]; // Add more as needed
+
       for (final namespace in namespaceDirs) {
         final namespacePath = '$appSupportPath/.$namespace';
         final atSignPath = '$namespacePath/$normalizedAtSign';
         final atSignDir = Directory(atSignPath);
-        
+
         if (atSignDir.existsSync()) {
           print('🗑️ Removing storage directory: $atSignPath');
           await atSignDir.delete(recursive: true);
         }
       }
-      
+
       // 4. Clean up any legacy storage directories that might exist
       final legacyPaths = [
         '$appSupportPath/$normalizedAtSign', // Direct atSign folder
         '$appSupportPath/.ai6bh/$normalizedAtSign', // Old namespace
         '$appSupportPath/keys', // Legacy key storage
       ];
-      
+
       for (final legacyPath in legacyPaths) {
         final legacyDir = Directory(legacyPath);
         if (legacyDir.existsSync()) {
@@ -957,7 +967,10 @@ class AtTalkService {
           if (legacyPath.endsWith('/keys')) {
             final keyFiles = legacyDir
                 .listSync()
-                .where((file) => file.path.contains(normalizedAtSign.replaceAll('@', '')))
+                .where(
+                  (file) =>
+                      file.path.contains(normalizedAtSign.replaceAll('@', '')),
+                )
                 .toList();
             for (final file in keyFiles) {
               await file.delete();
@@ -968,24 +981,26 @@ class AtTalkService {
           }
         }
       }
-      
+
       // 5. Clear any temporary storage
       final tempDir = Directory.systemTemp;
       final tempAtTalkDirs = tempDir
           .listSync()
-          .where((dir) => dir.path.contains('at_talk_gui') && 
-                         dir.path.contains(normalizedAtSign.replaceAll('@', '')))
+          .where(
+            (dir) =>
+                dir.path.contains('at_talk_gui') &&
+                dir.path.contains(normalizedAtSign.replaceAll('@', '')),
+          )
           .toList();
-      
+
       for (final tempAtTalkDir in tempAtTalkDirs) {
         if (tempAtTalkDir.existsSync()) {
           print('🗑️ Removing temp directory: ${tempAtTalkDir.path}');
           await tempAtTalkDir.delete(recursive: true);
         }
       }
-      
+
       print('✅ Complete cleanup finished for $normalizedAtSign');
-      
     } catch (e) {
       print('⚠️ Error during complete cleanup: $e');
       rethrow;
@@ -997,16 +1012,18 @@ class AtTalkService {
   static Future<void> cleanupUsernameConflict(String atSign) async {
     final normalizedAtSign = atSign.startsWith('@') ? atSign : '@$atSign';
     final usernameOnly = normalizedAtSign.replaceAll('@', '');
-    
-    print('🔧 Special cleanup for potential username conflict: $normalizedAtSign');
-    
+
+    print(
+      '🔧 Special cleanup for potential username conflict: $normalizedAtSign',
+    );
+
     try {
       // First do the complete cleanup
       await completeAtSignCleanup(normalizedAtSign);
-      
+
       // Additional cleanup for username conflicts
       final dir = await getApplicationSupportDirectory();
-      
+
       // Check for directories that might be created with username variations
       final possibleConflictPaths = [
         '${dir.path}/$usernameOnly', // Direct username folder
@@ -1015,7 +1032,7 @@ class AtTalkService {
         '/tmp/at_talk_gui/$usernameOnly', // Temp without @ prefix
         '/tmp/at_talk_gui/$normalizedAtSign', // Temp with @ prefix
       ];
-      
+
       for (final conflictPath in possibleConflictPaths) {
         final conflictDir = Directory(conflictPath);
         if (conflictDir.existsSync()) {
@@ -1023,12 +1040,11 @@ class AtTalkService {
           await conflictDir.delete(recursive: true);
         }
       }
-      
+
       // Force clear any cached AtClient state
       AtClientManager.getInstance().reset();
-      
+
       print('✅ Username conflict cleanup completed for $normalizedAtSign');
-      
     } catch (e) {
       print('⚠️ Error during username conflict cleanup: $e');
       rethrow;

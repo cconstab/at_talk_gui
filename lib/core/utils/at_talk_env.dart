@@ -11,14 +11,13 @@ class AtTalkEnv {
   // API Key for getting free atSigns (required for production)
   // Note: This should be obtained from https://my.atsign.com and stored securely
   // For staging/testing, this can be null
-  static const String? appApiKey =
-      null; // Replace with actual API key when using Production
+  static const String? appApiKey = null; // Replace with actual API key when using Production
 
   // App namespace - configurable like TUI's -n option
   static String _namespace = 'default.attalk';
 
   // App name
-  static const String appName = 'AtTalk GUI';
+  static const String appName = 'atTalk';
 
   // Get current namespace
   static String get namespace => _namespace;

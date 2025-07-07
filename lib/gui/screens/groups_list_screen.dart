@@ -42,20 +42,37 @@ class _GroupsListScreenWithSidePanelState
 
   @override
   Widget build(BuildContext context) {
-    final currentAtSign = AtTalkService.instance.currentAtSign ?? 'Unknown';
-
     return Scaffold(
       appBar: AppBar(
-        title: GestureDetector(
-          onTap: _showAtSignMenu,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('atTalk - $currentAtSign'),
-              const SizedBox(width: 8),
-              const Icon(Icons.arrow_drop_down, size: 20),
-            ],
-          ),
+        title: Consumer<AuthProvider>(
+          builder: (context, authProvider, child) {
+            final currentAtSign =
+                authProvider.currentAtSign ??
+                AtTalkService.instance.currentAtSign ??
+                'Unknown';
+            return GestureDetector(
+              onTap: _showAtSignMenu,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        currentAtSign,
+                        style: const TextStyle(
+                          fontSize: 20, // Base font size
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_drop_down, size: 20),
+                ],
+              ),
+            );
+          },
         ),
         backgroundColor: const Color(0xFF2196F3),
         foregroundColor: Colors.white,
@@ -369,10 +386,12 @@ class _GroupsListScreenWithSidePanelState
 
   void _startOneOnOneChat(String atSign) {
     final normalizedAtSign = atSign.startsWith('@') ? atSign : '@$atSign';
+    // For 2-member groups, we can create them without an explicit name
+    // The Group.getDisplayName() method will handle showing just the other person's name
     _createNewGroup(normalizedAtSign, null);
   }
 
-  void _createNewGroup(String input, String? groupName) {
+  void _createNewGroup(String input, String? groupName) async {
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final currentAtSign = authProvider.currentAtSign;
@@ -398,7 +417,7 @@ class _GroupsListScreenWithSidePanelState
       return;
     }
 
-    final groupId = groupsProvider.createNewGroupWithUniqueId(
+    final groupId = await groupsProvider.createNewGroupWithUniqueId(
       members,
       name: groupName?.isNotEmpty == true ? groupName : null,
     );
@@ -522,10 +541,19 @@ class _GroupsListScreenWithSidePanelState
           }
 
           final atSigns = snapshot.data ?? [];
-          if (atSigns.isEmpty) {
+          final currentAtSign = AtTalkService.instance.currentAtSign;
+          final availableAtSigns = atSigns
+              .where((atSign) => atSign != currentAtSign)
+              .toList();
+
+          if (availableAtSigns.isEmpty) {
             return AlertDialog(
               title: const Text('Switch atSign'),
-              content: const Text('No other atSigns found in keychain.'),
+              content: Text(
+                atSigns.isEmpty
+                    ? 'No atSigns found in keychain.'
+                    : 'No other atSigns available. Current: $currentAtSign',
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
@@ -539,15 +567,78 @@ class _GroupsListScreenWithSidePanelState
             title: const Text('Switch atSign'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
-              children: atSigns
+              children: availableAtSigns
                   .map(
                     (atSign) => ListTile(
                       leading: const Icon(Icons.person),
                       title: Text(atSign),
-                      onTap: () {
+                      onTap: () async {
                         Navigator.pop(context);
-                        // Simple navigation to onboarding to re-authenticate
-                        Navigator.pushReplacementNamed(context, '/onboarding');
+                        // Use AuthProvider to switch to existing atSign
+                        final authProvider = Provider.of<AuthProvider>(
+                          context,
+                          listen: false,
+                        );
+                        final groupsProvider = Provider.of<GroupsProvider>(
+                          context,
+                          listen: false,
+                        );
+
+                        try {
+                          // Show loading indicator
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Switching to $atSign...'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+
+                          // Clear existing groups and reinitialize for new atSign
+                          groupsProvider.clearAllGroups();
+
+                          // Authenticate with the selected atSign
+                          await authProvider.authenticateExisting(
+                            atSign,
+                            cleanupExisting: true,
+                          );
+
+                          // Reinitialize groups provider for the new atSign
+                          groupsProvider.reinitialize();
+
+                          // Wait a moment for UI to update
+                          await Future.delayed(
+                            const Duration(milliseconds: 500),
+                          );
+
+                          // Force widget rebuild
+                          if (mounted) {
+                            setState(() {});
+                          }
+
+                          // Show success message
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).clearSnackBars();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Switched to $atSign'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          // Show error message
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).clearSnackBars();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to switch atSign: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
                       },
                     ),
                   )

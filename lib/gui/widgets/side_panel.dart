@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/providers/groups_provider.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/services/at_talk_service.dart';
 import '../../core/models/group.dart';
 
@@ -35,300 +36,236 @@ class _SidePanelState extends State<SidePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final currentAtSign = AtTalkService.instance.currentAtSign ?? 'Unknown';
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Container(
-      width: 320,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            colorScheme.surface,
-            colorScheme.surface.withOpacity(0.98),
-          ],
-        ),
-        border: Border(
-          right: BorderSide(
-            color: colorScheme.outline.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(3, 0),
-          ),
-          BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.04),
-            blurRadius: 6,
-            offset: const Offset(1, 0),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            height: 72,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  colorScheme.primary,
-                  colorScheme.primary.withOpacity(0.8),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.primary.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        final currentAtSign = authProvider.currentAtSign ?? AtTalkService.instance.currentAtSign ?? 'Unknown';
+
+        return Container(
+          width: 320,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [colorScheme.surface, colorScheme.surface.withOpacity(0.98)],
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+            border: Border(right: BorderSide(color: colorScheme.outline.withOpacity(0.2), width: 1)),
+            boxShadow: [
+              BoxShadow(color: colorScheme.shadow.withOpacity(0.08), blurRadius: 12, offset: const Offset(3, 0)),
+              BoxShadow(color: colorScheme.shadow.withOpacity(0.04), blurRadius: 6, offset: const Offset(1, 0)),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                height: 56, // Match standard AppBar height
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
                   ),
-                  child: Icon(
-                    Icons.alternate_email,
-                    color: Colors.white,
-                    size: 24,
-                  ),
+                  boxShadow: [
+                    BoxShadow(color: colorScheme.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Signed in as',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      Text(
-                        currentAtSign,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                      child: Icon(
+                        Icons.alternate_email,
+                        color: Colors.white,
+                        size: 20, // Slightly smaller to fit better
                       ),
-                    ],
-                  ),
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: IconButton(
-                    onPressed: widget.onClose,
-                    icon: Icon(
-                      widget.selectedGroup != null ? Icons.list_rounded : Icons.close_rounded,
-                      color: Colors.white,
-                      size: 22,
                     ),
-                    tooltip: widget.selectedGroup != null
-                        ? 'Show all conversations'
-                        : 'Close panel',
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Search bar
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: colorScheme.outline.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search conversations...',
-                  hintStyle: TextStyle(
-                    color: colorScheme.onSurfaceVariant.withOpacity(0.7),
-                    fontSize: 14,
-                  ),
-                  prefixIcon: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Icon(
-                      Icons.search_rounded,
-                      size: 20,
-                      color: colorScheme.onSurfaceVariant.withOpacity(0.7),
-                    ),
-                  ),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Material(
-                            color: colorScheme.onSurfaceVariant.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(8),
-                              onTap: () {
-                                _searchController.clear();
-                                setState(() {
-                                  _searchQuery = '';
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                child: Icon(
-                                  Icons.close_rounded,
-                                  size: 16,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ),
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value.toLowerCase();
-                  });
-                },
-              ),
-            ),
-          ),
-
-          // Groups list
-          Expanded(
-            child: Consumer<GroupsProvider>(
-              builder: (context, groupsProvider, child) {
-                final groups = groupsProvider.sortedGroups;
-                final filteredGroups = _searchQuery.isEmpty
-                    ? groups
-                    : groups
-                          .where(
-                            (group) =>
-                                group
-                                    .getDisplayName(currentAtSign)
-                                    .toLowerCase()
-                                    .contains(_searchQuery) ||
-                                (group.lastMessage?.toLowerCase().contains(
-                                      _searchQuery,
-                                    ) ??
-                                    false),
-                          )
-                          .toList();
-
-                if (filteredGroups.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
+                    const SizedBox(width: 12),
+                    Expanded(
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceVariant.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            child: Icon(
-                              _searchQuery.isEmpty 
-                                ? Icons.chat_bubble_outline_rounded 
-                                : Icons.search_off_rounded,
-                              size: 48,
-                              color: colorScheme.onSurfaceVariant.withOpacity(0.6),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
                           Text(
-                            _searchQuery.isEmpty
-                                ? 'No conversations yet'
-                                : 'No matches found',
+                            'Signed in as',
                             style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 16,
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 10, // Slightly smaller
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          if (_searchQuery.isEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              'Start a new conversation to get started',
-                              style: TextStyle(
-                                color: colorScheme.onSurfaceVariant.withOpacity(0.7),
-                                fontSize: 14,
-                              ),
-                              textAlign: TextAlign.center,
+                          Text(
+                            currentAtSign,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14, // Adjusted for smaller header
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
                             ),
-                          ],
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ],
                       ),
                     ),
-                  );
-                }
+                    // Removed the X button since it wasn't working properly
+                    // Users can close the panel using other navigation methods
+                  ],
+                ),
+              ),
 
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  itemCount: filteredGroups.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 4),
-                  itemBuilder: (context, index) {
-                    final group = filteredGroups[index];
-                    final isSelected = widget.selectedGroup?.id == group.id;
+              // Search bar
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceVariant.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colorScheme.outline.withOpacity(0.1), width: 1),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search conversations...',
+                      hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withOpacity(0.7), fontSize: 14),
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Icon(
+                          Icons.search_rounded,
+                          size: 20,
+                          color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                        ),
+                      ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Material(
+                                color: colorScheme.onSurfaceVariant.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  onTap: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _searchQuery = '';
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(Icons.close_rounded, size: 16, color: colorScheme.onSurfaceVariant),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value.toLowerCase();
+                      });
+                    },
+                  ),
+                ),
+              ),
 
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? colorScheme.primaryContainer.withOpacity(0.3)
-                            : null,
-                        borderRadius: BorderRadius.circular(16),
-                        border: isSelected
-                            ? Border.all(
-                                color: colorScheme.primary.withOpacity(0.3),
-                                width: 1.5,
+              // Groups list
+              Expanded(
+                child: Consumer<GroupsProvider>(
+                  builder: (context, groupsProvider, child) {
+                    final groups = groupsProvider.sortedGroups;
+                    final filteredGroups = _searchQuery.isEmpty
+                        ? groups
+                        : groups
+                              .where(
+                                (group) =>
+                                    group.getDisplayName(currentAtSign).toLowerCase().contains(_searchQuery) ||
+                                    (group.lastMessage?.toLowerCase().contains(_searchQuery) ?? false),
                               )
-                            : null,
-                      ),
-                      child: SidePanelGroupTile(
-                        group: group,
-                        isSelected: isSelected,
-                        onTap: () => widget.onGroupSelected(group),
-                      ),
+                              .toList();
+
+                    if (filteredGroups.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceVariant.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: Icon(
+                                  _searchQuery.isEmpty ? Icons.chat_bubble_outline_rounded : Icons.search_off_rounded,
+                                  size: 48,
+                                  color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                _searchQuery.isEmpty ? 'No conversations yet' : 'No matches found',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              if (_searchQuery.isEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Start a new conversation to get started',
+                                  style: TextStyle(color: colorScheme.onSurfaceVariant.withOpacity(0.7), fontSize: 14),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      itemCount: filteredGroups.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 4),
+                      itemBuilder: (context, index) {
+                        final group = filteredGroups[index];
+                        final isSelected = widget.selectedGroup?.id == group.id;
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: isSelected ? colorScheme.primaryContainer.withOpacity(0.3) : null,
+                            borderRadius: BorderRadius.circular(16),
+                            border: isSelected
+                                ? Border.all(color: colorScheme.primary.withOpacity(0.3), width: 1.5)
+                                : null,
+                          ),
+                          child: SidePanelGroupTile(
+                            group: group,
+                            isSelected: isSelected,
+                            onTap: () => widget.onGroupSelected(group),
+                            currentAtSign: currentAtSign,
+                          ),
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -337,17 +274,18 @@ class SidePanelGroupTile extends StatelessWidget {
   final Group group;
   final bool isSelected;
   final VoidCallback onTap;
+  final String currentAtSign;
 
   const SidePanelGroupTile({
     super.key,
     required this.group,
     required this.isSelected,
     required this.onTap,
+    required this.currentAtSign,
   });
 
   @override
   Widget build(BuildContext context) {
-    final currentAtSign = AtTalkService.instance.currentAtSign;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -368,8 +306,9 @@ class SidePanelGroupTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: (isSelected ? colorScheme.primary : colorScheme.primary.withOpacity(0.4))
-                            .withOpacity(0.3),
+                        color: (isSelected ? colorScheme.primary : colorScheme.primary.withOpacity(0.4)).withOpacity(
+                          0.3,
+                        ),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -377,9 +316,7 @@ class SidePanelGroupTile extends StatelessWidget {
                   ),
                   child: CircleAvatar(
                     radius: 22,
-                    backgroundColor: isSelected
-                        ? colorScheme.primary
-                        : colorScheme.primary.withOpacity(0.8),
+                    backgroundColor: isSelected ? colorScheme.primary : colorScheme.primary.withOpacity(0.8),
                     child: Text(
                       group.getDisplayName(currentAtSign).substring(0, 1).toUpperCase(),
                       style: const TextStyle(
@@ -406,9 +343,7 @@ class SidePanelGroupTile extends StatelessWidget {
                             style: TextStyle(
                               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                               fontSize: 15,
-                              color: isSelected 
-                                ? colorScheme.primary 
-                                : colorScheme.onSurface,
+                              color: isSelected ? colorScheme.primary : colorScheme.onSurface,
                               letterSpacing: 0.2,
                             ),
                             maxLines: 1,
@@ -424,9 +359,7 @@ class SidePanelGroupTile extends StatelessWidget {
                                   ? colorScheme.primary
                                   : colorScheme.onSurfaceVariant.withOpacity(0.7),
                               fontSize: 11,
-                              fontWeight: group.unreadCount > 0
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
+                              fontWeight: group.unreadCount > 0 ? FontWeight.w600 : FontWeight.w500,
                               letterSpacing: 0.3,
                             ),
                           ),
@@ -446,9 +379,7 @@ class SidePanelGroupTile extends StatelessWidget {
                                     color: group.unreadCount > 0
                                         ? colorScheme.onSurface.withOpacity(0.8)
                                         : colorScheme.onSurfaceVariant.withOpacity(0.7),
-                                    fontWeight: group.unreadCount > 0
-                                        ? FontWeight.w500
-                                        : FontWeight.normal,
+                                    fontWeight: group.unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
                                     fontSize: 13,
                                     height: 1.2,
                                   ),
@@ -468,10 +399,7 @@ class SidePanelGroupTile extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [
-                                  colorScheme.primary,
-                                  colorScheme.primary.withOpacity(0.8),
-                                ],
+                                colors: [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
                               ),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
