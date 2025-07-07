@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:at_client_mobile/at_client_mobile.dart';
@@ -8,7 +7,7 @@ import 'package:args/args.dart';
 import 'dart:io';
 
 import 'gui/screens/onboarding_screen.dart';
-import 'gui/screens/groups_list_screen.dart';
+import 'gui/screens/main_screen.dart';
 import 'gui/screens/settings_screen.dart';
 import 'core/providers/groups_provider.dart';
 import 'core/providers/auth_provider.dart';
@@ -163,7 +162,7 @@ class _AtTalkAppState extends State<AtTalkApp>
         home: const SplashScreen(),
         routes: {
           '/onboarding': (context) => const OnboardingScreen(),
-          '/groups': (context) => const GroupsListScreen(),
+          '/groups': (context) => const MainScreen(),
           '/settings': (context) => const SettingsScreen(),
         },
       ),

@@ -9,8 +9,17 @@ import '../../core/models/chat_message.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final Group group;
+  final VoidCallback? onBack;
+  final bool showMenuButton;
+  final VoidCallback? onMenuPressed;
 
-  const GroupChatScreen({super.key, required this.group});
+  const GroupChatScreen({
+    super.key,
+    required this.group,
+    this.onBack,
+    this.showMenuButton = false,
+    this.onMenuPressed,
+  });
 
   @override
   State<GroupChatScreen> createState() => _GroupChatScreenState();
@@ -36,6 +45,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       // Set up listener for message changes to auto-scroll
       _groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
       _groupsProvider?.addListener(_scrollToBottom);
+
+      // Mark this group as read when entering the chat
+      _groupsProvider?.markGroupAsRead(widget.group.id);
     });
   }
 
@@ -78,6 +90,21 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         ),
         backgroundColor: const Color(0xFF2196F3),
         foregroundColor: Colors.white,
+        leading: widget.onBack != null
+            ? IconButton(
+                onPressed: widget.onBack,
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Back to conversations',
+              )
+            : widget.showMenuButton && widget.onMenuPressed != null
+            ? IconButton(
+                onPressed: widget.onMenuPressed,
+                icon: const Icon(Icons.menu),
+                tooltip: 'Show conversations',
+              )
+            : null,
+        automaticallyImplyLeading:
+            widget.onBack == null && !widget.showMenuButton,
         actions: [
           IconButton(
             onPressed: _showAddMemberDialog,
@@ -239,6 +266,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     // For reverse ListView, scroll to position 0 (which is the bottom)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
+        // Mark group as read when scrolling (indicating user activity)
+        _groupsProvider?.markGroupAsRead(widget.group.id);
+
         // Add a small additional delay to ensure all widgets are rendered
         Future.delayed(const Duration(milliseconds: 100), () {
           if (_scrollController.hasClients) {

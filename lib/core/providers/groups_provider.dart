@@ -25,6 +25,13 @@ class GroupsProvider extends ChangeNotifier {
     return groupsList;
   }
 
+  /// Get total unread count across all groups, excluding the specified group
+  int getTotalUnreadCount([String? excludeGroupId]) {
+    return _groups.values
+        .where((group) => excludeGroupId == null || group.id != excludeGroupId)
+        .fold(0, (total, group) => total + group.unreadCount);
+  }
+
   List<ChatMessage> getGroupMessages(String groupId) {
     return _groupMessages[groupId] ?? [];
   }
@@ -38,13 +45,13 @@ class GroupsProvider extends ChangeNotifier {
   /// Reinitialize after namespace change - clears data and restarts subscriptions
   void reinitialize() {
     print('🔄 GroupsProvider reinitializing after namespace change...');
-    
+
     // Cancel existing subscription first
     _messageSubscription?.cancel();
-    
+
     // Clear all existing data
     clearAllGroups();
-    
+
     // Restart message subscriptions with new namespace
     initialize();
   }
@@ -266,12 +273,14 @@ class GroupsProvider extends ChangeNotifier {
 
   void _subscribeToMessages() {
     print('🔄 GroupsProvider subscribing to messages...');
-    
+
     // Cancel any existing subscription first
     _messageSubscription?.cancel();
-    
+
     try {
-      _messageSubscription = AtTalkService.instance.getAllMessageStream().listen((messageData) {
+      _messageSubscription = AtTalkService.instance.getAllMessageStream().listen((
+        messageData,
+      ) {
         final fromAtSign = messageData['from'] ?? '';
         final message = messageData['message'] ?? '';
         final rawValue = messageData['rawValue'] ?? '';

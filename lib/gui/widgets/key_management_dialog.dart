@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:at_client_mobile/at_client_mobile.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../../core/utils/atsign_manager.dart';
@@ -41,7 +40,12 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
                   children: [
                     const Icon(Icons.info, color: Colors.blue, size: 20),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(_statusMessage!, style: const TextStyle(fontSize: 14))),
+                    Expanded(
+                      child: Text(
+                        _statusMessage!,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -72,12 +76,19 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
               onTap: _isLoading ? null : _removeKeys,
             ),
 
-            if (_isLoading) const Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()),
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(),
+              ),
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: _isLoading ? null : () => Navigator.of(context).pop(), child: const Text('Close')),
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
       ],
     );
   }
@@ -125,7 +136,9 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
       // Find the key file for this atSign
       final keyFiles = keysDir
           .listSync()
-          .where((file) => file.path.contains(widget.atSign.replaceAll('@', '')))
+          .where(
+            (file) => file.path.contains(widget.atSign.replaceAll('@', '')),
+          )
           .toList();
 
       if (keyFiles.isEmpty) {
@@ -191,14 +204,16 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
         }
 
         // Generate the target file name based on the atSign
-        final targetFileName = '${widget.atSign.replaceAll('@', '')}_key.atKeys';
+        final targetFileName =
+            '${widget.atSign.replaceAll('@', '')}_key.atKeys';
         final targetFile = File('${keysDir.path}/$targetFileName');
 
         // Copy the selected file to the keys directory
         await selectedFile.copy(targetFile.path);
 
         setState(() {
-          _statusMessage = 'Keys imported successfully. You may need to restart the app.';
+          _statusMessage =
+              'Keys imported successfully. You may need to restart the app.';
         });
       } else {
         setState(() {
@@ -227,7 +242,10 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
           'This action cannot be undone. You will need to re-authenticate or import backup keys to use this atSign again.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -252,7 +270,8 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
       await removeAtsignInformation(widget.atSign);
 
       setState(() {
-        _statusMessage = 'Keys and all storage completely removed. Please restart the app.';
+        _statusMessage =
+            'Keys and all storage completely removed. Please restart the app.';
       });
     } catch (e) {
       setState(() {

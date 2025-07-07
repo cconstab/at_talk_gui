@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:at_client_mobile/at_client_mobile.dart';
 import '../../core/providers/groups_provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/at_talk_service.dart';
 import '../../core/models/group.dart';
+import '../../core/utils/atsign_manager.dart';
 import '../widgets/key_management_dialog.dart';
 import 'group_chat_screen.dart';
 
@@ -439,7 +439,7 @@ class _GroupsListScreenWithSidePanelState
                 context,
                 listen: false,
               );
-              authProvider.logout();
+              await authProvider.logout();
               if (mounted) {
                 Navigator.pushReplacementNamed(context, '/onboarding');
               }
@@ -491,20 +491,9 @@ class _GroupsListScreenWithSidePanelState
   }
 
   void _showKeyManagement() {
-    final currentAtSign = AtTalkService.instance.currentAtSign;
-    if (currentAtSign == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No atSign is currently active'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
     showDialog(
       context: context,
-      builder: (context) => KeyManagementDialog(atSign: currentAtSign),
+      builder: (context) => const KeyManagementDialog(),
     );
   }
 
@@ -544,10 +533,13 @@ class _GroupsListScreenWithSidePanelState
                     (atSign) => ListTile(
                       leading: const Icon(Icons.person),
                       title: Text(atSign),
-                      onTap: () {
+                      onTap: () async {
                         Navigator.pop(context);
-                        // Simple navigation to onboarding to re-authenticate
-                        Navigator.pushReplacementNamed(context, '/onboarding');
+                        final authProvider = Provider.of<AuthProvider>(
+                          context,
+                          listen: false,
+                        );
+                        await authProvider.switchAtSign(atSign);
                       },
                     ),
                   )
@@ -678,7 +670,7 @@ class _GroupsListScreenWithSidePanelState
               Provider.of<GroupsProvider>(
                 context,
                 listen: false,
-              ).deleteGroup(group.id);
+              ).removeGroup(group.id);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(

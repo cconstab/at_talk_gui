@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:at_client_mobile/at_client_mobile.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/groups_provider.dart';
 import '../../core/services/at_talk_service.dart';
