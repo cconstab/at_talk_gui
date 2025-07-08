@@ -615,8 +615,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         await authProvider.authenticate(result.atsign);
 
         if (mounted && authProvider.isAuthenticated) {
-          print('Authentication successful, navigating to groups...');
-          Navigator.pushReplacementNamed(context, '/groups');
+          print('Authentication successful');
+          
+          // Wait for complete authentication cycle and key availability
+          print('Waiting for complete authentication cycle and key availability...');
+          await Future.delayed(const Duration(seconds: 5));
+          
+          // Show backup option for APKAM onboarding
+          final shouldShowBackup = await _showBackupDialog();
+          if (shouldShowBackup == true && mounted) {
+            await _showBackupKeysFromSecureStorage(result.atsign!);
+          }
+          
+          if (mounted) {
+            print('Navigating to groups...');
+            Navigator.pushReplacementNamed(context, '/groups');
+          }
         } else {
           print('Authentication failed after APKAM onboarding');
           if (mounted) {
@@ -632,6 +646,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       case AtOnboardingResultStatus.error:
         print('AtOnboarding.onboard APKAM error: ${result.message}');
+        
+        // Clean up biometric storage if APKAM enrollment fails
+        try {
+          print('Cleaning up biometric storage after APKAM failure...');
+          await _clearBiometricStorageForAtSigns([result.atsign ?? '']);
+        } catch (e) {
+          print('Error during biometric cleanup after APKAM failure: $e');
+        }
+        
         _handleApkamError(result.message ?? 'APKAM enrollment failed');
         break;
 
@@ -1003,8 +1026,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Text('Authenticator (APKAM) Error'),
             ],
           ),
-          content: Text(errorMessage),
-          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK'))],
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(errorMessage),
+              const SizedBox(height: 16),
+              const Text(
+                'If you continue to have issues, try cleaning up corrupted storage data.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _performKeyChainCleanup();
+              },
+              child: const Text('Clean Storage'),
+            ),
+          ],
         );
       },
     );

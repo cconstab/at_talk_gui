@@ -52,6 +52,32 @@ print('✅ Keychain cleanup completed');
 await _clearBiometricStorageForAtSigns(atSignList);
 ```
 
+### 4. Group and Side Panel State Management
+**Enhancement**: Updated the login flow to properly clear group and side panel state when logging in with an atSign after logout.
+
+**File**: `lib/gui/screens/onboarding_screen.dart`
+**Method**: `_loginWithExistingAtSign(String atSign)`
+
+#### Changes Made:
+- Added `GroupsProvider` import and usage
+- Clear existing groups: `groupsProvider.clearAllGroups()`
+- Reinitialize groups provider: `groupsProvider.reinitialize()`
+- This matches the behavior when switching atSigns, ensuring consistent state management
+
+```dart
+// Clear existing groups and side panel state (similar to atSign switching)
+groupsProvider.clearAllGroups();
+
+await authProvider.authenticate(atSign);
+
+if (mounted && authProvider.isAuthenticated) {
+  // Reinitialize groups provider for the newly authenticated atSign
+  groupsProvider.reinitialize();
+  
+  Navigator.pushReplacementNamed(context, '/groups');
+}
+```
+
 ### 4. API Usage
 The implementation uses the `biometric_storage` package correctly:
 
