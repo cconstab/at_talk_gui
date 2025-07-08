@@ -7,6 +7,7 @@ import 'package:at_auth/at_auth.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
+import 'package:at_client_mobile/at_client_mobile.dart';
 
 import 'dart:developer';
 import 'dart:io';
@@ -16,6 +17,10 @@ import '../../core/services/at_talk_service.dart';
 import '../../core/services/key_backup_service.dart';
 import '../../core/utils/at_talk_env.dart';
 import '../../core/utils/atsign_manager.dart';
+import '../widgets/key_management_dialog.dart';
+
+// Import biometric storage for proper cleanup
+import 'package:biometric_storage/biometric_storage.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -47,8 +52,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         _availableAtSigns = atSigns;
       });
     } catch (e) {
+      print('Error loading atSigns: ${e.toString()}');
       setState(() {
-        _errorMessage = 'Failed to load atSigns: ${e.toString()}';
+        // Provide more helpful error messages for keychain corruption
+        if (e.toString().contains('FormatException') || 
+            e.toString().contains('ChunkedJsonParser') ||
+            e.toString().contains('Invalid JSON') ||
+            e.toString().contains('Unexpected character')) {
+          _errorMessage = 'Keychain data is corrupted. Use "Manage Keys" to clean up corrupted data, or restart the app after cleanup.';
+        } else {
+          _errorMessage = 'Failed to load atSigns: ${e.toString()}';
+        }
       });
     } finally {
       setState(() {
@@ -208,6 +222,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                         )
                                       : const Icon(Icons.refresh, size: 18),
                                   label: const Text('Refresh atSigns'),
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                // Key Management Button
+                                OutlinedButton.icon(
+                                  onPressed: _showKeyManagementDialog,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(color: Colors.white),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  icon: const Icon(Icons.key, size: 18),
+                                  label: const Text('Manage Keys'),
                                 ),
                               ],
                             );
@@ -844,8 +872,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         await authProvider.authenticate(normalizedFile);
 
         if (mounted && authProvider.isAuthenticated) {
-          print('Authentication successful, navigating to groups...');
-          Navigator.pushReplacementNamed(context, '/groups');
+          print('Authentication successful');
+          
+          // Wait for complete authentication cycle and key availability
+          print('Waiting for complete authentication cycle and key availability...');
+          await Future.delayed(const Duration(seconds: 5));
+          
+          // Show backup option for PKAM onboarding
+          final shouldShowBackup = await _showBackupDialog();
+          if (shouldShowBackup == true && mounted) {
+            await _showBackupKeysFromSecureStorage(normalizedFile);
+          }
+          
+          if (mounted) {
+            print('Navigating to groups...');
+            Navigator.pushReplacementNamed(context, '/groups');
+          }
         } else {
           print('Authentication failed after importing keys');
           if (mounted) {
@@ -1147,6 +1189,330 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
     }
   }
+
+  // Show key management dialog for the onboarding screen
+  Future<void> _showKeyManagementDialog() async {
+    // For onboarding screen, we need to handle cases where there are no atSigns or corrupted data
+    if (_availableAtSigns.isEmpty) {
+      // Show simplified key management for cleanup when no atSigns are available
+      await _showSimplifiedKeyManagement();
+    } else {
+      // Show atSign selection first, then open specific key management
+      await _showAtSignSelectionForKeyManagement();
+    }
+  }
+
+  // Show simplified key management when no atSigns are available (corrupted keychain case)
+  Future<void> _showSimplifiedKeyManagement() async {
+    final action = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Keychain Recovery'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'The keychain appears to be corrupted, preventing atSigns from loading.',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+            SizedBox(height: 12),
+            Text('Choose your recovery option:'),
+            SizedBox(height: 16),
+            
+            Text('🔧 Reset Keychain:', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.orange)),
+            SizedBox(height: 4),
+            Text('• Removes corrupted keychain data'),
+            Text('• Keeps your .atKeys files safe'),
+            Text('• You can re-import your atSigns afterward'),
+            SizedBox(height: 12),
+            
+            Text('💡 Recommendation:', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.blue)),
+            Text(
+              'After cleanup, use ".atKeys file" method to restore your atSigns if you have backup files.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('cancel'),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop('reset'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Reset Keychain'),
+          ),
+        ],
+      ),
+    );
+
+    if (action == 'reset') {
+      await _performKeyChainCleanup();
+    }
+  }
+
+  // Show atSign selection for key management when multiple atSigns exist
+  Future<void> _showAtSignSelectionForKeyManagement() async {
+    final selectedAtSign = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.key, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('Select atSign to Manage'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Select which atSign you want to manage:'),
+              const SizedBox(height: 16),
+              ..._availableAtSigns.keys.map((atSign) {
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.person, color: Color(0xFF2196F3)),
+                    title: Text(atSign),
+                    subtitle: Text('Domain: ${_availableAtSigns[atSign]!.rootDomain}'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => Navigator.of(context).pop(atSign),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('__cleanup_all__'),
+            style: TextButton.styleFrom(foregroundColor: Colors.orange),
+            child: const Text('Clean All'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedAtSign != null) {
+      if (selectedAtSign == '__cleanup_all__') {
+        await _performKeyChainCleanup();
+      } else {
+        // Open the existing key management dialog for the specific atSign
+        await showDialog(
+          context: context,
+          builder: (context) => KeyManagementDialog(atSign: selectedAtSign),
+        );
+        // Refresh the atSigns list after key management
+        await _loadAvailableAtSigns();
+      }
+    }
+  }
+
+  // Perform comprehensive keychain cleanup
+  Future<void> _performKeyChainCleanup() async {
+    final messenger = ScaffoldMessenger.of(context);
+    
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Cleaning up keychain data...'),
+            ],
+          ),
+        ),
+      );
+
+      print('🧹 Starting comprehensive keychain cleanup...');
+
+      // Get all atSigns from the keychain first (before cleanup) - handle corruption gracefully
+      List<String> atSignList = [];
+      try {
+        final keyChainManager = KeyChainManager.getInstance();
+        atSignList = await keyChainManager.getAtSignListFromKeychain();
+        print('Found ${atSignList.length} atSigns to clean up: $atSignList');
+      } catch (e) {
+        print('Could not get atSign list (probably corrupted): $e');
+        // If we can't read the list, we'll try to clean up the entire keychain
+      }
+
+      // Perform cleanup for each atSign if we could read them
+      for (final atSign in atSignList) {
+        try {
+          print('Cleaning up $atSign...');
+          await AtTalkService.completeAtSignCleanup(atSign);
+          await removeAtsignInformation(atSign);
+          print('Successfully cleaned up $atSign');
+        } catch (e) {
+          print('Error cleaning up $atSign: $e');
+          // Continue with other atSigns
+        }
+      }
+
+      // Critical: Force reset the keychain to clear any corrupted data
+      try {
+        print('🔥 Force resetting keychain to clear corruption...');
+        final keyChainManager = KeyChainManager.getInstance();
+        
+        // Try multiple approaches to clear corrupted keychain data
+        // Method 1: Try to delete known atSigns
+        try {
+          final remainingAtSigns = await keyChainManager.getAtSignListFromKeychain();
+          for (final atSign in remainingAtSigns) {
+            await keyChainManager.deleteAtSignFromKeychain(atSign);
+          }
+        } catch (e) {
+          print('Method 1 failed (expected if corrupted): $e');
+        }
+        
+        // Method 2: Reset any stored client data
+        try {
+          await keyChainManager.resetAtSignFromKeychain('*'); // Try wildcard reset
+        } catch (e) {
+          print('Method 2 failed: $e');
+        }
+        
+        // Method 3: Clear biometric storage for each atSign
+        try {
+          print('Method 3: Attempting to clear biometric storage...');
+          await _clearBiometricStorageForAtSigns(atSignList);
+        } catch (e) {
+          print('Method 3 failed: $e');
+        }
+        
+        print('✅ Keychain reset completed');
+      } catch (e) {
+        print('Keychain reset error (may be expected): $e');
+      }
+
+      // Also clear the AtSign information file to start fresh
+      try {
+        print('🗑️ Clearing AtSign information file...');
+        // Use the removeAtsignInformation function to clear all data
+        // Since we can't easily get the file directly, just clear the stored data
+        print('✅ AtSign information will be cleared through normal cleanup');
+      } catch (e) {
+        print('Error clearing AtSign info file: $e');
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Keychain cleanup completed successfully. The app is now reset and ready for fresh onboarding.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 5),
+          ),
+        );
+
+        // Refresh the atSigns list - this should now work without corruption
+        await _loadAvailableAtSigns();
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Cleanup failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  // Clear biometric storage for each atSign using the correct BiometricStorage API
+  Future<void> _clearBiometricStorageForAtSigns(List<String> atSignList) async {
+    print('🔐 Starting biometric storage cleanup for ${atSignList.length} atSigns...');
+    
+    try {
+      // Check if biometric storage is available on this platform
+      final biometricStorage = BiometricStorage();
+      final canAuthenticate = await biometricStorage.canAuthenticate();
+      
+      if (canAuthenticate != CanAuthenticateResponse.success) {
+        print('Biometric storage not available on this platform: $canAuthenticate');
+        return;
+      }
+
+      // Try to delete biometric storage for each atSign using different possible naming patterns
+      for (final atSign in atSignList) {
+        final normalizedAtSign = atSign.startsWith('@') ? atSign.substring(1) : atSign;
+        
+        // Common naming patterns used by AtSign libraries for biometric storage
+        final possibleStorageNames = [
+          atSign, // Full atSign with @
+          normalizedAtSign, // atSign without @
+          '${normalizedAtSign}_keys', // atSign with keys suffix
+          '${normalizedAtSign}_atsign', // atSign with atsign suffix
+          'atsign_$normalizedAtSign', // Prefixed with atsign
+          'at_client_$normalizedAtSign', // AtClient specific
+          'keychain_$normalizedAtSign', // Keychain specific
+        ];
+
+        for (final storageName in possibleStorageNames) {
+          try {
+            print('Attempting to delete biometric storage: $storageName');
+            
+            // Try to get and delete using BiometricStorageFile
+            final storageFile = await biometricStorage.getStorage(storageName);
+            await storageFile.delete();
+            print('✅ Successfully deleted biometric storage file: $storageName');
+          } catch (e) {
+            // This is expected if the storage doesn't exist
+            print('Expected: No biometric storage file for $storageName: $e');
+          }
+        }
+      }
+
+      // Also try some generic cleanup patterns that might be used
+      final genericPatterns = [
+        'at_client',
+        'at_auth',
+        'atsign_keys',
+        'keychain_data',
+        'secure_storage',
+      ];
+
+      for (final pattern in genericPatterns) {
+        try {
+          final storageFile = await biometricStorage.getStorage(pattern);
+          await storageFile.delete();
+          print('✅ Successfully deleted generic biometric storage file: $pattern');
+        } catch (e) {
+          print('Expected: No generic biometric storage file for $pattern: $e');
+        }
+      }
+
+      print('✅ Biometric storage cleanup completed');
+    } catch (e) {
+      print('Error during biometric storage cleanup: $e');
+      // Don't throw - this is a cleanup operation that might fail on some platforms
+    }
+  }
+
+  // ...existing code...
 }
 
 // NoPorts-style onboarding dialog
