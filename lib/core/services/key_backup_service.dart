@@ -4,6 +4,7 @@ import 'package:at_backupkey_flutter/services/backupkey_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:at_client_mobile/at_client_mobile.dart';
 
 /// Service for backing up and restoring atSign keys from secure/biometric storage
 /// Based on NoPorts' approach using at_backupkey_flutter
@@ -12,21 +13,60 @@ class KeyBackupService {
   /// This is the primary method that should work regardless of how keys are stored
   static Future<bool> exportKeys(String atSign) async {
     try {
-      // Try to get encrypted keys from secure storage first (NoPorts approach)
-      Map<String, dynamic>? encryptedKeys;
+      print('Starting key export for $atSign...');
+      
+      // Check if AtClient is available and initialized (might help with timing issues)
       try {
-        print('Attempting to retrieve keys from secure storage for $atSign...');
-        encryptedKeys = await BackUpKeyService.getEncryptedKeys(atSign);
-        print('Successfully retrieved ${encryptedKeys.length} keys from secure storage for $atSign');
+        final atClientManager = AtClientManager.getInstance();
+        final currentAtSign = atClientManager.atClient.getCurrentAtSign();
+        print('AtClient status - Current atSign: $currentAtSign, Target: $atSign');
+        
+        if (currentAtSign != null && currentAtSign != atSign) {
+          print('Warning: AtClient is for different atSign ($currentAtSign vs $atSign)');
+        }
       } catch (e) {
-        print('Could not retrieve keys from secure storage for $atSign: $e');
-        print('Falling back to file-based backup...');
-        // Fall back to file-based backup if secure storage fails
-        return await _exportKeysFromFiles(atSign);
+        print('Could not check AtClient status: $e');
       }
-
-      if (encryptedKeys.isEmpty) {
-        print('No keys found in secure storage for $atSign, trying file-based backup');
+      
+      // Try multiple approaches to get the keys
+      Map<String, dynamic>? encryptedKeys;
+      
+      // Method 1: Try BackUpKeyService (secure storage approach)
+      try {
+        print('Method 1: Attempting to retrieve keys from secure storage for $atSign...');
+        encryptedKeys = await BackUpKeyService.getEncryptedKeys(atSign);
+        if (encryptedKeys.isNotEmpty) {
+          print('Method 1: Successfully retrieved ${encryptedKeys.length} keys from secure storage for $atSign');
+        } else {
+          print('Method 1: No keys found in secure storage for $atSign');
+          encryptedKeys = null;
+        }
+      } catch (e) {
+        print('Method 1: Could not retrieve keys from secure storage for $atSign: $e');
+        encryptedKeys = null;
+      }
+      
+      // Method 2: Try KeyChainManager (if secure storage failed)
+      if (encryptedKeys == null || encryptedKeys.isEmpty) {
+        try {
+          print('Method 2: Attempting to retrieve keys from KeyChainManager for $atSign...');
+          final keyChainManager = KeyChainManager.getInstance();
+          final atsignKey = await keyChainManager.readAtsign(name: atSign);
+          
+          if (atsignKey != null) {
+            print('Method 2: Found AtsignKey in KeyChainManager for $atSign, but cannot extract raw key data');
+            print('Method 2: KeyChainManager approach not suitable for direct export');
+          } else {
+            print('Method 2: No AtsignKey found in KeyChainManager for $atSign');
+          }
+        } catch (e) {
+          print('Method 2: Could not access KeyChainManager for $atSign: $e');
+        }
+      }
+      
+      // Method 3: Fall back to file-based backup if both methods failed
+      if (encryptedKeys == null || encryptedKeys.isEmpty) {
+        print('Method 3: Falling back to file-based backup...');
         return await _exportKeysFromFiles(atSign);
       }
 
@@ -130,6 +170,30 @@ class KeyBackupService {
 
       if (!keysDir.existsSync()) {
         print('Keys directory does not exist: ${keysDir.path}');
+        
+        // Also check for alternative storage paths
+        final alternativePaths = [
+          '${appSupportDir.path}/.${atSign.replaceAll('@', '')}',
+          '${appSupportDir.path}/at_client',
+          '${appSupportDir.path}/storage',
+        ];
+        
+        for (final altPath in alternativePaths) {
+          final altDir = Directory(altPath);
+          if (altDir.existsSync()) {
+            print('Found alternative storage directory: $altPath');
+            final altFiles = altDir.listSync(recursive: true).where((file) => 
+              file.path.contains(atSign.replaceAll('@', '')) && 
+              (file.path.endsWith('.atKeys') || file.path.contains('key'))
+            ).toList();
+            
+            if (altFiles.isNotEmpty) {
+              print('Found ${altFiles.length} potential key files in alternative path: $altPath');
+              return true;
+            }
+          }
+        }
+        
         return false;
       }
 
@@ -140,6 +204,11 @@ class KeyBackupService {
         return true;
       } else {
         print('No key files found in file storage for $atSign');
+        
+        // Try to list all files to help with debugging
+        final allFiles = keysDir.listSync();
+        print('All files in keys directory: ${allFiles.map((f) => f.path).toList()}');
+        
         return false;
       }
     } catch (e) {

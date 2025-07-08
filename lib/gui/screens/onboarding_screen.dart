@@ -7,7 +7,7 @@ import 'package:at_auth/at_auth.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
-import 'package:path_provider/path_provider.dart';
+
 import 'dart:developer';
 import 'dart:io';
 import 'dart:convert';
@@ -461,9 +461,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           if (mounted && authProvider.isAuthenticated) {
             print('Authentication successful');
             
-            // Add a small delay to allow keys to be stored to secure storage
-            print('Waiting for keys to be persisted to secure storage...');
-            await Future.delayed(const Duration(seconds: 2));
+            // Wait longer for the complete authentication cycle and key availability
+            print('Waiting for complete authentication cycle and key availability...');
+            await Future.delayed(const Duration(seconds: 5));
             
             // Show backup option for CRAM onboarding
             final shouldShowBackup = await _showBackupDialog();
@@ -1085,25 +1085,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // First check if keys are available for backup
       final keysAvailable = await KeyBackupService.areKeysAvailable(atSignToBackup);
       if (!keysAvailable) {
-        print('Keys not yet available for backup, waiting a bit longer...');
-        // Wait a bit more for keys to be available
-        await Future.delayed(const Duration(seconds: 3));
+        print('Keys not yet available for backup, waiting longer for key synchronization...');
+        // Wait progressively longer for keys to be available
+        await Future.delayed(const Duration(seconds: 5));
         
         // Check again
         final keysAvailableAfterWait = await KeyBackupService.areKeysAvailable(atSignToBackup);
         if (!keysAvailableAfterWait) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Keys are not yet available for backup. Please try using the Key Management dialog from the main screen later.'), 
-                backgroundColor: Colors.orange,
-                duration: Duration(seconds: 5),
-              ),
-            );
+          print('Keys still not available after extended wait, trying last resort check...');
+          await Future.delayed(const Duration(seconds: 3));
+          
+          final keysAvailableLastTry = await KeyBackupService.areKeysAvailable(atSignToBackup);
+          if (!keysAvailableLastTry) {
+            print('Keys not available after multiple attempts');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Keys are not yet available for backup. This sometimes happens immediately after onboarding. Please try using the Key Management dialog from the main screen in a few moments.'), 
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 7),
+                ),
+              );
+            }
+            return;
           }
-          return;
         }
       }
+      
+      print('Keys are available, proceeding with backup...');
       
       // Use KeyBackupService to export keys from secure storage
       final success = await KeyBackupService.exportKeys(atSignToBackup);
@@ -1130,9 +1139,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Backup failed: ${e.toString()}. You can try again from the Key Management dialog.'), 
+            content: Text('Backup failed: ${e.toString()}. The keys are safely stored and you can try again from the Key Management dialog later.'), 
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 7),
           ),
         );
       }
@@ -1728,89 +1737,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
     }
   }
 
-  // Show backup dialog to ask if user wants to save keys
-  Future<bool?> _showBackupDialog() async {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.backup, color: Colors.blue),
-              SizedBox(width: 8),
-              Text('Backup Your Keys'),
-            ],
-          ),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Your atSign has been successfully enrolled!', style: TextStyle(fontWeight: FontWeight.w600)),
-              SizedBox(height: 12),
-              Text('Would you like to save a backup of your atKeys file now?'),
-              SizedBox(height: 8),
-              Text(
-                'This backup file will allow you to restore access to your atSign on other devices.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Skip')),
-            ElevatedButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save Backup')),
-          ],
-        );
-      },
-    );
-  }
 
-  // Show backup keys dialog - now with real implementation
-  Future<void> _showBackupKeysDialog() async {
-    try {
-      // Get the directory where keys are stored
-      final appSupportDir = await getApplicationSupportDirectory();
-      final keysDir = Directory('${appSupportDir.path}/keys');
-
-      if (!keysDir.existsSync()) {
-        throw Exception('Keys directory not found');
-      }
-
-      // Find the key file for this atSign
-      final keyFiles = keysDir.listSync().where((file) => file.path.contains(atsign.replaceAll('@', ''))).toList();
-
-      if (keyFiles.isEmpty) {
-        throw Exception('No key files found for $atsign');
-      }
-
-      // Let user choose where to save the backup
-      String? outputPath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save atKeys backup',
-        fileName: '${atsign.replaceAll('@', '')}_atkeys_backup.atKeys',
-        type: FileType.any,
-      );
-
-      if (outputPath != null) {
-        // Copy the key file to the selected location
-        final keyFile = File(keyFiles.first.path);
-        final backupFile = File(outputPath);
-
-        await keyFile.copy(backupFile.path);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Keys backed up successfully to ${backupFile.path}'), backgroundColor: Colors.green),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Backup failed: ${e.toString()}'), backgroundColor: Colors.red));
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -2123,6 +2050,138 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
             child: const Text('Close'),
           ),
         ],
+      },
+    );
+  }
+
+  Future<bool?> _showBackupDialog() async {
+    return showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Backup Keys'),
+          content: const Text(
+            'Would you like to backup your @sign keys? This will save your keys to a file '
+            'for safekeeping and allows you to restore access if needed.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Skip'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Backup Keys'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showBackupKeysDialog() async {
+    log('APKAM: Starting backup keys dialog for @sign: $atsign');
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Backup Keys'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Backing up your @sign keys...'),
+                  const SizedBox(height: 16),
+                  const CircularProgressIndicator(),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    try {
+      // Wait a moment for keys to be properly saved after APKAM onboarding
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // Check if keys are available
+      final keysAvailable = await KeyBackupService.areKeysAvailable(atsign);
+      log('APKAM: Keys available check: $keysAvailable for @sign: $atsign');
+      
+      if (!keysAvailable) {
+        // Wait a bit more and try again
+        log('APKAM: Keys not available, waiting additional time...');
+        await Future.delayed(const Duration(seconds: 3));
+        final keysAvailableAfterWait = await KeyBackupService.areKeysAvailable(atsign);
+        log('APKAM: Keys available after wait: $keysAvailableAfterWait');
+        
+        if (!keysAvailableAfterWait) {
+          log('APKAM: Keys still not available after waiting');
+          if (mounted) {
+            Navigator.of(context).pop();
+            _showBackupError('Keys are not yet available. Please try again from the key management dialog after login.');
+          }
+          return;
+        }
+      }
+
+      // Use KeyBackupService to export keys from secure storage
+      final success = await KeyBackupService.exportKeys(atsign);
+      
+      if (mounted) {
+        Navigator.of(context).pop();
+        
+        if (success) {
+          _showBackupSuccess();
+        } else {
+          _showBackupError('Failed to backup keys. Please try again from the key management dialog after login.');
+        }
+      }
+    } catch (e) {
+      log('APKAM: Error during backup: $e');
+      if (mounted) {
+        Navigator.of(context).pop();
+        _showBackupError('An error occurred during backup: $e');
+      }
+    }
+  }
+
+  void _showBackupSuccess() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Backup Successful'),
+          content: const Text('Your @sign keys have been successfully backed up to a file.'),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showBackupError(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Backup Failed'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
       },
     );
   }
