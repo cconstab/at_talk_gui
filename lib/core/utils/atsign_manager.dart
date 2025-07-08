@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:at_client_mobile/at_client_mobile.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+// KeyChainManager is used in getAtsignEntries()
+import 'package:at_client_mobile/at_client_mobile.dart';
 
 class AtsignInformation {
   final String atSign;
@@ -40,30 +42,46 @@ class AtsignInformation {
 /// Get all atSigns that are stored in the keychain along with their root domains
 Future<Map<String, AtsignInformation>> getAtsignEntries() async {
   final keyChainManager = KeyChainManager.getInstance();
-  var keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
-  var atSignInfo = <AtsignInformation>[];
+  var atSignMap = <String, AtsignInformation>{};
 
   try {
-    atSignInfo = await _getAtsignInformationFromFile();
-  } catch (e) {
-    // Check if this is just a "file not found" error (normal for first run)
-    if (e is PathNotFoundException || e.toString().contains('Cannot open file')) {
-      print("AtSign information file does not exist yet (first run) - this is normal");
-      // Ensure the directory structure exists for future saves
-      await _getAtsignInformationFile();
-      return {};
-    } else {
-      print("Failed to get AtSign Information, ignoring invalid file: ${e.toString()}");
-      return {};
+    var keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+    print('Successfully retrieved ${keychainAtSigns.length} atSigns from keychain: $keychainAtSigns');
+
+    // Use only the keychain as the source of truth for atSign listing
+    for (var atSign in keychainAtSigns) {
+      // Try to get root domain from information file, but default to prod if not found
+      var rootDomain = 'prod.atsign.wtf';
+      try {
+        var atSignInfo = await _getAtsignInformationFromFile();
+        var info = atSignInfo.firstWhere(
+          (item) => item.atSign == atSign,
+          orElse: () => AtsignInformation(atSign: atSign, rootDomain: rootDomain),
+        );
+        rootDomain = info.rootDomain;
+      } catch (e) {
+        // If we can't read the information file, use the default domain
+        print("Could not read atSign information file for root domain, using default: $e");
+      }
+
+      atSignMap[atSign] = AtsignInformation(atSign: atSign, rootDomain: rootDomain);
     }
+  } catch (e) {
+    print('Error reading from keychain: $e');
+
+    // Check if this is a JSON parsing error indicating keychain corruption
+    if (e.toString().contains('FormatException') ||
+        e.toString().contains('ChunkedJsonParser') ||
+        e.toString().contains('Invalid JSON') ||
+        e.toString().contains('Unexpected character')) {
+      print('Keychain appears to be corrupted, throwing specific error for UI handling');
+      throw Exception('Keychain data is corrupted. Please use the "Manage Keys" option to clean up corrupted data.');
+    }
+
+    // For other errors, re-throw to let the UI handle them
+    rethrow;
   }
 
-  var atSignMap = <String, AtsignInformation>{};
-  for (var item in atSignInfo) {
-    if (keychainAtSigns.contains(item.atSign)) {
-      atSignMap[item.atSign] = item;
-    }
-  }
   return atSignMap;
 }
 

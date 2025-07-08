@@ -14,23 +14,23 @@ class KeyBackupService {
   static Future<bool> exportKeys(String atSign) async {
     try {
       print('Starting key export for $atSign...');
-      
+
       // Check if AtClient is available and initialized (might help with timing issues)
       try {
         final atClientManager = AtClientManager.getInstance();
         final currentAtSign = atClientManager.atClient.getCurrentAtSign();
         print('AtClient status - Current atSign: $currentAtSign, Target: $atSign');
-        
+
         if (currentAtSign != null && currentAtSign != atSign) {
           print('Warning: AtClient is for different atSign ($currentAtSign vs $atSign)');
         }
       } catch (e) {
         print('Could not check AtClient status: $e');
       }
-      
+
       // Try multiple approaches to get the keys
       Map<String, dynamic>? encryptedKeys;
-      
+
       // Method 1: Try BackUpKeyService (secure storage approach)
       try {
         print('Method 1: Attempting to retrieve keys from secure storage for $atSign...');
@@ -45,14 +45,14 @@ class KeyBackupService {
         print('Method 1: Could not retrieve keys from secure storage for $atSign: $e');
         encryptedKeys = null;
       }
-      
+
       // Method 2: Try KeyChainManager (if secure storage failed)
       if (encryptedKeys == null || encryptedKeys.isEmpty) {
         try {
           print('Method 2: Attempting to retrieve keys from KeyChainManager for $atSign...');
           final keyChainManager = KeyChainManager.getInstance();
           final atsignKey = await keyChainManager.readAtsign(name: atSign);
-          
+
           if (atsignKey != null) {
             print('Method 2: Found AtsignKey in KeyChainManager for $atSign, but cannot extract raw key data');
             print('Method 2: KeyChainManager approach not suitable for direct export');
@@ -63,7 +63,7 @@ class KeyBackupService {
           print('Method 2: Could not access KeyChainManager for $atSign: $e');
         }
       }
-      
+
       // Method 3: Fall back to file-based backup if both methods failed
       if (encryptedKeys == null || encryptedKeys.isEmpty) {
         print('Method 3: Falling back to file-based backup...');
@@ -148,7 +148,7 @@ class KeyBackupService {
   /// Check if keys are available for backup (either in secure storage or files)
   static Future<bool> areKeysAvailable(String atSign) async {
     print('Checking if keys are available for backup for $atSign...');
-    
+
     // Check secure storage first
     try {
       print('Checking secure storage...');
@@ -170,30 +170,34 @@ class KeyBackupService {
 
       if (!keysDir.existsSync()) {
         print('Keys directory does not exist: ${keysDir.path}');
-        
+
         // Also check for alternative storage paths
         final alternativePaths = [
           '${appSupportDir.path}/.${atSign.replaceAll('@', '')}',
           '${appSupportDir.path}/at_client',
           '${appSupportDir.path}/storage',
         ];
-        
+
         for (final altPath in alternativePaths) {
           final altDir = Directory(altPath);
           if (altDir.existsSync()) {
             print('Found alternative storage directory: $altPath');
-            final altFiles = altDir.listSync(recursive: true).where((file) => 
-              file.path.contains(atSign.replaceAll('@', '')) && 
-              (file.path.endsWith('.atKeys') || file.path.contains('key'))
-            ).toList();
-            
+            final altFiles = altDir
+                .listSync(recursive: true)
+                .where(
+                  (file) =>
+                      file.path.contains(atSign.replaceAll('@', '')) &&
+                      (file.path.endsWith('.atKeys') || file.path.contains('key')),
+                )
+                .toList();
+
             if (altFiles.isNotEmpty) {
               print('Found ${altFiles.length} potential key files in alternative path: $altPath');
               return true;
             }
           }
         }
-        
+
         return false;
       }
 
@@ -204,11 +208,11 @@ class KeyBackupService {
         return true;
       } else {
         print('No key files found in file storage for $atSign');
-        
+
         // Try to list all files to help with debugging
         final allFiles = keysDir.listSync();
         print('All files in keys directory: ${allFiles.map((f) => f.path).toList()}');
-        
+
         return false;
       }
     } catch (e) {

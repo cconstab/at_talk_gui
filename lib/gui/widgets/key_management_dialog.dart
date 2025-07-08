@@ -27,7 +27,7 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final status = await KeyBackupService.getKeyStorageStatus(widget.atSign);
       setState(() {
@@ -66,12 +66,7 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
                   children: [
                     const Icon(Icons.storage, color: Colors.green, size: 20),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _keyStorageStatus!,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
+                    Expanded(child: Text(_keyStorageStatus!, style: const TextStyle(fontSize: 14))),
                   ],
                 ),
               ),
@@ -89,12 +84,7 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
                   children: [
                     const Icon(Icons.info, color: Colors.blue, size: 20),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _statusMessage!,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
+                    Expanded(child: Text(_statusMessage!, style: const TextStyle(fontSize: 14))),
                   ],
                 ),
               ),
@@ -116,19 +106,12 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
               onTap: _isLoading ? null : _removeKeys,
             ),
 
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
-              ),
+            if (_isLoading) const Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()),
           ],
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-          child: const Text('Close'),
-        ),
+        TextButton(onPressed: _isLoading ? null : () => Navigator.of(context).pop(), child: const Text('Close')),
       ],
     );
   }
@@ -166,7 +149,7 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
 
     try {
       final success = await KeyBackupService.exportKeys(widget.atSign);
-      
+
       if (success) {
         setState(() {
           _statusMessage = 'Keys backed up successfully from secure storage';
@@ -198,10 +181,7 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
           'This action cannot be undone. You will need to re-authenticate or import backup keys to use this atSign again.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -226,8 +206,7 @@ class _KeyManagementDialogState extends State<KeyManagementDialog> {
       await removeAtsignInformation(widget.atSign);
 
       setState(() {
-        _statusMessage =
-            'Keys and all storage completely removed. Please restart the app.';
+        _statusMessage = 'Keys and all storage completely removed. Please restart the app.';
       });
     } catch (e) {
       setState(() {

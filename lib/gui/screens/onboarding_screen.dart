@@ -56,11 +56,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       print('Error loading atSigns: ${e.toString()}');
       setState(() {
         // Provide more helpful error messages for keychain corruption
-        if (e.toString().contains('FormatException') || 
+        if (e.toString().contains('FormatException') ||
             e.toString().contains('ChunkedJsonParser') ||
             e.toString().contains('Invalid JSON') ||
             e.toString().contains('Unexpected character')) {
-          _errorMessage = 'Keychain data is corrupted. Use "Manage Keys" to clean up corrupted data, or restart the app after cleanup.';
+          _errorMessage =
+              'Keychain data is corrupted. Use "Manage Keys" to clean up corrupted data, or restart the app after cleanup.';
         } else {
           _errorMessage = 'Failed to load atSigns: ${e.toString()}';
         }
@@ -368,18 +369,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     try {
       print('Logging in with existing atSign: $atSign');
-      
+
       // Clear existing groups and side panel state (similar to atSign switching)
       groupsProvider.clearAllGroups();
-      
+
       await authProvider.authenticate(atSign);
 
       if (mounted && authProvider.isAuthenticated) {
         print('Authentication successful, reinitializing groups provider...');
-        
+
         // Reinitialize groups provider for the newly authenticated atSign
         groupsProvider.reinitialize();
-        
+
         print('Navigating to groups...');
         Navigator.pushReplacementNamed(context, '/groups');
       } else {
@@ -425,7 +426,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         } else if (method == 'authenticator') {
           await _startAuthenticatorOnboarding(atSign, domain);
         }
-        
+
         // Don't refresh available atSigns after successful onboarding attempts
         // as this would interfere with navigation to the app
       }
@@ -457,9 +458,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     try {
       // Configure atSign-specific storage before onboarding
-      // Always clean up existing AtClient when onboarding a new atSign
+      // Don't clean up existing AtClient to preserve other atSigns in keychain
       print('🔧 Configuring atSign-specific storage for CRAM onboarding: $atSign');
-      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: true);
+      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: false);
 
       print('AtClient preference found, proceeding with CRAM onboarding...');
 
@@ -504,13 +505,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
           if (mounted && authProvider.isAuthenticated) {
             print('Authentication successful');
-            
+
             // Show backup option for CRAM onboarding (no delay needed)
             final shouldShowBackup = await _showBackupDialog();
             if (shouldShowBackup == true && mounted) {
               await _showBackupKeysFromSecureStorage(result.atsign!);
             }
-            
+
             if (mounted) {
               print('Navigating to groups...');
               Navigator.pushReplacementNamed(context, '/groups');
@@ -613,18 +614,208 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           print('Saved atSign information');
         }
 
+        // Wait a moment for any enrollment to settle
+        await Future.delayed(const Duration(milliseconds: 1000));
+
+        // Check keychain integrity before proceeding
+        try {
+          final keyChainManager = KeyChainManager.getInstance();
+          await keyChainManager.getAtSignListFromKeychain();
+          print('Keychain integrity check passed');
+        } catch (e) {
+          print('Keychain integrity check failed: $e');
+          if (e.toString().contains('FormatException') ||
+              e.toString().contains('ChunkedJsonParser') ||
+              e.toString().contains('Invalid JSON') ||
+              e.toString().contains('Unexpected character')) {
+            print('Keychain corruption detected immediately after APKAM enrollment');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'APKAM enrollment completed but keychain corruption was detected. '
+                    'Please use the "Manage Keys" option to clean up corrupted data, '
+                    'then try logging in with the atSign from the main screen.',
+                  ),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 15),
+                ),
+              );
+            }
+            return;
+          }
+        }
+
+        // Only clean up biometric storage for the newly enrolled atSign to prevent conflicts
+        try {
+          print('Cleaning up biometric storage for newly enrolled atSign...');
+          await _clearBiometricStorageForAtSigns([result.atsign!]);
+        } catch (e) {
+          print('Error clearing biometric storage: $e');
+        }
+
+        // Wait a moment for any cleanup to settle
+        await Future.delayed(const Duration(milliseconds: 500));
+
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        await authProvider.authenticate(result.atsign);
+
+        // First, verify that the keychain is not corrupted before attempting authentication
+        try {
+          final keyChainManager = KeyChainManager.getInstance();
+          final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+          print('🔍 Before authentication, keychain contains: $keychainAtSigns');
+
+          if (!keychainAtSigns.contains(result.atsign)) {
+            print('⚠️ Newly enrolled atSign not found in keychain immediately after enrollment');
+            // This is expected - the atSign might not be in the keychain yet
+          }
+        } catch (e) {
+          print('⚠️ Keychain corruption detected after APKAM enrollment: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Keychain corruption detected after APKAM enrollment. Please use the "Manage Keys" option to clean up corrupted data, then try logging in with the atSign from the main screen.',
+                ),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 15),
+              ),
+            );
+          }
+          return;
+        }
+
+        // Try authentication with the newly enrolled atSign
+        // Use OnboardingService to authenticate after APKAM enrollment to save keys to keychain
+        try {
+          print('Attempting APKAM authentication to save keys to keychain...');
+
+          // Use OnboardingService to authenticate after enrollment
+          final onboardingService = OnboardingService.getInstance();
+
+          // Configure the onboarding service with the same preferences used for enrollment
+          final atClientPreference = await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: false);
+          onboardingService.setAtClientPreference = atClientPreference;
+          onboardingService.setAtsign = result.atsign!;
+
+          // Authenticate after APKAM enrollment to save keys to keychain
+          final authStatus = await onboardingService.authenticate(result.atsign!);
+
+          print('APKAM authentication result: $authStatus');
+
+          if (authStatus == AtOnboardingResponseStatus.authSuccess) {
+            print('APKAM authentication successful - keys saved to keychain');
+
+            // Now use the AuthProvider to complete the authentication flow
+            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false);
+          } else {
+            print('APKAM authentication failed: $authStatus');
+            // Fall back to regular authentication
+            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false);
+          }
+
+          // After successful authentication, verify the atSign is in the keychain
+          final keyChainManager = KeyChainManager.getInstance();
+          final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+          print('🔍 After authentication, keychain contains: $keychainAtSigns');
+
+          if (!keychainAtSigns.contains(result.atsign)) {
+            print('⚠️ atSign not found in keychain after authentication, this may cause issues');
+          }
+        } catch (e) {
+          print('Authentication failed, trying alternative approach: $e');
+
+          // Check if this is a keychain corruption issue
+          if (e.toString().contains('FormatException') ||
+              e.toString().contains('ChunkedJsonParser') ||
+              e.toString().contains('Invalid JSON') ||
+              e.toString().contains('Unexpected character')) {
+            print('Keychain corruption detected during authentication');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Keychain corruption detected during authentication. The APKAM enrollment was successful, but the keychain needs to be cleaned up. Please use the "Manage Keys" option to clean up corrupted data, then try logging in with the atSign from the main screen.',
+                  ),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 15),
+                ),
+              );
+            }
+            return;
+          }
+
+          // If authentication fails, try to reconfigure storage for this specific atSign
+          try {
+            print('Attempting to reconfigure storage for authentication...');
+
+            // Reconfigure storage for this specific atSign without cleanup to preserve keychain
+            await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: false);
+
+            // Try authentication again using authenticateExisting without cleanup
+            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false);
+
+            print('Authentication successful after storage reconfiguration');
+          } catch (e2) {
+            print('Second authentication attempt failed: $e2');
+
+            // Check for keychain corruption in second attempt
+            if (e2.toString().contains('FormatException') ||
+                e2.toString().contains('ChunkedJsonParser') ||
+                e2.toString().contains('Invalid JSON') ||
+                e2.toString().contains('Unexpected character')) {
+              print('Keychain corruption detected in second authentication attempt');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Keychain corruption detected. The APKAM enrollment was successful, but the keychain needs to be cleaned up. Please use the "Manage Keys" option to clean up corrupted data, then try logging in with the atSign from the main screen.',
+                    ),
+                    backgroundColor: Colors.red,
+                    duration: Duration(seconds: 15),
+                  ),
+                );
+              }
+              return;
+            }
+
+            // Last resort: try to use the onboarding result directly
+            try {
+              print('Attempting direct authentication using onboarding result...');
+
+              // Force a fresh storage setup
+              await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: true);
+
+              // Final authentication attempt
+              await authProvider.authenticate(result.atsign);
+            } catch (e3) {
+              print('Final authentication attempt failed: $e3');
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Authentication failed after APKAM enrollment: ${e3.toString()}. The enrollment was successful, but authentication failed. Please try logging in with the atSign from the main screen.',
+                    ),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 15),
+                  ),
+                );
+              }
+              return;
+            }
+          }
+        }
 
         if (mounted && authProvider.isAuthenticated) {
           print('Authentication successful');
-          
+
           // Show backup option for APKAM onboarding (no delay needed)
           final shouldShowBackup = await _showBackupDialog();
           if (shouldShowBackup == true && mounted) {
             await _showBackupKeysFromSecureStorage(result.atsign!);
           }
-          
+
           if (mounted) {
             print('Navigating to groups...');
             Navigator.pushReplacementNamed(context, '/groups');
@@ -634,9 +825,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           print('Authentication failed after APKAM onboarding');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Authentication failed after APKAM enrollment. Please try again.'),
-                backgroundColor: Colors.red,
+              SnackBar(
+                content: Text(
+                  'Authentication failed after APKAM enrollment. The enrollment was successful but authentication failed. '
+                  'This may be due to keychain corruption. Please try:\n'
+                  '1. Using "Manage Keys" to clean up corrupted data\n'
+                  '2. Restarting the app\n'
+                  '3. Logging in with the atSign from the main screen',
+                ),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 15),
               ),
             );
           }
@@ -645,7 +843,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       case AtOnboardingResultStatus.error:
         print('AtOnboarding.onboard APKAM error: ${result.message}');
-        
+
         // Clean up biometric storage if APKAM enrollment fails
         try {
           print('Cleaning up biometric storage after APKAM failure...');
@@ -653,7 +851,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         } catch (e) {
           print('Error during biometric cleanup after APKAM failure: $e');
         }
-        
+
         _handleApkamError(result.message ?? 'APKAM enrollment failed');
         break;
 
@@ -906,13 +1104,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
         if (mounted && authProvider.isAuthenticated) {
           print('Authentication successful');
-          
-          // Show backup option for PKAM onboarding (no delay needed)
-          final shouldShowBackup = await _showBackupDialog();
-          if (shouldShowBackup == true && mounted) {
-            await _showBackupKeysFromSecureStorage(normalizedFile);
-          }
-          
+
+          // No backup needed for .atKeys flow since the user already has the keys file
+          print('Skipping backup dialog for .atKeys flow - user already has backup file');
+
           if (mounted) {
             print('Navigating to groups...');
             Navigator.pushReplacementNamed(context, '/groups');
@@ -976,8 +1171,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     try {
       // Configure atSign-specific storage before onboarding
+      // Don't clean up existing AtClient to preserve other atSigns in keychain
       print('🔧 Configuring atSign-specific storage for APKAM onboarding: $atSign');
-      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign);
+      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: false);
 
       // Create a modified preference with the specified domain
       final customPreference = AtClientPreference()
@@ -1039,10 +1235,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK')),
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop();
@@ -1059,7 +1252,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Show dialog to collect CRAM secret for new atSign activation
   Future<String?> _showCramSecretDialog(String atSign) async {
     final TextEditingController cramController = TextEditingController();
-    
+
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -1100,10 +1293,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () {
                 final secret = cramController.text.trim();
@@ -1180,27 +1370,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _showBackupKeysFromSecureStorage(String atSignToBackup) async {
     try {
       print('Starting backup from secure storage for: $atSignToBackup');
-      
+
       // First check if keys are available for backup
       final keysAvailable = await KeyBackupService.areKeysAvailable(atSignToBackup);
       if (!keysAvailable) {
         print('Keys not yet available for backup, waiting longer for key synchronization...');
         // Wait progressively longer for keys to be available
         await Future.delayed(const Duration(seconds: 5));
-        
+
         // Check again
         final keysAvailableAfterWait = await KeyBackupService.areKeysAvailable(atSignToBackup);
         if (!keysAvailableAfterWait) {
           print('Keys still not available after extended wait, trying last resort check...');
           await Future.delayed(const Duration(seconds: 3));
-          
+
           final keysAvailableLastTry = await KeyBackupService.areKeysAvailable(atSignToBackup);
           if (!keysAvailableLastTry) {
             print('Keys not available after multiple attempts');
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Keys are not yet available for backup. This sometimes happens immediately after onboarding. Please try using the Key Management dialog from the main screen in a few moments.'), 
+                  content: Text(
+                    'Keys are not yet available for backup. This sometimes happens immediately after onboarding. Please try using the Key Management dialog from the main screen in a few moments.',
+                  ),
                   backgroundColor: Colors.orange,
                   duration: Duration(seconds: 7),
                 ),
@@ -1210,26 +1402,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           }
         }
       }
-      
+
       print('Keys are available, proceeding with backup...');
-      
+
       // Use KeyBackupService to export keys from secure storage
       final success = await KeyBackupService.exportKeys(atSignToBackup);
-      
+
       if (mounted) {
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Keys backed up successfully from secure storage'), 
-              backgroundColor: Colors.green
+              content: Text('Keys backed up successfully from secure storage'),
+              backgroundColor: Colors.green,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Backup failed or was cancelled'), 
-              backgroundColor: Colors.orange
-            ),
+            const SnackBar(content: Text('Backup failed or was cancelled'), backgroundColor: Colors.orange),
           );
         }
       }
@@ -1238,7 +1427,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Backup failed: ${e.toString()}. The keys are safely stored and you can try again from the Key Management dialog later.'), 
+            content: Text(
+              'Backup failed: ${e.toString()}. The keys are safely stored and you can try again from the Key Management dialog later.',
+            ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 7),
           ),
@@ -1282,15 +1473,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             SizedBox(height: 12),
             Text('Choose your recovery option:'),
             SizedBox(height: 16),
-            
-            Text('🔧 Reset Keychain:', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.orange)),
+
+            Text(
+              '🔧 Reset Keychain:',
+              style: TextStyle(fontWeight: FontWeight.w500, color: Colors.orange),
+            ),
             SizedBox(height: 4),
             Text('• Removes corrupted keychain data'),
             Text('• Keeps your .atKeys files safe'),
             Text('• You can re-import your atSigns afterward'),
             SizedBox(height: 12),
-            
-            Text('💡 Recommendation:', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.blue)),
+
+            Text(
+              '💡 Recommendation:',
+              style: TextStyle(fontWeight: FontWeight.w500, color: Colors.blue),
+            ),
             Text(
               'After cleanup, use ".atKeys file" method to restore your atSigns if you have backup files.',
               style: TextStyle(fontSize: 12, color: Colors.grey),
@@ -1298,10 +1495,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop('cancel'),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop('cancel'), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop('reset'),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
@@ -1350,10 +1544,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(context).pop('__cleanup_all__'),
             style: TextButton.styleFrom(foregroundColor: Colors.orange),
@@ -1381,7 +1572,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Perform comprehensive keychain cleanup
   Future<void> _performKeyChainCleanup() async {
     final messenger = ScaffoldMessenger.of(context);
-    
+
     try {
       // Show loading indicator
       showDialog(
@@ -1389,11 +1580,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         barrierDismissible: false,
         builder: (context) => const AlertDialog(
           content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Cleaning up keychain data...'),
-            ],
+            children: [CircularProgressIndicator(), SizedBox(width: 16), Text('Cleaning up keychain data...')],
           ),
         ),
       );
@@ -1428,7 +1615,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       try {
         print('🔥 Force resetting keychain to clear corruption...');
         final keyChainManager = KeyChainManager.getInstance();
-        
+
         // Try multiple approaches to clear corrupted keychain data
         // Method 1: Try to delete known atSigns
         try {
@@ -1439,14 +1626,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         } catch (e) {
           print('Method 1 failed (expected if corrupted): $e');
         }
-        
+
         // Method 2: Reset any stored client data
         try {
           await keyChainManager.resetAtSignFromKeychain('*'); // Try wildcard reset
         } catch (e) {
           print('Method 2 failed: $e');
         }
-        
+
         // Method 3: Clear biometric storage for each atSign
         try {
           print('Method 3: Attempting to clear biometric storage...');
@@ -1454,7 +1641,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         } catch (e) {
           print('Method 3 failed: $e');
         }
-        
+
         print('✅ Keychain reset completed');
       } catch (e) {
         print('Keychain reset error (may be expected): $e');
@@ -1472,10 +1659,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog
-        
+
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('Keychain cleanup completed successfully. The app is now reset and ready for fresh onboarding.'),
+            content: Text(
+              'Keychain cleanup completed successfully. The app is now reset and ready for fresh onboarding.',
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 5),
           ),
@@ -1487,7 +1676,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog
-        
+
         messenger.showSnackBar(
           SnackBar(
             content: Text('Cleanup failed: ${e.toString()}'),
@@ -1502,12 +1691,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Clear biometric storage for each atSign using the correct BiometricStorage API
   Future<void> _clearBiometricStorageForAtSigns(List<String> atSignList) async {
     print('🔐 Starting biometric storage cleanup for ${atSignList.length} atSigns...');
-    
+
     try {
       // Check if biometric storage is available on this platform
       final biometricStorage = BiometricStorage();
       final canAuthenticate = await biometricStorage.canAuthenticate();
-      
+
       if (canAuthenticate != CanAuthenticateResponse.success) {
         print('Biometric storage not available on this platform: $canAuthenticate');
         return;
@@ -1516,7 +1705,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // Try to delete biometric storage for each atSign using different possible naming patterns
       for (final atSign in atSignList) {
         final normalizedAtSign = atSign.startsWith('@') ? atSign.substring(1) : atSign;
-        
+
         // Common naming patterns used by AtSign libraries for biometric storage
         final possibleStorageNames = [
           atSign, // Full atSign with @
@@ -1531,7 +1720,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         for (final storageName in possibleStorageNames) {
           try {
             print('Attempting to delete biometric storage: $storageName');
-            
+
             // Try to get and delete using BiometricStorageFile
             final storageFile = await biometricStorage.getStorage(storageName);
             await storageFile.delete();
@@ -1544,13 +1733,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
 
       // Also try some generic cleanup patterns that might be used
-      final genericPatterns = [
-        'at_client',
-        'at_auth',
-        'atsign_keys',
-        'keychain_data',
-        'secure_storage',
-      ];
+      final genericPatterns = ['at_client', 'at_auth', 'atsign_keys', 'keychain_data', 'secure_storage'];
 
       for (final pattern in genericPatterns) {
         try {
@@ -1980,6 +2163,32 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
     setState(() {
       onboardingStatus = OnboardingStatus.success;
     });
+
+    // After approval, we need to authenticate to save keys to keychain
+    try {
+      log('APKAM approval received, authenticating to save keys to keychain...');
+
+      // Use OnboardingService to authenticate after enrollment approval
+      final onboardingService = OnboardingService.getInstance();
+      onboardingService.setAtClientPreference = atClientPreference;
+      onboardingService.setAtsign = atsign;
+
+      // Authenticate after APKAM enrollment to save keys to keychain
+      final authStatus = await onboardingService.authenticate(atsign);
+
+      log('APKAM authentication result: $authStatus');
+
+      if (authStatus == AtOnboardingResponseStatus.authSuccess) {
+        log('APKAM authentication successful - keys saved to keychain');
+      } else {
+        log('APKAM authentication failed: $authStatus');
+        // Still show success since enrollment worked, but warn about potential issues
+      }
+    } catch (e) {
+      log('Error during APKAM authentication: $e');
+      // Still show success since enrollment worked, but warn about potential issues
+    }
+
     // Success state will now show action buttons to handle next steps
   }
 
@@ -2098,30 +2307,46 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       }
 
       String trimmedCramSecret = cramSecret.trim();
-      
+
       log('Attempting CRAM onboarding using OnboardingService for $atsign');
 
       // Use OnboardingService for CRAM onboarding (new atSign activation)
       final onboardingService = OnboardingService.getInstance();
       onboardingService.setAtClientPreference = atClientPreference;
       onboardingService.setAtsign = atsign;
-      
+
       log('Set OnboardingService atClientPreference and atsign');
-      
+
       // Create onboarding request
       AtOnboardingRequest req = AtOnboardingRequest(atsign);
-      
+
       // For new atSign activation, explicitly pass the CRAM secret to onboard() method
       // This follows the NoPorts pattern for CRAM authentication
-      final onboardResult = await onboardingService.onboard(
-        cramSecret: trimmedCramSecret,
-        atOnboardingRequest: req,
-      );
+      final onboardResult = await onboardingService.onboard(cramSecret: trimmedCramSecret, atOnboardingRequest: req);
 
       log('CRAM onboarding result: $onboardResult');
 
       if (onboardResult == true) {
         log('CRAM onboarding successful');
+
+        // After CRAM onboarding, authenticate to ensure keys are properly saved to keychain
+        try {
+          log('Authenticating after CRAM onboarding to save keys to keychain...');
+          final authStatus = await onboardingService.authenticate(atsign);
+
+          log('CRAM authentication result: $authStatus');
+
+          if (authStatus == AtOnboardingResponseStatus.authSuccess) {
+            log('CRAM authentication successful - keys saved to keychain');
+          } else {
+            log('CRAM authentication failed: $authStatus');
+            // Still show success since onboarding worked, but warn about potential issues
+          }
+        } catch (e) {
+          log('Error during CRAM authentication: $e');
+          // Still show success since onboarding worked, but warn about potential issues
+        }
+
         setState(() {
           onboardingStatus = OnboardingStatus.success;
         });
@@ -2139,11 +2364,10 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
 
         // Handle specific exception types
         if (e.toString().contains('Keys not found in Keychain manager')) {
-          errorMessage =
-              'This appears to be a new atSign. Using CRAM secret to generate initial keys...';
+          errorMessage = 'This appears to be a new atSign. Using CRAM secret to generate initial keys...';
           // For new atSigns, this is expected - the onboard() method should handle key generation
           log('Keys not found - this is expected for new atSign activation, continuing with onboard flow');
-          
+
           // Don't treat this as an error for new atSigns
           setState(() {
             onboardingStatus = OnboardingStatus.success;
@@ -2159,8 +2383,6 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       }
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -2301,53 +2523,6 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                     ),
                     const SizedBox(height: 16),
                   ],
-                  StatefulBuilder(
-                    builder: (context, setButtonState) {
-                      // This will rebuild whenever setState is called from the parent
-                      bool isEnabled;
-                      if (useCramAuth) {
-                        isEnabled =
-                            cramController.text.trim().isNotEmpty && onboardingStatus != OnboardingStatus.validatingOtp;
-                      } else {
-                        isEnabled =
-                            pinController.text.length == _kPinLength &&
-                            onboardingStatus != OnboardingStatus.validatingOtp;
-                      }
-
-                      return SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            foregroundColor: Colors.white,
-                            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            elevation: 2,
-                          ),
-                          onPressed: isEnabled
-                              ? () async {
-                                  if (useCramAuth) {
-                                    await cramSubmit(cramController.text.trim());
-                                  } else {
-                                    await otpSubmit(pinController.text);
-                                  }
-                                }
-                              : null,
-                          child: onboardingStatus == OnboardingStatus.validatingOtp
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
-                                )
-                              : Text(useCramAuth ? 'Submit CRAM Secret' : 'Submit OTP'),
-                        ),
-                      );
-                    },
-                  ),
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -2491,5 +2666,4 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       },
     );
   }
-
 }
