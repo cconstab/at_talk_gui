@@ -13,6 +13,7 @@ import 'dart:io';
 import 'dart:convert';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/at_talk_service.dart';
+import '../../core/services/key_backup_service.dart';
 import '../../core/utils/at_talk_env.dart';
 import '../../core/utils/atsign_manager.dart';
 
@@ -401,6 +402,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     print('Starting CRAM onboarding for: $atSign with domain: $domain');
 
+    // First, collect the CRAM secret from the user
+    final cramSecret = await _showCramSecretDialog(atSign);
+    if (cramSecret == null || cramSecret.trim().isEmpty) {
+      print('CRAM secret not provided, cancelling onboarding');
+      return;
+    }
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     try {
@@ -411,13 +419,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       print('AtClient preference found, proceeding with CRAM onboarding...');
 
-      // Create a custom preference with the specified domain
+      // Create a custom preference with the specified domain and CRAM secret
       final customPreference = AtClientPreference()
         ..rootDomain = domain
         ..namespace = atClientPreference.namespace
         ..hiveStoragePath = atClientPreference.hiveStoragePath
         ..commitLogPath = atClientPreference.commitLogPath
-        ..isLocalStoreRequired = atClientPreference.isLocalStoreRequired;
+        ..isLocalStoreRequired = atClientPreference.isLocalStoreRequired
+        ..cramSecret = cramSecret.trim(); // Set the CRAM secret
+
+      print('CRAM secret set on preference: ${customPreference.cramSecret != null ? "YES" : "NO"}');
+      print('CRAM secret length: ${customPreference.cramSecret?.length ?? 0}');
 
       final result = await AtOnboarding.onboard(
         context: context,
@@ -447,8 +459,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           await authProvider.authenticate(result.atsign);
 
           if (mounted && authProvider.isAuthenticated) {
-            print('Authentication successful, navigating to groups...');
-            Navigator.pushReplacementNamed(context, '/groups');
+            print('Authentication successful');
+            
+            // Add a small delay to allow keys to be stored to secure storage
+            print('Waiting for keys to be persisted to secure storage...');
+            await Future.delayed(const Duration(seconds: 2));
+            
+            // Show backup option for CRAM onboarding
+            final shouldShowBackup = await _showBackupDialog();
+            if (shouldShowBackup == true && mounted) {
+              await _showBackupKeysFromSecureStorage(result.atsign!);
+            }
+            
+            if (mounted) {
+              print('Navigating to groups...');
+              Navigator.pushReplacementNamed(context, '/groups');
+            }
           } else {
             print('Authentication failed or widget unmounted');
             if (mounted) {
@@ -931,6 +957,72 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  // Show dialog to collect CRAM secret for new atSign activation
+  Future<String?> _showCramSecretDialog(String atSign) async {
+    final TextEditingController cramController = TextEditingController();
+    
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.key, color: Colors.blue),
+              const SizedBox(width: 8),
+              Text('CRAM Secret Required'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Enter the CRAM secret for $atSign',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'This is the license key provided when you obtained your atSign. It\'s required to activate a new atSign.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: cramController,
+                decoration: const InputDecoration(
+                  labelText: 'CRAM Secret (License Key)',
+                  hintText: 'Enter your CRAM secret',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.vpn_key),
+                ),
+                obscureText: true,
+                maxLines: 1,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final secret = cramController.text.trim();
+                if (secret.isNotEmpty) {
+                  Navigator.of(context).pop(secret);
+                }
+              },
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    ).then((value) {
+      cramController.dispose();
+      return value;
+    });
+  }
+
   // Helper method to build info items
   Widget _buildInfoItem(String emoji, String text) {
     return Padding(
@@ -946,6 +1038,105 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ],
       ),
     );
+  }
+
+  // Show backup dialog to ask if user wants to save keys
+  Future<bool?> _showBackupDialog() async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.backup, color: Colors.blue),
+              SizedBox(width: 8),
+              Text('Backup Your Keys'),
+            ],
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Your atSign has been successfully enrolled!', style: TextStyle(fontWeight: FontWeight.w600)),
+              SizedBox(height: 12),
+              Text('Would you like to save a backup of your atKeys file now?'),
+              SizedBox(height: 8),
+              Text(
+                'This backup file will allow you to restore access to your atSign on other devices.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Skip')),
+            ElevatedButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save Backup')),
+          ],
+        );
+      },
+    );
+  }
+
+  // Show backup keys dialog for keys stored in secure/biometric storage (after CRAM onboarding)
+  Future<void> _showBackupKeysFromSecureStorage(String atSignToBackup) async {
+    try {
+      print('Starting backup from secure storage for: $atSignToBackup');
+      
+      // First check if keys are available for backup
+      final keysAvailable = await KeyBackupService.areKeysAvailable(atSignToBackup);
+      if (!keysAvailable) {
+        print('Keys not yet available for backup, waiting a bit longer...');
+        // Wait a bit more for keys to be available
+        await Future.delayed(const Duration(seconds: 3));
+        
+        // Check again
+        final keysAvailableAfterWait = await KeyBackupService.areKeysAvailable(atSignToBackup);
+        if (!keysAvailableAfterWait) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Keys are not yet available for backup. Please try using the Key Management dialog from the main screen later.'), 
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 5),
+              ),
+            );
+          }
+          return;
+        }
+      }
+      
+      // Use KeyBackupService to export keys from secure storage
+      final success = await KeyBackupService.exportKeys(atSignToBackup);
+      
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Keys backed up successfully from secure storage'), 
+              backgroundColor: Colors.green
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Backup failed or was cancelled'), 
+              backgroundColor: Colors.orange
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error backing up keys from secure storage: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Backup failed: ${e.toString()}. You can try again from the Key Management dialog.'), 
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -1232,6 +1423,8 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
 
   late OnboardingStatus onboardingStatus;
   late final TextEditingController pinController;
+  late final TextEditingController cramController;
+  bool useCramAuth = false;
 
   bool hasExpired = false;
 
@@ -1240,12 +1433,23 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
     super.initState();
     onboardingStatus = OnboardingStatus.preparing;
     pinController = TextEditingController();
+    cramController = TextEditingController();
+
+    // Add listeners to trigger rebuilds when text changes
+    pinController.addListener(() {
+      if (mounted) setState(() {});
+    });
+    cramController.addListener(() {
+      if (mounted) setState(() {});
+    });
+
     init();
   }
 
   @override
   void dispose() {
     pinController.dispose();
+    cramController.dispose();
     super.dispose();
   }
 
@@ -1447,6 +1651,83 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
     }
   }
 
+  // Submit CRAM secret for authentication
+  Future<void> cramSubmit(String cramSecret) async {
+    setState(() {
+      onboardingStatus = OnboardingStatus.validatingOtp;
+      hasExpired = false;
+    });
+
+    try {
+      log('Starting CRAM authentication with secret: ${cramSecret.isNotEmpty ? 'provided' : 'empty'}');
+
+      if (cramSecret.trim().isEmpty) {
+        throw Exception('CRAM Secret cannot be null or empty');
+      }
+
+      String trimmedCramSecret = cramSecret.trim();
+      
+      log('Attempting CRAM onboarding using OnboardingService for $atsign');
+
+      // Use OnboardingService for CRAM onboarding (new atSign activation)
+      final onboardingService = OnboardingService.getInstance();
+      onboardingService.setAtClientPreference = atClientPreference;
+      onboardingService.setAtsign = atsign;
+      
+      log('Set OnboardingService atClientPreference and atsign');
+      
+      // Create onboarding request
+      AtOnboardingRequest req = AtOnboardingRequest(atsign);
+      
+      // For new atSign activation, explicitly pass the CRAM secret to onboard() method
+      // This follows the NoPorts pattern for CRAM authentication
+      final onboardResult = await onboardingService.onboard(
+        cramSecret: trimmedCramSecret,
+        atOnboardingRequest: req,
+      );
+
+      log('CRAM onboarding result: $onboardResult');
+
+      if (onboardResult == true) {
+        log('CRAM onboarding successful');
+        setState(() {
+          onboardingStatus = OnboardingStatus.success;
+        });
+      } else {
+        log('CRAM onboarding failed');
+        if (mounted) {
+          String errorMessage = 'CRAM onboarding failed. Please check your license key and try again.';
+          Navigator.of(context).pop(AtOnboardingResult.error(message: errorMessage));
+        }
+      }
+    } catch (e) {
+      log('Exception during CRAM onboarding: $e');
+      if (mounted) {
+        String errorMessage = 'CRAM onboarding failed: ${e.toString()}';
+
+        // Handle specific exception types
+        if (e.toString().contains('Keys not found in Keychain manager')) {
+          errorMessage =
+              'This appears to be a new atSign. Using CRAM secret to generate initial keys...';
+          // For new atSigns, this is expected - the onboard() method should handle key generation
+          log('Keys not found - this is expected for new atSign activation, continuing with onboard flow');
+          
+          // Don't treat this as an error for new atSigns
+          setState(() {
+            onboardingStatus = OnboardingStatus.success;
+          });
+          return;
+        } else if (e.toString().contains('network') || e.toString().contains('connection')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (e.toString().contains('CRAM Secret cannot be null or empty')) {
+          errorMessage = 'Invalid CRAM secret. Please check your license key and try again.';
+        }
+
+        Navigator.of(context).pop(AtOnboardingResult.error(message: errorMessage));
+      }
+    }
+  }
+
   // Show backup dialog to ask if user wants to save keys
   Future<bool?> _showBackupDialog() async {
     return showDialog<bool>(
@@ -1561,12 +1842,12 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'Enter OTP from Authenticator',
+                    'Enter OTP from Authenticator or CRAM Secret',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Open your authenticator app and enter the current 6-digit OTP',
+                    'Use either your authenticator app OTP OR enter your CRAM secret (license key)',
                     style: TextStyle(fontSize: 14),
                   ),
                   if (hasExpired) ...[
@@ -1576,58 +1857,136 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                       style: TextStyle(color: Colors.red),
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  PinCodeTextField(
-                    autoDisposeControllers: false,
-                    appContext: context,
-                    length: _kPinLength,
-                    controller: pinController,
-                    autoFocus: true,
-                    textCapitalization: TextCapitalization.characters,
-                    // Styling
-                    animationType: AnimationType.fade,
-                    pinTheme: PinTheme(
-                      shape: PinCodeFieldShape.box,
-                      borderRadius: BorderRadius.circular(5),
-                      activeFillColor: Colors.white,
-                      inactiveFillColor: const Color(0xFFF3F3F3),
-                      disabledColor: Colors.blue,
-                      inactiveColor: const Color(0xFF747474),
-                      selectedFillColor: Colors.white,
-                      selectedColor: Theme.of(context).colorScheme.primary,
-                      fieldOuterPadding: const EdgeInsets.all(2),
-                    ),
-                    cursorColor: Colors.black,
-                    animationDuration: const Duration(milliseconds: 300),
-                    enableActiveFill: true,
-                    keyboardType: TextInputType.text,
-                    beforeTextPaste: (text) => true,
-                  ),
                   const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: AnimatedBuilder(
-                      animation: pinController,
-                      builder: (context, _) {
-                        return ElevatedButton(
+
+                  // Authentication method selection
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Choose authentication method:',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RadioListTile<bool>(
+                              title: const Text('OTP'),
+                              value: false,
+                              groupValue: useCramAuth,
+                              onChanged: (value) {
+                                setState(() {
+                                  useCramAuth = value!;
+                                });
+                              },
+                            ),
+                          ),
+                          Expanded(
+                            child: RadioListTile<bool>(
+                              title: const Text('CRAM Secret'),
+                              value: true,
+                              groupValue: useCramAuth,
+                              onChanged: (value) {
+                                setState(() {
+                                  useCramAuth = value!;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // CRAM secret input field (shown when CRAM is selected)
+                  if (useCramAuth) ...[
+                    TextField(
+                      controller: cramController,
+                      decoration: const InputDecoration(
+                        labelText: 'CRAM Secret (License Key)',
+                        hintText: 'Enter your CRAM secret',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.key),
+                      ),
+                      obscureText: true,
+                      onChanged: (value) {
+                        // Store CRAM secret in the preference when entered
+                        atClientPreference.cramSecret = value;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // OTP input field (shown when OTP is selected)
+                  if (!useCramAuth) ...[
+                    const Text('Enter 6-digit OTP:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    PinCodeTextField(
+                      autoDisposeControllers: false,
+                      appContext: context,
+                      length: _kPinLength,
+                      controller: pinController,
+                      autoFocus: true,
+                      textCapitalization: TextCapitalization.characters,
+                      // Styling
+                      animationType: AnimationType.fade,
+                      pinTheme: PinTheme(
+                        shape: PinCodeFieldShape.box,
+                        borderRadius: BorderRadius.circular(5),
+                        activeFillColor: Colors.white,
+                        inactiveFillColor: const Color(0xFFF3F3F3),
+                        disabledColor: Colors.blue,
+                        inactiveColor: const Color(0xFF747474),
+                        selectedFillColor: Colors.white,
+                        selectedColor: Theme.of(context).colorScheme.primary,
+                        fieldOuterPadding: const EdgeInsets.all(2),
+                      ),
+                      cursorColor: Colors.black,
+                      animationDuration: const Duration(milliseconds: 300),
+                      enableActiveFill: true,
+                      keyboardType: TextInputType.text,
+                      beforeTextPaste: (text) => true,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  StatefulBuilder(
+                    builder: (context, setButtonState) {
+                      // This will rebuild whenever setState is called from the parent
+                      bool isEnabled;
+                      if (useCramAuth) {
+                        isEnabled =
+                            cramController.text.trim().isNotEmpty && onboardingStatus != OnboardingStatus.validatingOtp;
+                      } else {
+                        isEnabled =
+                            pinController.text.length == _kPinLength &&
+                            onboardingStatus != OnboardingStatus.validatingOtp;
+                      }
+
+                      return SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             textStyle: const TextStyle(fontSize: 16),
                             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          onPressed:
-                              pinController.text.length == _kPinLength &&
-                                  onboardingStatus != OnboardingStatus.validatingOtp
+                          onPressed: isEnabled
                               ? () async {
-                                  await otpSubmit(pinController.text);
+                                  if (useCramAuth) {
+                                    await cramSubmit(cramController.text.trim());
+                                  } else {
+                                    await otpSubmit(pinController.text);
+                                  }
                                 }
                               : null,
                           child: onboardingStatus == OnboardingStatus.validatingOtp
                               ? const CircularProgressIndicator()
-                              : const Text('Submit OTP'),
-                        );
-                      },
-                    ),
+                              : Text(useCramAuth ? 'Submit CRAM Secret' : 'Submit OTP'),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                   Container(
@@ -1652,9 +2011,13 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '• Make sure $atsign is enrolled in your authenticator app\n'
-                          '• The OTP changes every 30 seconds\n'
-                          '• Enter the current 6-digit code shown in the app',
+                          useCramAuth
+                              ? '• Enter your CRAM secret (license key) exactly as provided\n'
+                                    '• This is a pre-shared secret used for authentication\n'
+                                    '• Contact your administrator if you don\'t have a CRAM secret'
+                              : '• Make sure $atsign is enrolled in your authenticator app\n'
+                                    '• The OTP changes every 30 seconds\n'
+                                    '• Enter the current 6-digit code shown in the app',
                           style: const TextStyle(fontSize: 11, color: Colors.black87),
                         ),
                       ],
