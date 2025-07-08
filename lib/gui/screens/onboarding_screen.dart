@@ -425,11 +425,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         } else if (method == 'authenticator') {
           await _startAuthenticatorOnboarding(atSign, domain);
         }
+        
+        // Don't refresh available atSigns after successful onboarding attempts
+        // as this would interfere with navigation to the app
+      }
+    } else {
+      // User cancelled the dialog, refresh the available atSigns
+      if (mounted) {
+        await _loadAvailableAtSigns();
       }
     }
-
-    // Refresh the available atSigns after any onboarding operation
-    await _loadAvailableAtSigns();
   }
 
   // Start onboarding for a new atSign - this will determine the proper flow based on atSign status
@@ -500,11 +505,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           if (mounted && authProvider.isAuthenticated) {
             print('Authentication successful');
             
-            // Wait longer for the complete authentication cycle and key availability
-            print('Waiting for complete authentication cycle and key availability...');
-            await Future.delayed(const Duration(seconds: 5));
-            
-            // Show backup option for CRAM onboarding
+            // Show backup option for CRAM onboarding (no delay needed)
             final shouldShowBackup = await _showBackupDialog();
             if (shouldShowBackup == true && mounted) {
               await _showBackupKeysFromSecureStorage(result.atsign!);
@@ -513,6 +514,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             if (mounted) {
               print('Navigating to groups...');
               Navigator.pushReplacementNamed(context, '/groups');
+              return; // Exit early to prevent returning to onboarding screen
             }
           } else {
             print('Authentication failed or widget unmounted');
@@ -617,11 +619,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (mounted && authProvider.isAuthenticated) {
           print('Authentication successful');
           
-          // Wait for complete authentication cycle and key availability
-          print('Waiting for complete authentication cycle and key availability...');
-          await Future.delayed(const Duration(seconds: 5));
-          
-          // Show backup option for APKAM onboarding
+          // Show backup option for APKAM onboarding (no delay needed)
           final shouldShowBackup = await _showBackupDialog();
           if (shouldShowBackup == true && mounted) {
             await _showBackupKeysFromSecureStorage(result.atsign!);
@@ -630,6 +628,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           if (mounted) {
             print('Navigating to groups...');
             Navigator.pushReplacementNamed(context, '/groups');
+            return; // Exit early to prevent returning to onboarding screen
           }
         } else {
           print('Authentication failed after APKAM onboarding');
@@ -908,11 +907,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (mounted && authProvider.isAuthenticated) {
           print('Authentication successful');
           
-          // Wait for complete authentication cycle and key availability
-          print('Waiting for complete authentication cycle and key availability...');
-          await Future.delayed(const Duration(seconds: 5));
-          
-          // Show backup option for PKAM onboarding
+          // Show backup option for PKAM onboarding (no delay needed)
           final shouldShowBackup = await _showBackupDialog();
           if (shouldShowBackup == true && mounted) {
             await _showBackupKeysFromSecureStorage(normalizedFile);
@@ -921,6 +916,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           if (mounted) {
             print('Navigating to groups...');
             Navigator.pushReplacementNamed(context, '/groups');
+            return; // Exit early to prevent returning to onboarding screen
           }
         } else {
           print('Authentication failed after importing keys');
@@ -1002,6 +998,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       if (result != null) {
         await _handleOnboardingResult(result, domain);
+        // Don't continue execution if successful navigation occurred
+        if (result.status == AtOnboardingResultStatus.success) {
+          return;
+        }
       }
     } catch (e) {
       print('Exception during APKAM onboarding: ${e.toString()}');
@@ -2173,7 +2173,7 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
         ],
       ),
       content: SizedBox(
-        height: 300,
+        height: 400, // Increased height to ensure submit button is visible
         width: 400,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
@@ -2318,9 +2318,12 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                         width: double.infinity,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            textStyle: const TextStyle(fontSize: 16),
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 2,
                           ),
                           onPressed: isEnabled
                               ? () async {
@@ -2332,7 +2335,14 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                                 }
                               : null,
                           child: onboardingStatus == OnboardingStatus.validatingOtp
-                              ? const CircularProgressIndicator()
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
                               : Text(useCramAuth ? 'Submit CRAM Secret' : 'Submit OTP'),
                         ),
                       );
@@ -2436,33 +2446,38 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
         ],
         OnboardingStatus.otpRequired => [
           TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              if (useCramAuth) {
+                if (cramController.text.trim().isNotEmpty) {
+                  await cramSubmit(cramController.text.trim());
+                }
+              } else {
+                if (pinController.text.length == _kPinLength) {
+                  await otpSubmit(pinController.text);
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(useCramAuth ? 'Submit CRAM' : 'Submit OTP'),
+          ),
         ],
         OnboardingStatus.validatingOtp => [],
         OnboardingStatus.pendingApproval => [
           TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         ],
         OnboardingStatus.success => [
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
-              // Complete without backup
+              // Complete APKAM enrollment - backup will be handled by the main flow
               if (mounted) {
                 Navigator.of(context).pop(AtOnboardingResult.success(atsign: atsign));
               }
             },
             child: const Text('Continue'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              // Show backup option and then complete
-              final shouldShowBackup = await _showBackupDialog();
-              if (shouldShowBackup == true && mounted) {
-                await _showBackupKeysDialog();
-              }
-              if (mounted) {
-                Navigator.of(context).pop(AtOnboardingResult.success(atsign: atsign));
-              }
-            },
-            child: const Text('Backup & Continue'),
           ),
         ],
         OnboardingStatus.denied => [
@@ -2477,135 +2492,4 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
     );
   }
 
-  Future<bool?> _showBackupDialog() async {
-    return showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Backup Keys'),
-          content: const Text(
-            'Would you like to backup your @sign keys? This will save your keys to a file '
-            'for safekeeping and allows you to restore access if needed.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Skip'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Backup Keys'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showBackupKeysDialog() async {
-    log('APKAM: Starting backup keys dialog for @sign: $atsign');
-    
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Backup Keys'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Backing up your @sign keys...'),
-                  const SizedBox(height: 16),
-                  const CircularProgressIndicator(),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    try {
-      // Wait a moment for keys to be properly saved after APKAM onboarding
-      await Future.delayed(const Duration(seconds: 2));
-      
-      // Check if keys are available
-      final keysAvailable = await KeyBackupService.areKeysAvailable(atsign);
-      log('APKAM: Keys available check: $keysAvailable for @sign: $atsign');
-      
-      if (!keysAvailable) {
-        // Wait a bit more and try again
-        log('APKAM: Keys not available, waiting additional time...');
-        await Future.delayed(const Duration(seconds: 3));
-        final keysAvailableAfterWait = await KeyBackupService.areKeysAvailable(atsign);
-        log('APKAM: Keys available after wait: $keysAvailableAfterWait');
-        
-        if (!keysAvailableAfterWait) {
-          log('APKAM: Keys still not available after waiting');
-          if (mounted) {
-            Navigator.of(context).pop();
-            _showBackupError('Keys are not yet available. Please try again from the key management dialog after login.');
-          }
-          return;
-        }
-      }
-
-      // Use KeyBackupService to export keys from secure storage
-      final success = await KeyBackupService.exportKeys(atsign);
-      
-      if (mounted) {
-        Navigator.of(context).pop();
-        
-        if (success) {
-          _showBackupSuccess();
-        } else {
-          _showBackupError('Failed to backup keys. Please try again from the key management dialog after login.');
-        }
-      }
-    } catch (e) {
-      log('APKAM: Error during backup: $e');
-      if (mounted) {
-        Navigator.of(context).pop();
-        _showBackupError('An error occurred during backup: $e');
-      }
-    }
-  }
-
-  void _showBackupSuccess() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Backup Successful'),
-          content: const Text('Your @sign keys have been successfully backed up to a file.'),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showBackupError(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Backup Failed'),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }

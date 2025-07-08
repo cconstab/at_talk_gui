@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:at_client_mobile/at_client_mobile.dart';
 import '../../core/providers/groups_provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/at_talk_service.dart';
 import '../../core/models/group.dart';
+import '../../core/utils/atsign_manager.dart';
 import '../widgets/key_management_dialog.dart';
 import 'group_chat_screen.dart';
 
@@ -530,8 +530,8 @@ class _GroupsListScreenWithSidePanelState
   void _showAtSignSwitcher() {
     showDialog(
       context: context,
-      builder: (context) => FutureBuilder<List<String>>(
-        future: KeyChainManager.getInstance().getAtSignListFromKeychain(),
+      builder: (context) => FutureBuilder<Map<String, AtsignInformation>>(
+        future: getAtsignEntries(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const AlertDialog(
@@ -540,7 +540,8 @@ class _GroupsListScreenWithSidePanelState
             );
           }
 
-          final atSigns = snapshot.data ?? [];
+          final atSignsInfo = snapshot.data ?? {};
+          final atSigns = atSignsInfo.keys.toList();
           final currentAtSign = AtTalkService.instance.currentAtSign;
           final availableAtSigns = atSigns
               .where((atSign) => atSign != currentAtSign)
@@ -551,7 +552,7 @@ class _GroupsListScreenWithSidePanelState
               title: const Text('Switch atSign'),
               content: Text(
                 atSigns.isEmpty
-                    ? 'No atSigns found in keychain.'
+                    ? 'No atSigns found in storage.'
                     : 'No other atSigns available. Current: $currentAtSign',
               ),
               actions: [
@@ -572,6 +573,7 @@ class _GroupsListScreenWithSidePanelState
                     (atSign) => ListTile(
                       leading: const Icon(Icons.person),
                       title: Text(atSign),
+                      subtitle: Text(atSignsInfo[atSign]?.rootDomain ?? ''),
                       onTap: () async {
                         Navigator.pop(context);
                         // Use AuthProvider to switch to existing atSign
