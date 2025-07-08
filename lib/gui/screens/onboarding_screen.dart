@@ -13,6 +13,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:convert';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/groups_provider.dart';
 import '../../core/services/at_talk_service.dart';
 import '../../core/services/key_backup_service.dart';
 import '../../core/utils/at_talk_env.dart';
@@ -363,13 +364,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Login with an existing atSign
   Future<void> _loginWithExistingAtSign(String atSign) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
 
     try {
       print('Logging in with existing atSign: $atSign');
+      
+      // Clear existing groups and side panel state (similar to atSign switching)
+      groupsProvider.clearAllGroups();
+      
       await authProvider.authenticate(atSign);
 
       if (mounted && authProvider.isAuthenticated) {
-        print('Authentication successful, navigating to groups...');
+        print('Authentication successful, reinitializing groups provider...');
+        
+        // Reinitialize groups provider for the newly authenticated atSign
+        groupsProvider.reinitialize();
+        
+        print('Navigating to groups...');
         Navigator.pushReplacementNamed(context, '/groups');
       } else {
         print('Authentication failed');

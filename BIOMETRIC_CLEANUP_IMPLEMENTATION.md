@@ -9,6 +9,8 @@ When biometric/keychain storage becomes corrupted, users were unable to:
 - Manage existing atSign keys
 - Recover from storage corruption issues
 
+Additionally, when logging in with an atSign after logging out, the group and side panel screens were not being reset, causing stale data to persist from previous sessions.
+
 ## Solution Implemented
 
 ### 1. Added Biometric Storage Dependency
