@@ -21,6 +21,7 @@ class _MainScreenState extends State<MainScreen>
   late AnimationController _animationController;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
+  GroupsProvider? _groupsProvider; // Store reference to avoid accessing during disposal
 
   @override
   void initState() {
@@ -55,26 +56,23 @@ class _MainScreenState extends State<MainScreen>
 
     // Initialize groups provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final groupsProvider = Provider.of<GroupsProvider>(
+      _groupsProvider = Provider.of<GroupsProvider>(
         context,
         listen: false,
       );
-      groupsProvider.initialize();
+      _groupsProvider!.initialize();
 
       // Listen for changes and mark current group as read
-      groupsProvider.addListener(_onGroupsProviderChanged);
+      _groupsProvider!.addListener(_onGroupsProviderChanged);
     });
   }
 
   void _onGroupsProviderChanged() {
     // Automatically mark the currently viewed group as read when messages arrive
-    if (_selectedGroup != null && mounted) {
+    if (_selectedGroup != null && mounted && _groupsProvider != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          Provider.of<GroupsProvider>(
-            context,
-            listen: false,
-          ).markGroupAsRead(_selectedGroup!.id);
+        if (mounted && _groupsProvider != null) {
+          _groupsProvider!.markGroupAsRead(_selectedGroup!.id);
         }
       });
     }
@@ -82,9 +80,8 @@ class _MainScreenState extends State<MainScreen>
 
   @override
   void dispose() {
-    // Remove the groups provider listener
-    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
-    groupsProvider.removeListener(_onGroupsProviderChanged);
+    // Remove the groups provider listener safely
+    _groupsProvider?.removeListener(_onGroupsProviderChanged);
 
     _animationController.dispose();
     super.dispose();

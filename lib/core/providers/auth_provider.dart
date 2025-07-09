@@ -43,9 +43,9 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       // Configure atSign-specific storage before authentication
-      // Always clean up existing AtClient when authenticating a new atSign
+      // KEYCHAIN PRESERVATION FIX: Don't clean up existing AtClient to preserve other atSigns
       print('🔧 Configuring atSign-specific storage for: $atSign');
-      await AtTalkService.configureAtSignStorage(atSign!, cleanupExisting: true);
+      await AtTalkService.configureAtSignStorage(atSign!, cleanupExisting: false);
 
       await AtTalkService.instance.onboard(
         atSign: atSign,
