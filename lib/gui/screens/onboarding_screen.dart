@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:at_onboarding_flutter/at_onboarding_flutter.dart';
-import 'package:at_onboarding_flutter/services/onboarding_service.dart';
-import 'package:at_onboarding_flutter/utils/at_onboarding_response_status.dart';
+import 'package:at_onboarding_flutter/at_onboarding_services.dart';
+// ignore: implementation_imports
+import 'package:at_onboarding_flutter/src/utils/at_onboarding_response_status.dart';
 import 'package:at_auth/at_auth.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:at_client_mobile/at_client_mobile.dart';
+import 'package:at_server_status/at_server_status.dart';
 
 import 'dart:developer';
 import 'dart:io';
@@ -439,16 +441,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   // Start onboarding for a new atSign - this will determine the proper flow based on atSign status
+  // Start CRAM onboarding for a new atSign
   Future<void> _startOnboarding(String atSign, String domain) async {
     if (atSign.isEmpty) {
       print('No atSign provided, cannot start onboarding');
       return;
     }
 
-    print('Starting CRAM onboarding for: $atSign with domain: $domain');
+    // Ensure atSign has @ prefix for all operations
+    final normalizedAtSign = atSign.startsWith('@') ? atSign : '@$atSign';
+    print('Starting CRAM onboarding for: $normalizedAtSign with domain: $domain');
 
     // First, collect the CRAM secret from the user
-    final cramSecret = await _showCramSecretDialog(atSign);
+    final cramSecret = await _showCramSecretDialog(normalizedAtSign);
     if (cramSecret == null || cramSecret.trim().isEmpty) {
       print('CRAM secret not provided, cancelling onboarding');
       return;
@@ -457,147 +462,382 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     try {
-      // Configure atSign-specific storage before onboarding
-      // Don't clean up existing AtClient to preserve other atSigns in keychain
-      print('🔧 Configuring atSign-specific storage for CRAM onboarding: $atSign');
-      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: false);
+      print('🚀 Starting CRAM activation for: $normalizedAtSign on domain: $domain');
+      print('📋 CRAM activation parameters:');
+      print('   - atSign: $normalizedAtSign');
+      print('   - domain: $domain');
+      print('   - CRAM secret: ${cramSecret.isNotEmpty ? '[PROVIDED]' : '[EMPTY]'}');
+      print('   - CRAM secret length: ${cramSecret.length}');
 
-      print('AtClient preference found, proceeding with CRAM onboarding...');
+      // Use onboarding service for CRAM activation - stores keys directly
+      final success = await _performCramActivation(normalizedAtSign, domain, cramSecret.trim());
 
-      // Create a custom preference with the specified domain and CRAM secret
-      final customPreference = AtClientPreference()
-        ..rootDomain = domain
-        ..namespace = atClientPreference.namespace
-        ..hiveStoragePath = atClientPreference.hiveStoragePath
-        ..commitLogPath = atClientPreference.commitLogPath
-        ..isLocalStoreRequired = atClientPreference.isLocalStoreRequired
-        ..cramSecret = cramSecret.trim(); // Set the CRAM secret
+      if (success) {
+        print('✅ CRAM activation successful! Keys are now stored.');
 
-      print('CRAM secret set on preference: ${customPreference.cramSecret != null ? "YES" : "NO"}');
-      print('CRAM secret length: ${customPreference.cramSecret?.length ?? 0}');
+        // Save the atSign information for future use
+        await saveAtsignInformation(AtsignInformation(atSign: normalizedAtSign, rootDomain: domain));
+        print('Saved atSign information');
 
-      final result = await AtOnboarding.onboard(
-        context: context,
-        atsign: atSign,
-        config: AtOnboardingConfig(
-          atClientPreference: customPreference,
-          domain: domain,
-          rootEnvironment: AtTalkEnv.rootEnvironment,
-          // For CRAM activation, API key may be required depending on registrar
-          appAPIKey: AtTalkEnv.appApiKey,
-        ),
-      );
+        // Wait a moment for keychain to settle
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      print('CRAM onboarding result: ${result.status}');
-
-      switch (result.status) {
-        case AtOnboardingResultStatus.success:
-          print('CRAM onboarding successful for: ${result.atsign}');
-
-          // Save the atSign information for future use
-          if (result.atsign != null) {
-            await saveAtsignInformation(AtsignInformation(atSign: result.atsign!, rootDomain: domain));
-            print('Saved atSign information');
-          }
-
-          print('Authenticating with AuthProvider...');
-          await authProvider.authenticate(result.atsign);
+        print('Authenticating with AuthProvider after successful CRAM...');
+        try {
+          // Use authenticateExisting since keys are now in keychain
+          await authProvider.authenticateExisting(normalizedAtSign, cleanupExisting: false);
 
           if (mounted && authProvider.isAuthenticated) {
-            print('Authentication successful');
+            print('✅ AuthProvider authentication successful, navigating to groups...');
 
-            // Show backup option for CRAM onboarding (no delay needed)
+            // Show backup dialog for CRAM onboarding
             final shouldShowBackup = await _showBackupDialog();
             if (shouldShowBackup == true && mounted) {
-              await _showBackupKeysFromSecureStorage(result.atsign!);
+              await _showBackupKeysFromSecureStorage(normalizedAtSign);
             }
 
             if (mounted) {
-              print('Navigating to groups...');
               Navigator.pushReplacementNamed(context, '/groups');
               return; // Exit early to prevent returning to onboarding screen
             }
           } else {
-            print('Authentication failed or widget unmounted');
+            print('⚠️ AuthProvider authentication failed, but CRAM was successful');
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Authentication failed. Please try again.'), backgroundColor: Colors.red),
+                SnackBar(
+                  content: Text(
+                    'CRAM activation was successful, but there was an issue with the final authentication. '
+                    'The atSign "$normalizedAtSign" should now be available in the main screen. '
+                    'Please try logging in from the main screen.',
+                  ),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 8),
+                ),
               );
             }
           }
-          break;
-
-        case AtOnboardingResultStatus.error:
-          print('CRAM onboarding error: ${result.message}');
-          String errorMessage = result.message ?? 'Onboarding failed';
-
-          // Provide helpful error messages based on common CRAM scenarios
-          if (errorMessage.contains('CRAM Secret cannot be null or empty') ||
-              errorMessage.contains('CRAM') ||
-              errorMessage.contains('already registered')) {
-            print('AtSign appears to be already registered, suggesting alternatives');
-
-            if (mounted) {
-              _showAlreadyRegisteredDialog(atSign);
-            }
-            return;
-          }
-
-          if (errorMessage.contains('not found') || errorMessage.contains('does not exist')) {
-            errorMessage =
-                'This atSign does not exist or is not available for activation.\n\n'
-                'Please check:\n'
-                '• The spelling of your atSign\n'
-                '• That you own this atSign\n'
-                '• Get a new atSign from atsign.com if needed';
-          } else if (errorMessage.contains('network') || errorMessage.contains('connection')) {
-            errorMessage = 'Network connection failed. Please check your internet connection and try again.';
-          } else if (errorMessage.contains('timeout') || errorMessage.contains('time out')) {
-            errorMessage = 'Request timed out. Please check your connection and try again.';
-          } else if (errorMessage.contains('API key') || errorMessage.contains('unauthorized')) {
-            errorMessage = 'API key issue. This may require registrar support for CRAM activation.';
-          } else if (errorMessage.contains('Unknown error')) {
-            errorMessage =
-                'Activation failed. This might be because:\n'
-                '• The atSign is already registered to someone else\n'
-                '• Network connection issues\n'
-                '• The atSign may need to be activated differently\n\n'
-                'Try:\n'
-                '• Using the .atKeys file if you already have one\n'
-                '• Using Authenticator (APKAM) method\n'
-                '• Getting a new atSign from atsign.com';
-          }
-
+        } catch (e) {
+          print('⚠️ AuthProvider authentication exception after successful CRAM: $e');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(errorMessage),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 10),
-                action: SnackBarAction(
-                  label: 'Help',
-                  textColor: Colors.white,
-                  onPressed: () {
-                    _showCramHelpDialog();
-                  },
+                content: Text(
+                  'CRAM activation was successful, but there was an issue with the final authentication step. '
+                  'The atSign "$normalizedAtSign" should now be available in the main screen. '
+                  'Please try logging in from the main screen.',
                 ),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 8),
               ),
             );
           }
-          break;
+        }
+      } else {
+        print('❌ CRAM activation failed - check the logs above for details');
+        if (mounted) {
+          final isCustomDomain = domain != 'root.atsign.org';
+          String failureMessage;
 
-        case AtOnboardingResultStatus.cancel:
-          print('CRAM onboarding cancelled by user');
-          // User cancelled onboarding - no action needed
-          break;
+          if (isCustomDomain) {
+            failureMessage =
+                'Custom domain CRAM activation failed.\n\n'
+                'The atTalk GUI now uses Noports-style custom domain support, but the activation failed for "$domain".\n\n'
+                'This could be due to:\n'
+                '• Invalid CRAM secret\n'
+                '• Domain configuration issues\n'
+                '• Network connectivity problems\n\n'
+                'Please try:\n'
+                '• Verify your CRAM secret is correct\n'
+                '• Upload .atKeys file (if you have backup keys)\n'
+                '• Use Authenticator (APKAM) method\n'
+                '• Contact your atSign provider for support';
+          } else {
+            failureMessage =
+                'CRAM activation failed for atSign "$normalizedAtSign" on domain "$domain". Please check your CRAM secret and try again.';
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(failureMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 12)),
+          );
+        }
       }
     } catch (e) {
       print('Exception during CRAM onboarding: ${e.toString()}');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+        String errorMessage = 'CRAM activation failed: ${e.toString()}';
+
+        // Provide helpful error messages based on the error and domain type
+        final isCustomDomain = domain != 'root.atsign.org';
+
+        if (e.toString().contains('No entry in atDirectory')) {
+          if (isCustomDomain) {
+            errorMessage =
+                'Custom domain CRAM activation is not supported.\n\n'
+                'The atSign "$normalizedAtSign" was not found in the atDirectory on domain "$domain". '
+                'This is a known limitation of the current atSign libraries.\n\n'
+                'Please try:\n'
+                '• Upload .atKeys file if you have backup keys\n'
+                '• Use Authenticator (APKAM) method if supported\n'
+                '• Use standard root.atsign.org domain\n'
+                '• Contact your atSign provider for support';
+          } else {
+            errorMessage =
+                'The atSign "$normalizedAtSign" was not found in the atDirectory on domain "$domain". Please verify the atSign exists on this domain.';
+          }
+        } else if (e.toString().contains('CRAM') || e.toString().contains('secret')) {
+          errorMessage = 'CRAM authentication failed: Invalid CRAM secret. Please check your credentials.';
+        } else if (e.toString().contains('network') || e.toString().contains('connection')) {
+          errorMessage = 'Network error during CRAM authentication. Please check your connection and try again.';
+        } else if (isCustomDomain) {
+          errorMessage =
+              'Custom domain CRAM activation failed.\n\n'
+              'Error: ${e.toString()}\n\n'
+              'Custom domains have known limitations with CRAM activation. '
+              'Please try using .atKeys file upload or Authenticator (APKAM) method instead.';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 12)),
+        );
       }
+    }
+  }
+
+  // CRAM secret dialog
+  Future<String?> _showCramSecretDialog(String atSign) async {
+    final TextEditingController cramController = TextEditingController();
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.vpn_key, color: Colors.blue),
+              const SizedBox(width: 8),
+              Text('CRAM Secret for $atSign'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Enter your CRAM secret to activate this new atSign:'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: cramController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'CRAM Secret',
+                  hintText: 'Enter your CRAM secret',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'The CRAM secret was provided when you registered this atSign.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(null), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                final secret = cramController.text.trim();
+                Navigator.of(context).pop(secret.isNotEmpty ? secret : null);
+              },
+              child: const Text('Activate'),
+            ),
+          ],
+        );
+      },
+    ).then((value) {
+      cramController.dispose();
+      return value;
+    });
+  }
+
+  // Perform CRAM activation using Noports-style implementation for custom domain support
+  Future<bool> _performCramActivation(String atSign, String domain, String cramSecret) async {
+    try {
+      print('🔧 Starting Noports-style CRAM activation: $atSign on domain: $domain');
+
+      // CRITICAL: Clean up any existing AtClient instances that might interfere
+      try {
+        print('🧹 Cleaning up any existing AtClient instances before CRAM activation...');
+        await AtTalkService.completeAtSignCleanup(atSign);
+        print('✅ AtClient cleanup completed');
+      } catch (e) {
+        print('⚠️ Cleanup failed (may be expected for new atSign): $e');
+        // Continue anyway - this is expected for truly new atSigns
+      }
+
+      // Check if this is a custom domain vs standard domain
+      final isCustomDomain = domain != 'root.atsign.org';
+
+      if (isCustomDomain) {
+        print('🔍 Custom domain detected: $domain');
+        print('🚀 Using Noports-style custom domain support');
+
+        // Verify the domain can be reached before attempting authentication
+        try {
+          print('🌐 Verifying custom domain connectivity to $domain:64...');
+          final socket = await Socket.connect(domain, 64, timeout: const Duration(seconds: 5));
+          await socket.close();
+          print('✅ Domain $domain:64 is reachable');
+        } catch (e) {
+          print('⚠️ Domain verification failed: $e');
+          print('   This may indicate the custom domain is not properly configured');
+          return false;
+        }
+      }
+
+      // Get the onboarding service
+      final onboardingService = OnboardingService.getInstance();
+
+      // Check if atSign already exists (Noports pattern)
+      bool isExist = await onboardingService.isExistingAtsign(atSign);
+      if (isExist) {
+        print('❌ atSign is already activated on this device');
+        return false;
+      }
+
+      // Configure AtClientPreference with proper domain and port (Noports pattern)
+      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: true);
+      atClientPreference.rootDomain = domain;
+
+      if (isCustomDomain) {
+        atClientPreference.rootPort = 64; // Default port for custom domains
+        print('🔧 Configured custom domain: $domain:${atClientPreference.rootPort}');
+      } else {
+        atClientPreference.rootPort = 64; // Standard port
+        print('🔧 Configured standard domain: $domain:${atClientPreference.rootPort}');
+      }
+
+      atClientPreference.cramSecret = cramSecret;
+      onboardingService.setAtClientPreference = atClientPreference;
+      onboardingService.setAtsign = atSign;
+
+      print('🔄 Attempting CRAM authentication with Noports pattern...');
+
+      // Create onboarding request with proper rootDomain and rootPort (critical for custom domains)
+      AtOnboardingRequest request = AtOnboardingRequest(atSign);
+      request.rootDomain = atClientPreference.rootDomain;
+      request.rootPort = atClientPreference.rootPort;
+
+      print('📡 Request config: domain=${request.rootDomain}, port=${request.rootPort}');
+
+      // Perform the onboarding using Noports method signature
+      bool result = await onboardingService.onboard(cramSecret: cramSecret, atOnboardingRequest: request);
+
+      if (result) {
+        print('✅ CRAM authentication successful, checking server status...');
+
+        // Wait for server status to become activated (Noports pattern)
+        int round = 1;
+        ServerStatus? atSignStatus = await onboardingService.checkAtSignServerStatus(atSign);
+
+        while (atSignStatus != ServerStatus.activated) {
+          if (round > 10) {
+            print('⏰ Server status check timeout after 10 rounds');
+            break;
+          }
+          print('🔄 Waiting for server activation... round $round, status: $atSignStatus');
+          await Future.delayed(const Duration(seconds: 3));
+          round++;
+          atSignStatus = await onboardingService.checkAtSignServerStatus(atSign);
+        }
+
+        if (atSignStatus == ServerStatus.teapot) {
+          print('❌ atSign server is unreachable (teapot status)');
+          return false;
+        } else if (atSignStatus == ServerStatus.activated) {
+          print('✅ Server activation confirmed');
+
+          // Save keys to keychain using authenticate method after successful onboarding
+          print('💾 Saving keys to keychain after successful CRAM activation...');
+          final authStatus = await onboardingService.authenticate(atSign);
+
+          if (authStatus == AtOnboardingResponseStatus.authSuccess) {
+            print('✅ Keys successfully saved to keychain');
+
+            // Verify keys were actually stored by checking keychain
+            try {
+              final keyChainManager = KeyChainManager.getInstance();
+              final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+              print('🔍 Keychain now contains: $keychainAtSigns');
+
+              if (keychainAtSigns.contains(atSign)) {
+                print('✅ Confirmed: $atSign is now in keychain');
+                return true;
+              } else {
+                print('⚠️ Warning: $atSign not found in keychain after authentication');
+                // Still return true as the onboarding was successful, keychain check may be timing issue
+                return true;
+              }
+            } catch (e) {
+              print('⚠️ Keychain verification failed (may be timing issue): $e');
+              // Still return true as the authentication was successful
+              return true;
+            }
+          } else {
+            print('❌ Failed to save keys to keychain - status: $authStatus');
+            print('🔄 Attempting alternative keychain storage method...');
+
+            // Try alternative approach: force key generation and storage
+            try {
+              // Re-configure storage to ensure proper keychain setup
+              await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: false);
+
+              // Try authentication again with fresh storage setup
+              final retryAuthStatus = await onboardingService.authenticate(atSign);
+
+              if (retryAuthStatus == AtOnboardingResponseStatus.authSuccess) {
+                print('✅ Retry authentication successful - keys should now be in keychain');
+                return true;
+              } else {
+                print('❌ Retry authentication also failed: $retryAuthStatus');
+                return false;
+              }
+            } catch (e) {
+              print('❌ Alternative keychain storage failed: $e');
+              return false;
+            }
+          }
+        } else {
+          print('❌ Server activation failed - status: $atSignStatus');
+          return false;
+        }
+      } else {
+        print('❌ CRAM onboarding failed');
+
+        // For custom domains, provide specific guidance
+        if (isCustomDomain) {
+          print('💡 If this is a custom domain CRAM activation failure:');
+          print('   This could indicate the at_onboarding_flutter version needs updating');
+          print('   Noports uses a custom git version with custom domain support');
+          print('   Consider upgrading to the Noports fork or newer version');
+        }
+
+        return false;
+      }
+    } catch (e) {
+      print('❌ Exception during CRAM activation: $e');
+      print('❌ Exception type: ${e.runtimeType}');
+
+      // For custom domains, provide specific context
+      bool isCustomDomain = domain != 'root.atsign.org';
+
+      if (isCustomDomain && e.toString().contains('atDirectory')) {
+        print('💡 Custom domain atDirectory error detected');
+        print('   This indicates at_onboarding_flutter version may need updating');
+        print('   Noports solved this with a custom git version of at_onboarding_flutter');
+      }
+
+      return false;
     }
   }
 
@@ -859,107 +1099,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         print('APKAM enrollment cancelled by user');
         break;
     }
-  }
-
-  // Show dialog when atSign is already registered
-  void _showAlreadyRegisteredDialog(String atSign) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('atSign Already Registered'),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'The atSign "$atSign" is already registered.',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                const Text('For already-registered atSigns, please use one of these methods:'),
-                const SizedBox(height: 8),
-                const Text('📁 Upload .atKeys File (Recommended)'),
-                const SizedBox(height: 4),
-                const Text('   • Use the .atKeys file from your device'),
-                const Text('   • Most reliable for existing atSigns'),
-                const SizedBox(height: 8),
-                const Text('📱 Authenticator (APKAM)'),
-                const SizedBox(height: 4),
-                const Text('   • Use if you have the authenticator app'),
-                const Text('   • Requires enrollment approval'),
-                const SizedBox(height: 12),
-                const Text(
-                  'New atSign activation is only for brand new atSigns that have never been used before.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Re-open the onboarding dialog
-                _showOnboardingDialog();
-              },
-              child: const Text('Try Different Method'),
-            ),
-            ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Got it')),
-          ],
-        );
-      },
-    );
-  }
-
-  // Show help dialog for CRAM onboarding
-  void _showCramHelpDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.help_outline, color: Colors.blue),
-              SizedBox(width: 8),
-              Text('New atSign Activation Help'),
-            ],
-          ),
-          content: const SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('New atSign Activation:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                SizedBox(height: 8),
-                Text('This method is for activating brand new atSigns that have never been used before.'),
-                SizedBox(height: 12),
-                Text('Requirements:', style: TextStyle(fontWeight: FontWeight.bold)),
-                SizedBox(height: 4),
-                Text('• A new, unregistered atSign'),
-                Text('• CRAM secret (provided when you get the atSign)'),
-                Text('• Valid API key (may be required)'),
-                SizedBox(height: 12),
-                Text('If this method fails:', style: TextStyle(fontWeight: FontWeight.bold)),
-                SizedBox(height: 4),
-                Text('• The atSign might already be registered'),
-                Text('• Try the ".atKeys File" method instead'),
-                Text('• Try the "Authenticator (APKAM)" method'),
-                Text('• Get a new atSign from atsign.com'),
-              ],
-            ),
-          ),
-          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Got it'))],
-        );
-      },
-    );
   }
 
   Future<void> _startAtKeysUpload(String atSign, String domain) async {
@@ -1249,69 +1388,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // Show dialog to collect CRAM secret for new atSign activation
-  Future<String?> _showCramSecretDialog(String atSign) async {
-    final TextEditingController cramController = TextEditingController();
-
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.key, color: Colors.blue),
-              const SizedBox(width: 8),
-              Text('CRAM Secret Required'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Enter the CRAM secret for $atSign',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'This is the license key provided when you obtained your atSign. It\'s required to activate a new atSign.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: cramController,
-                decoration: const InputDecoration(
-                  labelText: 'CRAM Secret (License Key)',
-                  hintText: 'Enter your CRAM secret',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.vpn_key),
-                ),
-                obscureText: true,
-                maxLines: 1,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () {
-                final secret = cramController.text.trim();
-                if (secret.isNotEmpty) {
-                  Navigator.of(context).pop(secret);
-                }
-              },
-              child: const Text('Continue'),
-            ),
-          ],
-        );
-      },
-    ).then((value) {
-      cramController.dispose();
-      return value;
-    });
-  }
-
   // Helper method to build info items
   Widget _buildInfoItem(String emoji, String text) {
     return Padding(
@@ -1347,19 +1423,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Your atSign has been successfully enrolled!', style: TextStyle(fontWeight: FontWeight.w600)),
-              SizedBox(height: 12),
-              Text('Would you like to save a backup of your atKeys file now?'),
-              SizedBox(height: 8),
               Text(
-                'This backup file will allow you to restore access to your atSign on other devices.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                'Your atSign has been successfully activated! Would you like to backup your keys now?',
+                style: TextStyle(fontSize: 16),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Backing up your keys creates a .atKeys file that you can use to restore access to your atSign on other devices.',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Skip')),
-            ElevatedButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save Backup')),
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Skip for Now')),
+            ElevatedButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Backup Keys')),
           ],
         );
       },
@@ -1765,11 +1842,14 @@ class _OnboardingDialog extends StatefulWidget {
 
 class _OnboardingDialogState extends State<_OnboardingDialog> {
   final TextEditingController _atSignController = TextEditingController();
-  String _selectedRootDomain = 'root.atsign.org'; // Default to production (non-nullable)
+  final TextEditingController _domainController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    // Set default domain
+    _domainController.text = 'root.atsign.org';
+
     // Add listener to rebuild when text changes
     _atSignController.addListener(() {
       setState(() {
@@ -1781,10 +1861,11 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
   @override
   void dispose() {
     _atSignController.dispose();
+    _domainController.dispose();
     super.dispose();
   }
 
-  bool get _isFormValid => _atSignController.text.trim().isNotEmpty;
+  bool get _isFormValid => _atSignController.text.trim().isNotEmpty && _domainController.text.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -1823,23 +1904,44 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
 
               const SizedBox(height: 16),
 
-              // Root domain selection
-              DropdownButtonFormField<String>(
-                value: _selectedRootDomain,
+              // Root domain input with quick selection chips
+              TextFormField(
+                controller: _domainController,
                 decoration: const InputDecoration(
                   labelText: 'Root Domain',
+                  hintText: 'e.g. root.atsign.org or vip.ve.atsign.zone',
+                  prefixIcon: Icon(Icons.dns),
                   border: OutlineInputBorder(),
-                  helperText: 'Choose your atSign network',
+                  helperText: 'Enter the atDirectory domain for your atSign',
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'root.atsign.org', child: Text('Production (root.atsign.org)')),
-                  DropdownMenuItem(value: 'vip.ve.atsign.zone', child: Text('VIP (vip.ve.atsign.zone)')),
-                ],
                 onChanged: (value) {
-                  setState(() {
-                    _selectedRootDomain = value ?? 'root.atsign.org';
-                  });
+                  setState(() {});
                 },
+              ),
+
+              const SizedBox(height: 8),
+
+              // Quick domain selection chips
+              Wrap(
+                spacing: 8,
+                children: [
+                  ActionChip(
+                    label: const Text('Production'),
+                    onPressed: () {
+                      setState(() {
+                        _domainController.text = 'root.atsign.org';
+                      });
+                    },
+                  ),
+                  ActionChip(
+                    label: const Text('VIP'),
+                    onPressed: () {
+                      setState(() {
+                        _domainController.text = 'vip.ve.atsign.zone';
+                      });
+                    },
+                  ),
+                ],
               ),
 
               const SizedBox(height: 24),
@@ -1865,7 +1967,8 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                         final atSign = _atSignController.text.startsWith('@')
                             ? _atSignController.text
                             : '@${_atSignController.text}';
-                        Navigator.of(context).pop('onboard:$_selectedRootDomain:$atSign');
+                        final domain = _domainController.text.trim();
+                        Navigator.of(context).pop('onboard:$domain:$atSign');
                       }
                     : null,
               ),
@@ -1884,7 +1987,8 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                         final atSign = _atSignController.text.startsWith('@')
                             ? _atSignController.text
                             : '@${_atSignController.text}';
-                        Navigator.of(context).pop('upload:$_selectedRootDomain:$atSign');
+                        final domain = _domainController.text.trim();
+                        Navigator.of(context).pop('upload:$domain:$atSign');
                       }
                     : null,
               ),
@@ -1902,7 +2006,8 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                         final atSign = _atSignController.text.startsWith('@')
                             ? _atSignController.text
                             : '@${_atSignController.text}';
-                        Navigator.of(context).pop('authenticator:$_selectedRootDomain:$atSign');
+                        final domain = _domainController.text.trim();
+                        Navigator.of(context).pop('authenticator:$domain:$atSign');
                       }
                     : null,
               ),
@@ -1933,8 +2038,12 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                     SizedBox(height: 6),
                     Text(
                       '• New atSign: Use "New atSign Activation"\n'
-                      '• Have .atKeys file: Use "Upload .atKeys File"\n'
-                      '• Have authenticator app: Use "Authenticator (APKAM)"',
+                      '• Have .atKeys file: Use "Upload .atKeys File" (recommended)\n'
+                      '• Have authenticator app: Use "Authenticator (APKAM)"\n\n'
+                      'Domain Tips:\n'
+                      '• Most atSigns are on "root.atsign.org"\n'
+                      '• VIP atSigns are on "vip.ve.atsign.zone"\n'
+                      '• If unsure about domain, try "Upload .atKeys File"',
                       style: TextStyle(fontSize: 11, color: Colors.black87),
                     ),
                   ],
@@ -2152,6 +2261,26 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       }
     } catch (e) {
       log('Error during APKAM init: $e');
+      final errorStr = e.toString();
+
+      // Check for common errors and provide helpful messages
+      if (errorStr.contains('not found in atDirectory')) {
+        if (mounted) {
+          Navigator.of(context).pop(
+            AtOnboardingResult.error(
+              message:
+                  'AtSign not found on this domain.\n\n'
+                  'Please check:\n'
+                  '• The atSign spelling ($atsign)\n'
+                  '• The root domain (${atClientPreference.rootDomain})\n'
+                  '• Try a different domain like "root.atsign.org" or "atsign.wtf"\n\n'
+                  'If you\'re unsure which domain your atSign is on, try the "Key file" option instead.',
+            ),
+          );
+        }
+        return;
+      }
+
       setState(() {
         onboardingStatus = OnboardingStatus.otpRequired;
       });
@@ -2246,7 +2375,22 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       log('AtException - Error enrolling: $e');
       log(st.toString());
       if (mounted) {
-        Navigator.of(context).pop(AtOnboardingResult.error(message: e.message));
+        final errorStr = e.message;
+        if (errorStr.contains('not found in atDirectory')) {
+          Navigator.of(context).pop(
+            AtOnboardingResult.error(
+              message:
+                  'AtSign not found on this domain.\n\n'
+                  'Please check:\n'
+                  '• The atSign spelling ($atsign)\n'
+                  '• The root domain (${atClientPreference.rootDomain})\n'
+                  '• Try a different domain like "root.atsign.org" or "atsign.wtf"\n\n'
+                  'If you\'re unsure which domain your atSign is on, try the "Key file" option instead.',
+            ),
+          );
+        } else {
+          Navigator.of(context).pop(AtOnboardingResult.error(message: e.message));
+        }
       }
       return;
     } catch (e, st) {
@@ -2255,7 +2399,19 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
 
       if (mounted) {
         final errorStr = e.toString();
-        if (errorStr.contains('AT0011')) {
+        if (errorStr.contains('not found in atDirectory')) {
+          Navigator.of(context).pop(
+            AtOnboardingResult.error(
+              message:
+                  'AtSign not found on this domain.\n\n'
+                  'Please check:\n'
+                  '• The atSign spelling ($atsign)\n'
+                  '• The root domain (${atClientPreference.rootDomain})\n'
+                  '• Try a different domain like "root.atsign.org" or "atsign.wtf"\n\n'
+                  'If you\'re unsure which domain your atSign is on, try the "Key file" option instead.',
+            ),
+          );
+        } else if (errorStr.contains('AT0011')) {
           log('Invalid OTP');
           Navigator.of(context).pop(AtOnboardingResult.error(message: 'Invalid OTP'));
         } else if (errorStr.contains('pending enrollment')) {

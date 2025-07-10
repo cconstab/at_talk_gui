@@ -13,8 +13,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen>
-    with SingleTickerProviderStateMixin {
+class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateMixin {
   Group? _selectedGroup;
   bool _sidePanelVisible = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -28,22 +27,17 @@ class _MainScreenState extends State<MainScreen>
     super.initState();
 
     // Initialize animation controller for side panel slide
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
+    _animationController = AnimationController(duration: const Duration(milliseconds: 300), vsync: this);
 
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(-1.0, 0.0), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: _animationController,
-            curve: Curves.easeInOut,
-          ),
-        );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(-1.0, 0.0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
 
     // Listen to animation status to update UI
     _animationController.addStatusListener((status) {
@@ -56,10 +50,7 @@ class _MainScreenState extends State<MainScreen>
 
     // Initialize groups provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _groupsProvider = Provider.of<GroupsProvider>(
-        context,
-        listen: false,
-      );
+      _groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
       _groupsProvider!.initialize();
 
       // Listen for changes and mark current group as read
@@ -93,10 +84,7 @@ class _MainScreenState extends State<MainScreen>
     });
 
     // Mark group as read when selecting
-    Provider.of<GroupsProvider>(
-      context,
-      listen: false,
-    ).markGroupAsRead(group.id);
+    Provider.of<GroupsProvider>(context, listen: false).markGroupAsRead(group.id);
 
     // Hide side panel on mobile after selection
     if (MediaQuery.of(context).size.width < 768) {
@@ -159,9 +147,7 @@ class _MainScreenState extends State<MainScreen>
           });
         }
 
-        final unreadCount = groupsProvider.getTotalUnreadCount(
-          _selectedGroup?.id,
-        );
+        final unreadCount = groupsProvider.getTotalUnreadCount(_selectedGroup?.id);
 
         if (unreadCount == 0) {
           return const SizedBox.shrink();
@@ -179,10 +165,7 @@ class _MainScreenState extends State<MainScreen>
               borderRadius: BorderRadius.circular(28),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -195,17 +178,11 @@ class _MainScreenState extends State<MainScreen>
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withOpacity(0.3),
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
+                    BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2)),
                   ],
                 ),
                 child: Row(
@@ -217,27 +194,16 @@ class _MainScreenState extends State<MainScreen>
                         color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(
-                        Icons.chat_bubble_outline_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
+                      child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 18),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.red.shade400,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
-                          BoxShadow(
-                            color: Colors.red.withOpacity(0.4),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
+                          BoxShadow(color: Colors.red.withOpacity(0.4), blurRadius: 4, offset: const Offset(0, 2)),
                         ],
                       ),
                       child: Text(
@@ -273,9 +239,7 @@ class _MainScreenState extends State<MainScreen>
           // On wide screens, always show the side panel
           final showSidePanelFixed = isWideScreen;
           // On narrow screens, show as overlay when visible or animating
-          final showSidePanelOverlay =
-              !isWideScreen &&
-              (_sidePanelVisible || _animationController.value > 0);
+          final showSidePanelOverlay = !isWideScreen && (_sidePanelVisible || _animationController.value > 0);
 
           return Stack(
             children: [
@@ -288,8 +252,7 @@ class _MainScreenState extends State<MainScreen>
                       onGroupSelected: _onGroupSelected,
                       selectedGroup: _selectedGroup,
                       isVisible: true,
-                      onClose:
-                          _showGroupsList, // Allow closing to show group list
+                      onClose: _showGroupsList, // Allow closing to show group list
                     ),
 
                   // Main content
@@ -297,8 +260,7 @@ class _MainScreenState extends State<MainScreen>
                     child: _selectedGroup != null
                         ? GroupChatScreen(
                             group: _selectedGroup!,
-                            onBack:
-                                _showGroupsList, // Always allow going back to group list
+                            onBack: _showGroupsList, // Always allow going back to group list
                             showMenuButton: !isWideScreen,
                             onMenuPressed: _toggleSidePanel,
                           )
@@ -316,9 +278,7 @@ class _MainScreenState extends State<MainScreen>
                 // Dark overlay with fade animation
                 GestureDetector(
                   onTap: _hideSidePanel,
-                  child: Container(
-                    color: Colors.black.withOpacity(0.5 * _fadeAnimation.value),
-                  ),
+                  child: Container(color: Colors.black.withOpacity(0.5 * _fadeAnimation.value)),
                 ),
                 // Sliding side panel
                 Positioned(
