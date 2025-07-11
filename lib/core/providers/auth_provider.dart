@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:at_client_mobile/at_client_mobile.dart';
+import 'package:hive/hive.dart';
 import '../services/at_talk_service.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -48,11 +49,7 @@ class AuthProvider extends ChangeNotifier {
       if (rootDomain != null) {
         print('🌐 Using custom rootDomain: $rootDomain');
       }
-      await AtTalkService.configureAtSignStorage(
-        atSign!,
-        cleanupExisting: false,
-        rootDomain: rootDomain,
-      );
+      await AtTalkService.configureAtSignStorage(atSign!, cleanupExisting: false, rootDomain: rootDomain);
 
       await AtTalkService.instance.onboard(
         atSign: atSign,
@@ -80,11 +77,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> authenticateExisting(
-    String atSign, {
-    bool cleanupExisting = true,
-    String? rootDomain,
-  }) async {
+  Future<void> authenticateExisting(String atSign, {bool cleanupExisting = true, String? rootDomain}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -92,17 +85,11 @@ class AuthProvider extends ChangeNotifier {
     try {
       // Configure atSign-specific storage before authentication
       // For namespace changes, cleanup is already handled by changeNamespace()
-      print(
-        '🔧 Configuring atSign-specific storage for existing atSign: $atSign (cleanup: $cleanupExisting)',
-      );
+      print('🔧 Configuring atSign-specific storage for existing atSign: $atSign (cleanup: $cleanupExisting)');
       if (rootDomain != null) {
         print('🌐 Using custom rootDomain: $rootDomain');
       }
-      await AtTalkService.configureAtSignStorage(
-        atSign,
-        cleanupExisting: cleanupExisting,
-        rootDomain: rootDomain,
-      );
+      await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: cleanupExisting, rootDomain: rootDomain);
 
       // Initialize the AtTalkService with the existing atSign
       await AtTalkService.instance.onboard(
@@ -124,19 +111,51 @@ class AuthProvider extends ChangeNotifier {
         },
       );
     } catch (e) {
-      _errorMessage =
-          'Failed to configure storage or authenticate: ${e.toString()}';
+      _errorMessage = 'Failed to configure storage or authenticate: ${e.toString()}';
       _isAuthenticated = false;
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  void logout() {
-    _isAuthenticated = false;
-    _currentAtSign = null;
-    _errorMessage = null;
+  Future<void> logout() async {
+    print('🔓 Starting logout process...');
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      // 1. Clean up AtTalkService resources (this handles AtClient cleanup and storage locks)
+      if (AtTalkService.instance.isInitialized) {
+        print('  🧹 Cleaning up AtTalkService resources...');
+        await AtTalkService.instance.cleanup();
+      }
+
+      // 2. Close all Hive database connections to release file handles
+      try {
+        print('  📦 Closing all Hive databases...');
+        await Hive.close();
+        print('  ✅ All Hive databases closed');
+      } catch (e) {
+        print('  ⚠️ Error closing Hive databases: $e');
+      }
+
+      // 3. Reset authentication state
+      _isAuthenticated = false;
+      _currentAtSign = null;
+      _errorMessage = null;
+
+      print('✅ Logout completed successfully');
+    } catch (e) {
+      print('⚠️ Error during logout: $e');
+      _errorMessage = 'Logout error: ${e.toString()}';
+
+      // Still clear authentication state even if cleanup fails
+      _isAuthenticated = false;
+      _currentAtSign = null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   void clearError() {

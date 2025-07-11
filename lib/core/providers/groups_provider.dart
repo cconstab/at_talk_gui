@@ -63,56 +63,66 @@ class GroupsProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  Group? createOrUpdateGroup(
-    Set<String> members, {
-    String? name,
-    String? instanceId,
-  }) {
+  Group? createOrUpdateGroup(Set<String> members, {String? name, String? instanceId}) {
     // Use TUI-compatible group ID generation
     final groupId = instanceId ?? _generateTUICompatibleGroupId(members);
 
     final existingGroup = _groups[groupId];
 
-    // Critical safeguard: prevent overwriting groups with completely different membership
-    // This helps prevent the bug where second group overwrites the first group
+    // Critical safeguard: implement TUI-compatible migration rules to prevent overwriting
+    // individual chats with group chats and vice versa
     if (existingGroup != null) {
       final existingMembers = existingGroup.members;
       final newMembers = members;
 
-      // Check if the membership is compatible for updating
-      final membershipChanged =
-          existingMembers.length != newMembers.length ||
-          !existingMembers.containsAll(newMembers) ||
-          !newMembers.containsAll(existingMembers);
+      // Apply TUI's migration rules:
+      // 1. Individual chats (2 participants) should NOT be migrated to group chats (3+ participants)
+      // 2. Group chats (3+ participants) should NOT be migrated to individual chats (2 participants)
+      // 3. Only migrate if the participant count and membership are compatible
 
-      if (membershipChanged) {
-        print(
-          '⚠️ CRITICAL: Attempted to overwrite group $groupId with different membership!',
-        );
-        print('   Existing members: $existingMembers');
-        print('   New members: $newMembers');
-        print(
-          '   This could be the "second group overwrites first" bug - generating unique ID instead',
-        );
+      bool shouldMigrate = false;
+
+      if (existingMembers.length >= 3 && newMembers.length >= 3) {
+        // Both are group chats - safe to migrate if there's significant overlap
+        final currentAtSign = AtTalkService.instance.currentAtSign;
+        shouldMigrate =
+            existingMembers.intersection(newMembers).length >= 2 &&
+            existingMembers.contains(currentAtSign) &&
+            newMembers.contains(currentAtSign);
+        print('🔄 Group-to-group migration check: shouldMigrate=$shouldMigrate');
+      } else if (existingMembers.length == 2 && newMembers.length == 2) {
+        // Both are individual chats - only migrate if they have exactly the same participants
+        shouldMigrate =
+            existingMembers.difference(newMembers).isEmpty && newMembers.difference(existingMembers).isEmpty;
+        print('🔄 Individual-to-individual migration check: shouldMigrate=$shouldMigrate');
+      } else {
+        // Different participant counts - DON'T migrate to prevent overwriting
+        shouldMigrate = false;
+        print('🚫 Preventing migration: existing(${existingMembers.length}) vs new(${newMembers.length}) participants');
+        print('   Existing: $existingMembers');
+        print('   New: $newMembers');
+        print('   This prevents individual chats from being overwritten by group chats and vice versa');
+      }
+
+      if (!shouldMigrate) {
+        print('⚠️ MIGRATION BLOCKED: Cannot migrate group $groupId');
+        print('   Existing members (${existingMembers.length}): $existingMembers');
+        print('   New members (${newMembers.length}): $newMembers');
+        print('   Generating unique ID to preserve both conversations');
 
         // Force a unique ID to prevent overwriting
         final uniqueGroupId = _generateUniqueGroupId(groupId);
 
-        final newGroup = Group(
-          id: uniqueGroupId,
-          members: members,
-          name: name,
-          unreadCount: 0,
-        );
+        final newGroup = Group(id: uniqueGroupId, members: members, name: name, unreadCount: 0);
 
         _groups[uniqueGroupId] = newGroup;
         _groupMessages[uniqueGroupId] ??= [];
 
-        print(
-          '🚨 Created separate group with unique ID: $uniqueGroupId to prevent overwrite',
-        );
+        print('✅ Created separate group with unique ID: $uniqueGroupId to preserve original conversation');
         notifyListeners();
         return newGroup;
+      } else {
+        print('✅ Migration allowed: compatible participant counts and membership');
       }
     }
 
@@ -120,10 +130,7 @@ class GroupsProvider extends ChangeNotifier {
     final existingMessages = _groupMessages[groupId];
 
     final updatedGroup =
-        existingGroup?.copyWith(
-          members: members,
-          name: name ?? existingGroup.name,
-        ) ??
+        existingGroup?.copyWith(members: members, name: name ?? existingGroup.name) ??
         Group(id: groupId, members: members, name: name, unreadCount: 0);
 
     _groups[groupId] = updatedGroup;
@@ -133,13 +140,9 @@ class GroupsProvider extends ChangeNotifier {
 
     // Debug logging to track group creation/updates
     if (existingGroup == null) {
-      print(
-        '🆕 Created new group (TUI-compatible): $groupId with ${members.length} members',
-      );
+      print('🆕 Created new group (TUI-compatible): $groupId with ${members.length} members');
     } else {
-      print(
-        '🔄 Updated existing group: $groupId (preserved ${existingMessages?.length ?? 0} messages)',
-      );
+      print('🔄 Updated existing group: $groupId (preserved ${existingMessages?.length ?? 0} messages)');
     }
 
     notifyListeners();
@@ -160,9 +163,7 @@ class GroupsProvider extends ChangeNotifier {
       final updatedGroup = group.copyWith(
         lastMessage: message.text,
         lastMessageTime: message.timestamp,
-        unreadCount: message.isFromMe
-            ? group.unreadCount
-            : group.unreadCount + 1,
+        unreadCount: message.isFromMe ? group.unreadCount : group.unreadCount + 1,
       );
       _groups[groupId] = updatedGroup;
     } else {
@@ -192,9 +193,7 @@ class GroupsProvider extends ChangeNotifier {
 
     if (recipients.isEmpty) return false;
 
-    print(
-      'Sending message to group $groupId (${group.members.length} members): ${group.members}',
-    );
+    print('Sending message to group $groupId (${group.members.length} members): ${group.members}');
 
     // Update the group's lastMessageTime immediately when sending
     // This ensures that when our own message comes back, this group will be the "most recent"
@@ -224,15 +223,9 @@ class GroupsProvider extends ChangeNotifier {
       );
 
       // Use canonical group to ensure consistency with notification handling
-      final canonicalGroupId = _getOrCreateCanonicalGroup(
-        groupId,
-        currentAtSign,
-        currentAtSign,
-      );
+      final canonicalGroupId = _getOrCreateCanonicalGroup(groupId, currentAtSign, currentAtSign);
       if (canonicalGroupId != groupId) {
-        print(
-          '🔀 Using canonical group for immediate GROUP message: $canonicalGroupId (was: $groupId)',
-        );
+        print('🔀 Using canonical group for immediate GROUP message: $canonicalGroupId (was: $groupId)');
         groupId = canonicalGroupId;
       }
 
@@ -241,21 +234,16 @@ class GroupsProvider extends ChangeNotifier {
       );
       print('   Target groupId: $groupId');
       print('   Group members: ${group.members}');
-      print(
-        '   Current message count before adding: ${_groupMessages[groupId]?.length ?? 0}',
-      );
+      print('   Current message count before adding: ${_groupMessages[groupId]?.length ?? 0}');
       addMessageToGroup(groupId, ourMessage);
-      print(
-        'Added our own GROUP message to chat immediately for instant feedback',
-      );
+      print('Added our own GROUP message to chat immediately for instant feedback');
 
       for (String recipient in recipients) {
         final success = await AtTalkService.instance.sendGroupMessage(
           toAtSign: recipient,
           message: message,
           groupMembers: groupMembersList,
-          groupInstanceId:
-              sessionKey, // Use consistent session key, not internal group ID
+          groupInstanceId: sessionKey, // Use consistent session key, not internal group ID
           groupName: group.name,
         );
         if (!success) allSuccess = false;
@@ -264,8 +252,7 @@ class GroupsProvider extends ChangeNotifier {
     } else {
       // Send as JSON message with isGroup:false (for 1-on-1 conversations)
       // Send to ALL recipients including ourselves for proper TUI multi-instance support
-      final groupMembersList = group.members.toList()
-        ..sort(); // Consistent group member list
+      final groupMembersList = group.members.toList()..sort(); // Consistent group member list
 
       // Add our own message to the chat BEFORE sending to prevent race conditions
       // This ensures our immediate message is always added before any notifications arrive
@@ -277,15 +264,9 @@ class GroupsProvider extends ChangeNotifier {
       );
 
       // Use canonical group to ensure consistency with notification handling
-      final canonicalGroupId = _getOrCreateCanonicalGroup(
-        groupId,
-        currentAtSign,
-        currentAtSign,
-      );
+      final canonicalGroupId = _getOrCreateCanonicalGroup(groupId, currentAtSign, currentAtSign);
       if (canonicalGroupId != groupId) {
-        print(
-          '🔀 Using canonical group for immediate message: $canonicalGroupId (was: $groupId)',
-        );
+        print('🔀 Using canonical group for immediate message: $canonicalGroupId (was: $groupId)');
         groupId = canonicalGroupId;
       }
 
@@ -294,9 +275,7 @@ class GroupsProvider extends ChangeNotifier {
       );
       print('   Target groupId: $groupId');
       print('   Group members: ${group.members}');
-      print(
-        '   Current message count before adding: ${_groupMessages[groupId]?.length ?? 0}',
-      );
+      print('   Current message count before adding: ${_groupMessages[groupId]?.length ?? 0}');
       addMessageToGroup(groupId, ourMessage);
       print('Added our own message to chat immediately for instant feedback');
 
@@ -328,16 +307,12 @@ class GroupsProvider extends ChangeNotifier {
     _messageSubscription?.cancel();
 
     try {
-      _messageSubscription = AtTalkService.instance.getAllMessageStream().listen((
-        messageData,
-      ) {
+      _messageSubscription = AtTalkService.instance.getAllMessageStream().listen((messageData) {
         final fromAtSign = messageData['from'] ?? '';
         final message = messageData['message'] ?? '';
         final rawValue = messageData['rawValue'] ?? '';
 
-        print(
-          '📨 GroupsProvider received: from=$fromAtSign, message="$message"',
-        );
+        print('📨 GroupsProvider received: from=$fromAtSign, message="$message"');
 
         // Quick check for empty messages
         if (message.isEmpty) {
@@ -369,9 +344,7 @@ class GroupsProvider extends ChangeNotifier {
             } else if (messageType == 'groupMembershipChange') {
               // Skip processing our own membership change notifications
               if (fromAtSign == currentAtSign) {
-                print(
-                  '🚫 Ignoring membership change notification from ourselves',
-                );
+                print('🚫 Ignoring membership change notification from ourselves');
                 return;
               }
               _handleGroupMembershipChange(jsonData);
@@ -392,9 +365,7 @@ class GroupsProvider extends ChangeNotifier {
 
             // Legacy check: filter out messages using old instanceId matching
             if (fromAtSign == currentAtSign && instanceId == ourInstanceId) {
-              print(
-                '🚫 Ignoring message from our own instance (legacy check): $instanceId',
-              );
+              print('🚫 Ignoring message from our own instance (legacy check): $instanceId');
               return;
             }
 
@@ -416,8 +387,7 @@ class GroupsProvider extends ChangeNotifier {
 
               // Use TUI logic to determine session key
               String sessionKey;
-              if (groupMembers.length == 1 &&
-                  groupMembers.first == currentAtSign) {
+              if (groupMembers.length == 1 && groupMembers.first == currentAtSign) {
                 // Self-chat session
                 sessionKey = currentAtSign;
                 print('📱 Self-chat session key: $sessionKey');
@@ -429,28 +399,60 @@ class GroupsProvider extends ChangeNotifier {
               }
 
               // Try to find existing session with same participants first (TUI approach)
-              final existingGroupWithParticipants = _findGroupByMembers(
-                groupMembers,
-              );
+              // CRITICAL: Apply TUI's safeguard to prevent individual chats from being overwritten by group chats
+              Group? existingGroupWithParticipants;
+
+              // First check if there's a group with exactly matching participants
+              final candidateGroup = _findGroupByMembers(groupMembers);
+
+              if (candidateGroup != null) {
+                // Apply TUI's migration rules before using this group
+                final existingMembers = candidateGroup.members;
+                final newMembers = groupMembers;
+
+                bool shouldUseExisting = false;
+
+                if (existingMembers.length >= 3 && newMembers.length >= 3) {
+                  // Both are group chats - safe to use existing
+                  shouldUseExisting = true;
+                  print('✅ Both are group chats - safe to use existing group: ${candidateGroup.id}');
+                } else if (existingMembers.length == 2 && newMembers.length == 2) {
+                  // Both are individual chats with same participants - safe to use existing
+                  shouldUseExisting = true;
+                  print(
+                    '✅ Both are individual chats with same participants - safe to use existing: ${candidateGroup.id}',
+                  );
+                } else {
+                  // Different participant counts - TUI safeguard: don't overwrite
+                  shouldUseExisting = false;
+                  print(
+                    '🚫 TUI SAFEGUARD: Preventing overwrite of ${existingMembers.length}-person chat with ${newMembers.length}-person chat',
+                  );
+                  print(
+                    '   Existing group: ${candidateGroup.id} (${existingMembers.length} members): $existingMembers',
+                  );
+                  print('   New message: (${newMembers.length} members): $newMembers');
+                  print('   Will create separate conversation to preserve both');
+                }
+
+                if (shouldUseExisting) {
+                  existingGroupWithParticipants = candidateGroup;
+                }
+              }
+
               if (existingGroupWithParticipants != null) {
                 groupId = existingGroupWithParticipants.id;
                 print('✅ GUI: Found existing group by members: $groupId');
 
                 // Update group name if provided and different
-                if (groupName != null &&
-                    groupName.isNotEmpty &&
-                    existingGroupWithParticipants.name != groupName) {
-                  _groups[groupId] = existingGroupWithParticipants.copyWith(
-                    name: groupName,
-                  );
+                if (groupName != null && groupName.isNotEmpty && existingGroupWithParticipants.name != groupName) {
+                  _groups[groupId] = existingGroupWithParticipants.copyWith(name: groupName);
                   notifyListeners();
                   print('📝 GUI: Updated group name to: $groupName');
                 }
               } else {
                 // No exact match found - create new group with TUI-compatible ID
-                print(
-                  '❌ GUI: No existing group found with members: $groupMembers',
-                );
+                print('❌ GUI: No existing group found with members: $groupMembers');
                 print('🆕 GUI: Creating new group for incoming message');
                 print('   InstanceId from message: $instanceId');
                 print('   Session key: $sessionKey');
@@ -463,16 +465,11 @@ class GroupsProvider extends ChangeNotifier {
                 if (instanceId != null && instanceId == sessionKey) {
                   // The instanceId matches our computed session key - use it for perfect TUI compatibility
                   newGroupId = instanceId;
-                  print(
-                    '✅ GUI: Using TUI-provided instanceId for perfect compatibility: $newGroupId',
-                  );
-                } else if (instanceId != null &&
-                    !_groups.containsKey(instanceId)) {
+                  print('✅ GUI: Using TUI-provided instanceId for perfect compatibility: $newGroupId');
+                } else if (instanceId != null && !_groups.containsKey(instanceId)) {
                   // The instanceId is different but available - use it to maintain TUI compatibility
                   newGroupId = instanceId;
-                  print(
-                    '🔧 GUI: Using TUI-provided instanceId for compatibility: $newGroupId',
-                  );
+                  print('🔧 GUI: Using TUI-provided instanceId for compatibility: $newGroupId');
                 } else {
                   // Fall back to our session key format
                   if (!_groups.containsKey(sessionKey)) {
@@ -480,25 +477,14 @@ class GroupsProvider extends ChangeNotifier {
                     print('✅ GUI: Using computed session key: $newGroupId');
                   } else {
                     // Session key exists, create unique ID
-                    newGroupId = _generateTUICompatibleGroupId(
-                      groupMembers,
-                      forceUniqueForGroup: true,
-                    );
-                    print(
-                      '🔧 GUI: Session key conflict, using unique ID: $newGroupId',
-                    );
+                    newGroupId = _generateTUICompatibleGroupId(groupMembers, forceUniqueForGroup: true);
+                    print('🔧 GUI: Session key conflict, using unique ID: $newGroupId');
                   }
                 }
 
-                createOrUpdateGroup(
-                  groupMembers,
-                  instanceId: newGroupId,
-                  name: groupName,
-                );
+                createOrUpdateGroup(groupMembers, instanceId: newGroupId, name: groupName);
                 groupId = newGroupId;
-                print(
-                  '🆕 Created new group: $groupId (TUI-compatible, members=${groupMembers.length})',
-                );
+                print('🆕 Created new group: $groupId (TUI-compatible, members=${groupMembers.length})');
               }
             }
           }
@@ -511,9 +497,7 @@ class GroupsProvider extends ChangeNotifier {
             // Special case: if this is from ourselves, we need to find the existing 1-on-1 chat
             // we were just sending to, rather than trying to create a group with ourselves
             if (fromAtSign == currentAtSign) {
-              print(
-                '📱 This is our own message - attempting to match to recent outgoing message',
-              );
+              print('📱 This is our own message - attempting to match to recent outgoing message');
 
               // Don't try to find "most recent" chat - this is prone to errors
               // Instead, only process if we can definitively match the message
@@ -542,9 +526,7 @@ class GroupsProvider extends ChangeNotifier {
                 return; // Skip this message as it's already been processed
               }
 
-              print(
-                '⚠️ Our own message not found in any recent group - this might be from another instance',
-              );
+              print('⚠️ Our own message not found in any recent group - this might be from another instance');
               return; // Don't process ambiguous own messages
             } else {
               // Message from someone else - use consistent group ID format
@@ -560,15 +542,11 @@ class GroupsProvider extends ChangeNotifier {
               final existingGroup = _findGroupByMembers(groupMembers);
               if (existingGroup != null) {
                 groupId = existingGroup.id;
-                print(
-                  '✅ Using existing 1-on-1 chat: ${existingGroup.id} for members: ${existingGroup.members}',
-                );
+                print('✅ Using existing 1-on-1 chat: ${existingGroup.id} for members: ${existingGroup.members}');
               } else {
                 groupId = sessionKey; // Use consistent key format
                 createOrUpdateGroup(groupMembers, instanceId: groupId);
-                print(
-                  '🆕 Created new 1-on-1 chat: $groupId for members: $groupMembers (consistent format)',
-                );
+                print('🆕 Created new 1-on-1 chat: $groupId for members: $groupMembers (consistent format)');
               }
             }
           } else {
@@ -579,12 +557,9 @@ class GroupsProvider extends ChangeNotifier {
         // Add message to the appropriate group
         if (groupId != null) {
           final currentAtSign = AtTalkService.instance.currentAtSign;
-          final isFromCurrentUser =
-              currentAtSign != null && fromAtSign == currentAtSign;
+          final isFromCurrentUser = currentAtSign != null && fromAtSign == currentAtSign;
 
-          print(
-            '📩 Adding message to group $groupId: from=$fromAtSign, isFromMe=$isFromCurrentUser',
-          );
+          print('📩 Adding message to group $groupId: from=$fromAtSign, isFromMe=$isFromCurrentUser');
 
           // Create the ChatMessage with a unique ID first
           final chatMessage = ChatMessage(
@@ -620,31 +595,21 @@ class GroupsProvider extends ChangeNotifier {
           }
 
           // First check for exact ID match (for messages from other users)
-          isDuplicate = existingMessages.any(
-            (existingMsg) => existingMsg.id == chatMessage.id,
-          );
+          isDuplicate = existingMessages.any((existingMsg) => existingMsg.id == chatMessage.id);
 
           // For messages from current user, also check for content-based duplicates
           // (since we add our own messages immediately and they get different IDs when received back)
           if (!isDuplicate && isFromCurrentUser) {
             final now = DateTime.now();
-            print(
-              '🔍 Checking for content-based duplicates in ${existingMessages.length} messages for: "$message"',
-            );
+            print('🔍 Checking for content-based duplicates in ${existingMessages.length} messages for: "$message"');
 
             for (final existingMsg in existingMessages) {
-              if (existingMsg.text == message &&
-                  existingMsg.fromAtSign == fromAtSign &&
-                  existingMsg.isFromMe == true) {
-                final timeDiff = now
-                    .difference(existingMsg.timestamp)
-                    .inSeconds;
+              if (existingMsg.text == message && existingMsg.fromAtSign == fromAtSign && existingMsg.isFromMe == true) {
+                final timeDiff = now.difference(existingMsg.timestamp).inSeconds;
                 print('🕐 Found matching message with time diff: ${timeDiff}s');
                 if (timeDiff < 30) {
                   isDuplicate = true;
-                  print(
-                    '🚫 Content-based duplicate detected: "$message" from $fromAtSign (time diff: ${timeDiff}s)',
-                  );
+                  print('🚫 Content-based duplicate detected: "$message" from $fromAtSign (time diff: ${timeDiff}s)');
                   break;
                 }
               }
@@ -655,11 +620,8 @@ class GroupsProvider extends ChangeNotifier {
           if (!isDuplicate && isFromCurrentUser) {
             for (final existingGroupId in _groupMessages.keys) {
               if (existingGroupId != groupId) {
-                final otherGroupMessages =
-                    _groupMessages[existingGroupId] ?? [];
-                isDuplicate = otherGroupMessages.any(
-                  (existingMsg) => existingMsg.id == chatMessage.id,
-                );
+                final otherGroupMessages = _groupMessages[existingGroupId] ?? [];
+                isDuplicate = otherGroupMessages.any((existingMsg) => existingMsg.id == chatMessage.id);
                 if (isDuplicate) {
                   print(
                     '⚠️ Duplicate message ID detected: ${chatMessage.id} from $fromAtSign (already exists in group $existingGroupId)',
@@ -673,16 +635,10 @@ class GroupsProvider extends ChangeNotifier {
           if (!isDuplicate) {
             // Before adding the message, check if we need to consolidate groups
             // If there are multiple groups with the same members, consolidate to the canonical one
-            final canonicalGroupId = _getOrCreateCanonicalGroup(
-              groupId,
-              fromAtSign,
-              currentAtSign,
-            );
+            final canonicalGroupId = _getOrCreateCanonicalGroup(groupId, fromAtSign, currentAtSign);
 
             if (canonicalGroupId != groupId) {
-              print(
-                '🔀 Consolidating message to canonical group: $canonicalGroupId (was: $groupId)',
-              );
+              print('🔀 Consolidating message to canonical group: $canonicalGroupId (was: $groupId)');
               groupId = canonicalGroupId;
             }
 
@@ -710,8 +666,7 @@ class GroupsProvider extends ChangeNotifier {
     final matchingGroups = <Group>[];
 
     for (final group in _groups.values) {
-      if (group.members.length == members.length &&
-          group.members.containsAll(members)) {
+      if (group.members.length == members.length && group.members.containsAll(members)) {
         matchingGroups.add(group);
       }
     }
@@ -729,12 +684,8 @@ class GroupsProvider extends ChangeNotifier {
     // If multiple matches found, this is potentially problematic because it means
     // we have multiple groups with identical membership, which could lead to
     // message routing confusion. In this case, prefer the group with the most recent message.
-    print(
-      '⚠️ Found ${matchingGroups.length} groups with identical members: $members',
-    );
-    print(
-      '   This might indicate different logical groups that need to be kept separate',
-    );
+    print('⚠️ Found ${matchingGroups.length} groups with identical members: $members');
+    print('   This might indicate different logical groups that need to be kept separate');
 
     Group? bestMatch;
     DateTime? bestTime;
@@ -765,10 +716,7 @@ class GroupsProvider extends ChangeNotifier {
   /// - Use comma-separated sorted participant list for all groups
   /// - For 1-on-1 and 2-person groups: use simple session key format (no timestamp)
   /// - For 3+ person groups: add timestamp suffix for disambiguation if needed
-  String _generateTUICompatibleGroupId(
-    Set<String> members, {
-    bool forceUniqueForGroup = false,
-  }) {
+  String _generateTUICompatibleGroupId(Set<String> members, {bool forceUniqueForGroup = false}) {
     final sortedMembers = members.toList()..sort();
 
     // Use comma-separated sorted list for all groups (consistent approach)
@@ -783,16 +731,13 @@ class GroupsProvider extends ChangeNotifier {
       if (existingGroup != null) {
         // Check if the members are exactly the same
         final sameMembers =
-            existingGroup.members.length == members.length &&
-            existingGroup.members.containsAll(members);
+            existingGroup.members.length == members.length && existingGroup.members.containsAll(members);
 
         if (sameMembers) {
           print('✅ Using existing session key for same participants: $groupId');
           return groupId; // Same participants, safe to reuse
         } else {
-          print(
-            '⚠️ Session key conflict for different participants, adding timestamp',
-          );
+          print('⚠️ Session key conflict for different participants, adding timestamp');
           // Different participants, need unique ID
           groupId = _generateUniqueGroupId(groupId);
         }
@@ -812,9 +757,7 @@ class GroupsProvider extends ChangeNotifier {
     final existingGroup = _groups[groupId];
     if (existingGroup != null) {
       // Check if the members are exactly the same
-      final sameMembers =
-          existingGroup.members.length == members.length &&
-          existingGroup.members.containsAll(members);
+      final sameMembers = existingGroup.members.length == members.length && existingGroup.members.containsAll(members);
 
       if (!sameMembers) {
         print('⚠️ Group ID conflict detected for $groupId');
@@ -835,9 +778,7 @@ class GroupsProvider extends ChangeNotifier {
     int counter = 0;
     do {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      uniqueId = counter == 0
-          ? '$baseId#$timestamp'
-          : '$baseId#${timestamp}_$counter';
+      uniqueId = counter == 0 ? '$baseId#$timestamp' : '$baseId#${timestamp}_$counter';
       counter++;
     } while (_groups.containsKey(uniqueId) && counter < 100); // Safety limit
 
@@ -850,27 +791,17 @@ class GroupsProvider extends ChangeNotifier {
   }
 
   /// Create a new group with a unique ID (used when explicitly creating groups to avoid overwrites)
-  Future<String> createNewGroupWithUniqueId(
-    Set<String> members, {
-    String? name,
-  }) async {
+  Future<String> createNewGroupWithUniqueId(Set<String> members, {String? name}) async {
     // Force unique ID generation for new groups to prevent overwrites
     final baseId = _generateTUICompatibleGroupId(members);
     final groupId = _generateUniqueGroupId(baseId);
 
-    final newGroup = Group(
-      id: groupId,
-      members: members,
-      name: name,
-      unreadCount: 0,
-    );
+    final newGroup = Group(id: groupId, members: members, name: name, unreadCount: 0);
 
     _groups[groupId] = newGroup;
     _groupMessages[groupId] ??= [];
 
-    print(
-      '🆕 Created new group with guaranteed unique ID: $groupId (${members.length} members)',
-    );
+    print('🆕 Created new group with guaranteed unique ID: $groupId (${members.length} members)');
     notifyListeners();
 
     // Notify all other participants about the new group
@@ -893,25 +824,14 @@ class GroupsProvider extends ChangeNotifier {
 
   Group? createNewGroupWithUniqueName(Set<String> members, {String? name}) {
     // Force unique ID generation for new groups to prevent overwrites (TUI behavior)
-    final groupId = _generateTUICompatibleGroupId(
-      members,
-      forceUniqueForGroup: true,
-    );
+    final groupId = _generateTUICompatibleGroupId(members, forceUniqueForGroup: true);
 
-    final newGroup = Group(
-      id: groupId,
-      members: members,
-      name: name,
-      unreadCount: 0,
-      lastMessageTime: DateTime.now(),
-    );
+    final newGroup = Group(id: groupId, members: members, name: name, unreadCount: 0, lastMessageTime: DateTime.now());
 
     _groups[groupId] = newGroup;
     _groupMessages[groupId] ??= [];
 
-    print(
-      '🆕 Created new group with unique ID: $groupId with ${members.length} members',
-    );
+    print('🆕 Created new group with unique ID: $groupId with ${members.length} members');
     notifyListeners();
     return newGroup;
   }
@@ -935,9 +855,7 @@ class GroupsProvider extends ChangeNotifier {
       final currentAtSign = AtTalkService.instance.currentAtSign;
       if (currentAtSign == null) return null;
 
-      final recipients = group.members
-          .where((member) => member != currentAtSign)
-          .toList();
+      final recipients = group.members.where((member) => member != currentAtSign).toList();
 
       print('📝 Renaming group $groupId to "$newName"');
       print('   Recipients: $recipients');
@@ -956,8 +874,7 @@ class GroupsProvider extends ChangeNotifier {
           toAtSign: recipient,
           groupMembers: group.members.toList(),
           groupName: newName,
-          groupInstanceId:
-              tuiSessionKey, // Send TUI-compatible session key, not internal group ID
+          groupInstanceId: tuiSessionKey, // Send TUI-compatible session key, not internal group ID
         );
         if (!success) allSuccess = false;
       }
@@ -969,25 +886,17 @@ class GroupsProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> updateGroupMembership(
-    String groupId,
-    List<String> newMembers,
-    String? groupName,
-  ) async {
+  Future<bool> updateGroupMembership(String groupId, List<String> newMembers, String? groupName) async {
     final group = _groups[groupId];
     if (group == null) return false;
 
     try {
       // Update local group membership
-      _groups[groupId] = group.copyWith(
-        members: newMembers.toSet(),
-        name: groupName,
-      );
+      _groups[groupId] = group.copyWith(members: newMembers.toSet(), name: groupName);
       notifyListeners();
 
       // Notify all participants (both old and new) about the membership change
-      final allParticipants = Set<String>.from(group.members)
-        ..addAll(newMembers);
+      final allParticipants = Set<String>.from(group.members)..addAll(newMembers);
       bool allSuccess = true;
 
       for (String recipient in allParticipants) {
@@ -1015,8 +924,7 @@ class GroupsProvider extends ChangeNotifier {
 
   void _handleGroupRename(Map<String, dynamic> jsonData) {
     try {
-      final groupMembers =
-          (jsonData['group'] as List<dynamic>?)?.cast<String>() ?? [];
+      final groupMembers = (jsonData['group'] as List<dynamic>?)?.cast<String>() ?? [];
       final newGroupName = jsonData['groupName'] as String?;
       final instanceId = jsonData['instanceId'] as String?;
       final fromAtSign = jsonData['from'] as String?;
@@ -1043,16 +951,12 @@ class GroupsProvider extends ChangeNotifier {
         final existingGroup = _findGroupByMembers(groupMembers.toSet());
         if (existingGroup != null) {
           groupId = existingGroup.id;
-          print(
-            '✅ GUI: Found group by members: $groupId for instanceId: $instanceId',
-          );
+          print('✅ GUI: Found group by members: $groupId for instanceId: $instanceId');
 
           // CRITICAL: If we found a group with different ID, we need to consolidate
           // This happens when GUI created a timestamped ID but TUI uses base session key
           if (groupId != instanceId) {
-            print(
-              '🔧 GUI: Group ID mismatch detected - consolidating group IDs',
-            );
+            print('🔧 GUI: Group ID mismatch detected - consolidating group IDs');
             print('   TUI expects: $instanceId');
             print('   GUI has: $groupId');
 
@@ -1073,14 +977,8 @@ class GroupsProvider extends ChangeNotifier {
 
           // LAST RESORT: Create new group with the provided instance ID
           // This shouldn't happen often but ensures rename notifications don't get lost
-          print(
-            '🆕 GUI: Creating new group for rename with instanceId: $instanceId',
-          );
-          createOrUpdateGroup(
-            groupMembers.toSet(),
-            instanceId: instanceId,
-            name: newGroupName,
-          );
+          print('🆕 GUI: Creating new group for rename with instanceId: $instanceId');
+          createOrUpdateGroup(groupMembers.toSet(), instanceId: instanceId, name: newGroupName);
           groupId = instanceId;
         }
       }
@@ -1090,14 +988,11 @@ class GroupsProvider extends ChangeNotifier {
         _groups[groupId] = group.copyWith(name: newGroupName);
 
         // Add a system message about the rename, showing who did it
-        final displayName = newGroupName?.isNotEmpty == true
-            ? newGroupName!
-            : 'Unnamed Group';
+        final displayName = newGroupName?.isNotEmpty == true ? newGroupName! : 'Unnamed Group';
 
         // Use the actual sender's atSign (like TUI format) instead of 'System'
         final currentAtSign = AtTalkService.instance.currentAtSign;
-        final isFromCurrentUser =
-            currentAtSign != null && fromAtSign == currentAtSign;
+        final isFromCurrentUser = currentAtSign != null && fromAtSign == currentAtSign;
 
         final systemMessage = ChatMessage(
           text: 'Group renamed to "$displayName"',
@@ -1115,18 +1010,13 @@ class GroupsProvider extends ChangeNotifier {
         int groupsWithSameMembers = 0;
         for (final entry in _groups.entries) {
           final group = entry.value;
-          if (group.members.length == renamedGroupMembers.length &&
-              group.members.containsAll(renamedGroupMembers)) {
+          if (group.members.length == renamedGroupMembers.length && group.members.containsAll(renamedGroupMembers)) {
             groupsWithSameMembers++;
-            print(
-              '   - Group ${entry.key}: name="${group.name}", messages=${_groupMessages[entry.key]?.length ?? 0}',
-            );
+            print('   - Group ${entry.key}: name="${group.name}", messages=${_groupMessages[entry.key]?.length ?? 0}');
           }
         }
         if (groupsWithSameMembers > 1) {
-          print(
-            '⚠️ Multiple groups detected with same members after rename - this may cause confusion',
-          );
+          print('⚠️ Multiple groups detected with same members after rename - this may cause confusion');
         }
       } else {
         print('⚠️ Could not find group for rename operation:');
@@ -1141,8 +1031,7 @@ class GroupsProvider extends ChangeNotifier {
 
   void _handleGroupMembershipChange(Map<String, dynamic> jsonData) {
     try {
-      final newMembers =
-          (jsonData['group'] as List<dynamic>?)?.cast<String>() ?? [];
+      final newMembers = (jsonData['group'] as List<dynamic>?)?.cast<String>() ?? [];
       final groupName = jsonData['groupName'] as String?;
       final instanceId = jsonData['instanceId'] as String?;
       final fromAtSign = jsonData['from'] as String?;
@@ -1174,9 +1063,7 @@ class GroupsProvider extends ChangeNotifier {
         // currently contains ALL the new members PLUS some additional members
         final newMembersSet = newMembers.toSet();
 
-        print(
-          'DEBUG: Looking for group to update with new members: $newMembersSet',
-        );
+        print('DEBUG: Looking for group to update with new members: $newMembersSet');
 
         // Strategy 1: Find a group that contains all new members as a subset
         // and has MORE members (indicating we're removing some)
@@ -1185,30 +1072,21 @@ class GroupsProvider extends ChangeNotifier {
 
         for (final group in _groups.values) {
           final groupMembers = group.members;
-          print(
-            'DEBUG: Checking group ${group.id} with members: $groupMembers',
-          );
+          print('DEBUG: Checking group ${group.id} with members: $groupMembers');
 
           // Check if this group contains all the new members (subset)
-          final containsAllNewMembers = newMembersSet.every(
-            (member) => groupMembers.contains(member),
-          );
+          final containsAllNewMembers = newMembersSet.every((member) => groupMembers.contains(member));
 
           if (containsAllNewMembers) {
             final sizeDifference = groupMembers.length - newMembersSet.length;
-            print(
-              'DEBUG: Group ${group.id} contains all new members, size difference: $sizeDifference',
-            );
+            print('DEBUG: Group ${group.id} contains all new members, size difference: $sizeDifference');
 
             // Prefer the group with the smallest positive size difference
             // (closest match for member removal)
-            if (sizeDifference >= 0 &&
-                sizeDifference < smallestSizeDifference) {
+            if (sizeDifference >= 0 && sizeDifference < smallestSizeDifference) {
               bestMatch = group;
               smallestSizeDifference = sizeDifference;
-              print(
-                'DEBUG: New best match: ${group.id} (difference: $sizeDifference)',
-              );
+              print('DEBUG: New best match: ${group.id} (difference: $sizeDifference)');
             }
           }
         }
@@ -1216,9 +1094,7 @@ class GroupsProvider extends ChangeNotifier {
         if (bestMatch != null) {
           existingGroup = bestMatch;
           groupId = bestMatch.id;
-          print(
-            'DEBUG: Found group to update by best subset match: ${bestMatch.id}',
-          );
+          print('DEBUG: Found group to update by best subset match: ${bestMatch.id}');
         }
       }
 
@@ -1231,16 +1107,45 @@ class GroupsProvider extends ChangeNotifier {
         print('  - Old members: $oldMembers');
         print('  - New members: $newMembersSet');
 
-        // Update the group
-        _groups[groupId] = existingGroup.copyWith(
-          members: newMembersSet,
-          name: groupName,
-        );
+        // CRITICAL: Apply TUI-compatible safeguards to prevent conversation overwrites
+        // Don't allow individual chats (2 participants) to overwrite group chats (3+ participants)
+        bool shouldAllowUpdate = true;
+
+        if (oldMembers.length >= 3 && newMembersSet.length == 2) {
+          // Trying to convert group chat to individual chat - this is the overwrite bug!
+          shouldAllowUpdate = false;
+          print('🚫 TUI SAFEGUARD: Preventing individual chat from overwriting group chat');
+          print('   Existing group: $groupId (${oldMembers.length} members): $oldMembers');
+          print('   Attempted update: (${newMembersSet.length} members): $newMembersSet');
+          print('   This membership change will be ignored to preserve the original group');
+        } else if (oldMembers.length == 2 && newMembersSet.length >= 3) {
+          // Trying to convert individual chat to group chat - this could also be problematic
+          shouldAllowUpdate = false;
+          print('🚫 TUI SAFEGUARD: Preventing group chat from overwriting individual chat');
+          print('   Existing group: $groupId (${oldMembers.length} members): $oldMembers');
+          print('   Attempted update: (${newMembersSet.length} members): $newMembersSet');
+          print('   This membership change will be ignored to preserve the original conversation');
+        } else {
+          print('✅ Membership change allowed: ${oldMembers.length} → ${newMembersSet.length} participants');
+        }
+
+        if (shouldAllowUpdate) {
+          // Update the group
+          _groups[groupId] = existingGroup.copyWith(members: newMembersSet, name: groupName);
+        } else {
+          // Instead of updating the existing group, create a new one for the new conversation
+          print('🆕 Creating separate conversation to preserve both groups');
+          final newGroupId = _generateTUICompatibleGroupId(newMembersSet, forceUniqueForGroup: true);
+
+          createOrUpdateGroup(newMembersSet, instanceId: newGroupId, name: groupName);
+
+          print('✅ Created separate group: $newGroupId to preserve original: $groupId');
+          return; // Exit early to avoid the member change system messages
+        }
 
         // Use the actual sender's atSign (like TUI format) instead of 'System'
         final currentAtSign = AtTalkService.instance.currentAtSign;
-        final isFromCurrentUser =
-            currentAtSign != null && fromAtSign == currentAtSign;
+        final isFromCurrentUser = currentAtSign != null && fromAtSign == currentAtSign;
 
         // Add system messages for member changes
         final added = newMembersSet.difference(oldMembers);
@@ -1269,27 +1174,61 @@ class GroupsProvider extends ChangeNotifier {
         }
 
         notifyListeners();
-        print(
-          'DEBUG: Group $groupId membership updated successfully: +${added.length}, -${removed.length}',
-        );
+        print('DEBUG: Group $groupId membership updated successfully: +${added.length}, -${removed.length}');
       } else {
-        // Create new group if not found
+        // Create new group if not found - but apply safeguards first
         print('DEBUG: No existing group found! Creating new group...');
         print('  - Attempted instanceId: $instanceId');
         print('  - Attempted member matching failed');
-        print('  - This might cause TUI to see a duplicate group!');
 
-        final newGroupId = instanceId ?? _generateGroupId(newMembers.toSet());
-        _groups[newGroupId] = Group(
-          id: newGroupId,
-          members: newMembers.toSet(),
-          lastMessageTime: DateTime.now(),
-          name: groupName,
-        );
-        notifyListeners();
-        print(
-          'DEBUG: Created new group $newGroupId with ${newMembers.length} members (this may be a duplicate!)',
-        );
+        // CRITICAL: Before creating a new group, check if we have an existing group that would conflict
+        // This prevents creating individual chats when group chats already exist with overlapping members
+        final newMembersSet = newMembers.toSet();
+        bool shouldCreateNew = true;
+
+        // Check if any existing group has these exact members
+        for (final existingGroup in _groups.values) {
+          if (existingGroup.members.length == newMembersSet.length &&
+              existingGroup.members.containsAll(newMembersSet)) {
+            // Exact match found - don't create duplicate
+            shouldCreateNew = false;
+            print('🚫 Exact match found, not creating duplicate: ${existingGroup.id}');
+            break;
+          }
+        }
+
+        // Additional check: if we're trying to create a 2-person group, make sure we don't have
+        // a 3+ person group with the same participants that would be overwritten
+        if (shouldCreateNew && newMembersSet.length == 2) {
+          for (final existingGroup in _groups.values) {
+            if (existingGroup.members.length >= 3 && existingGroup.members.containsAll(newMembersSet)) {
+              print(
+                '🚫 TUI SAFEGUARD: Not creating 2-person group that could conflict with existing ${existingGroup.members.length}-person group',
+              );
+              print(
+                '   Existing group: ${existingGroup.id} (${existingGroup.members.length} members): ${existingGroup.members}',
+              );
+              print('   Would-be new group: (${newMembersSet.length} members): $newMembersSet');
+              shouldCreateNew = false;
+              break;
+            }
+          }
+        }
+
+        if (shouldCreateNew) {
+          print('  - This might cause TUI to see a duplicate group!');
+          final newGroupId = instanceId ?? _generateGroupId(newMembers.toSet());
+          _groups[newGroupId] = Group(
+            id: newGroupId,
+            members: newMembers.toSet(),
+            lastMessageTime: DateTime.now(),
+            name: groupName,
+          );
+          notifyListeners();
+          print('DEBUG: Created new group $newGroupId with ${newMembers.length} members (this may be a duplicate!)');
+        } else {
+          print('🛡️ Group creation skipped due to TUI safeguards - preserving existing conversations');
+        }
       }
     } catch (e) {
       print('Error handling group membership change: $e');
@@ -1298,11 +1237,7 @@ class GroupsProvider extends ChangeNotifier {
 
   /// Get or create the canonical group for a set of members
   /// This helps consolidate multiple groups with identical members into one
-  String _getOrCreateCanonicalGroup(
-    String suggestedGroupId,
-    String fromAtSign,
-    String? currentAtSign,
-  ) {
+  String _getOrCreateCanonicalGroup(String suggestedGroupId, String fromAtSign, String? currentAtSign) {
     if (currentAtSign == null) return suggestedGroupId;
 
     // Determine the members for this conversation
@@ -1312,8 +1247,7 @@ class GroupsProvider extends ChangeNotifier {
     final matchingGroups = <String, Group>{};
     for (final entry in _groups.entries) {
       final group = entry.value;
-      if (group.members.length == members.length &&
-          group.members.containsAll(members)) {
+      if (group.members.length == members.length && group.members.containsAll(members)) {
         matchingGroups[entry.key] = group;
       }
     }
@@ -1323,9 +1257,7 @@ class GroupsProvider extends ChangeNotifier {
       return suggestedGroupId;
     }
 
-    print(
-      '🔍 Found ${matchingGroups.length} groups with identical members: $members',
-    );
+    print('🔍 Found ${matchingGroups.length} groups with identical members: $members');
 
     // Choose the canonical group - prefer:
     // 1. The suggested group ID if it exists
@@ -1364,8 +1296,7 @@ class GroupsProvider extends ChangeNotifier {
             isBetter = true;
           } else if (messageCount == maxMessages) {
             if (group.lastMessageTime != null) {
-              if (mostRecentActivity == null ||
-                  group.lastMessageTime!.isAfter(mostRecentActivity)) {
+              if (mostRecentActivity == null || group.lastMessageTime!.isAfter(mostRecentActivity)) {
                 isBetter = true;
               }
             }
@@ -1379,9 +1310,7 @@ class GroupsProvider extends ChangeNotifier {
         }
 
         canonicalGroupId = bestGroupId ?? matchingGroups.keys.first;
-        print(
-          '   Using group with most activity as canonical: $canonicalGroupId (${maxMessages} messages)',
-        );
+        print('   Using group with most activity as canonical: $canonicalGroupId (${maxMessages} messages)');
       }
     }
 
@@ -1394,13 +1323,8 @@ class GroupsProvider extends ChangeNotifier {
   }
 
   /// Consolidate messages from multiple groups with identical members into the canonical group
-  void _consolidateGroupMessages(
-    Map<String, Group> matchingGroups,
-    String canonicalGroupId,
-  ) {
-    print(
-      '🔀 Consolidating ${matchingGroups.length} groups into canonical group: $canonicalGroupId',
-    );
+  void _consolidateGroupMessages(Map<String, Group> matchingGroups, String canonicalGroupId) {
+    print('🔀 Consolidating ${matchingGroups.length} groups into canonical group: $canonicalGroupId');
 
     final canonicalGroup = matchingGroups[canonicalGroupId];
     if (canonicalGroup == null) return;
@@ -1424,11 +1348,7 @@ class GroupsProvider extends ChangeNotifier {
             (existing) =>
                 existing.text == message.text &&
                 existing.fromAtSign == message.fromAtSign &&
-                existing.timestamp
-                        .difference(message.timestamp)
-                        .abs()
-                        .inSeconds <
-                    5,
+                existing.timestamp.difference(message.timestamp).abs().inSeconds < 5,
           );
 
           if (!isDuplicate) {
@@ -1458,9 +1378,7 @@ class GroupsProvider extends ChangeNotifier {
       );
     }
 
-    print(
-      '   Consolidated to ${allMessages.length} total messages in $canonicalGroupId',
-    );
+    print('   Consolidated to ${allMessages.length} total messages in $canonicalGroupId');
     notifyListeners();
   }
 }
