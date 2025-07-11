@@ -310,9 +310,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       authProvider.logout();
       await Future.delayed(const Duration(milliseconds: 500)); // Give time for cleanup
 
-      // Authenticate directly with the known atSign
+      // Load the saved domain for this atSign
+      String? savedDomain;
+      try {
+        final atSignInfo = _availableAtSigns[atSign];
+        savedDomain = atSignInfo?.rootDomain;
+        print('🔄 Switching to $atSign with saved domain: $savedDomain');
+      } catch (e) {
+        print('⚠️ Failed to load domain for $atSign, using default: $e');
+      }
+
+      // Authenticate directly with the known atSign and its domain
       print('🔑 Authenticating with $atSign...');
-      await authProvider.authenticateExisting(atSign);
+      await authProvider.authenticateExisting(atSign, rootDomain: savedDomain);
 
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog
@@ -530,7 +540,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Step 3: If user is authenticated, re-authenticate with new namespace
       if (currentAtSign != null) {
         print('🔄 Re-authenticating $currentAtSign with new namespace...');
-        await authProvider.authenticateExisting(currentAtSign, cleanupExisting: false);
+        
+        // Load the saved domain for this atSign
+        String? savedDomain;
+        try {
+          final atSignInfo = _availableAtSigns[currentAtSign];
+          savedDomain = atSignInfo?.rootDomain;
+          print('Using saved domain for namespace change: $savedDomain');
+        } catch (e) {
+          print('⚠️ Failed to load domain for $currentAtSign during namespace change, using default: $e');
+        }
+        
+        await authProvider.authenticateExisting(currentAtSign, cleanupExisting: false, rootDomain: savedDomain);
 
         if (!authProvider.isAuthenticated) {
           throw Exception('Failed to re-authenticate with new namespace');

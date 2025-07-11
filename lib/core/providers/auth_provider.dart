@@ -36,7 +36,7 @@ class AuthProvider extends ChangeNotifier {
     return _isAuthenticated;
   }
 
-  Future<void> authenticate(String? atSign) async {
+  Future<void> authenticate(String? atSign, {String? rootDomain}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -45,7 +45,10 @@ class AuthProvider extends ChangeNotifier {
       // Configure atSign-specific storage before authentication
       // KEYCHAIN PRESERVATION FIX: Don't clean up existing AtClient to preserve other atSigns
       print('🔧 Configuring atSign-specific storage for: $atSign');
-      await AtTalkService.configureAtSignStorage(atSign!, cleanupExisting: false);
+      if (rootDomain != null) {
+        print('🌐 Using custom rootDomain: $rootDomain');
+      }
+      await AtTalkService.configureAtSignStorage(atSign!, cleanupExisting: false, rootDomain: rootDomain);
 
       await AtTalkService.instance.onboard(
         atSign: atSign,
@@ -73,7 +76,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> authenticateExisting(String atSign, {bool cleanupExisting = true}) async {
+  Future<void> authenticateExisting(String atSign, {bool cleanupExisting = true, String? rootDomain}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -82,7 +85,10 @@ class AuthProvider extends ChangeNotifier {
       // Configure atSign-specific storage before authentication
       // For namespace changes, cleanup is already handled by changeNamespace()
       print('🔧 Configuring atSign-specific storage for existing atSign: $atSign (cleanup: $cleanupExisting)');
-      await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: cleanupExisting);
+      if (rootDomain != null) {
+        print('🌐 Using custom rootDomain: $rootDomain');
+      }
+      await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: cleanupExisting, rootDomain: rootDomain);
 
       // Initialize the AtTalkService with the existing atSign
       await AtTalkService.instance.onboard(

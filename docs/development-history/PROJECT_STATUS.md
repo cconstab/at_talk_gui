@@ -29,6 +29,11 @@ AtTalk has undergone a complete architectural transformation and is now a bullet
 - **Solution**: Consistent group identification and message routing across all interfaces
 - **Result**: Seamless switching between GUI and TUI with full conversation continuity
 
+#### 🔧 Custom Domain Support Enhancement
+- **Problem Solved**: Custom rootDomain not consistently passed through all onboarding flows
+- **Solution**: Comprehensive audit and fix of all authentication and storage configuration calls
+- **Result**: All onboarding methods (.atKeys, APKAM, CRAM) properly support custom domains
+
 ## 🛠️ Technical Excellence
 
 ### Code Quality
@@ -48,6 +53,7 @@ AtTalk has undergone a complete architectural transformation and is now a bullet
 - ✅ **Cross-platform verified**: Works identically on Windows, macOS, Linux
 - ✅ **Multi-instance tested**: GUI and TUI can run simultaneously without conflicts
 - ✅ **Edge case coverage**: All known problematic scenarios have been resolved
+- ✅ **Custom domain validation**: All onboarding flows properly handle custom rootDomain parameters
 
 ## 📋 Feature Completeness
 

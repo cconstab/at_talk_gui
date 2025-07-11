@@ -13,6 +13,7 @@ import 'core/providers/groups_provider.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/services/at_talk_service.dart';
 import 'core/utils/at_talk_env.dart';
+import 'core/utils/atsign_manager.dart';
 
 void main(List<String> args) async {
   // Ensure Flutter is initialized
@@ -251,8 +252,24 @@ class _SplashScreenState extends State<SplashScreen> {
     final atSigns = await keyChainManager.getAtSignListFromKeychain();
 
     if (atSigns.isNotEmpty) {
-      // Try to authenticate with the first available atSign
-      await authProvider.authenticateExisting(atSigns.first);
+      // Load atSign information to get the saved domain
+      try {
+        final atSignEntries = await getAtsignEntries();
+        final firstAtSign = atSigns.first;
+        final atSignInfo = atSignEntries[firstAtSign];
+        final savedDomain = atSignInfo?.rootDomain;
+        
+        print('🔑 Auto-authenticating with: $firstAtSign');
+        print('📡 Using saved domain: $savedDomain');
+        
+        // Try to authenticate with the first available atSign and its saved domain
+        await authProvider.authenticateExisting(firstAtSign, rootDomain: savedDomain);
+      } catch (e) {
+        print('⚠️ Failed to load atSign domain info, using default: $e');
+        // Fallback to authentication without domain (will use default)
+        await authProvider.authenticateExisting(atSigns.first);
+      }
+      
       if (mounted) {
         if (authProvider.isAuthenticated) {
           Navigator.pushReplacementNamed(context, '/groups');

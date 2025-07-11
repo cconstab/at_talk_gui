@@ -50,15 +50,20 @@ Future<Map<String, AtsignInformation>> getAtsignEntries() async {
 
     // Use only the keychain as the source of truth for atSign listing
     for (var atSign in keychainAtSigns) {
-      // Try to get root domain from information file, but default to prod if not found
-      var rootDomain = 'prod.atsign.wtf';
+      // Try to get root domain from information file, but default to standard domain if not found
+      var rootDomain = 'root.atsign.org';
       try {
         var atSignInfo = await _getAtsignInformationFromFile();
+        print("Debug: Read ${atSignInfo.length} atSign entries from information file");
+        for (var info in atSignInfo) {
+          print("Debug: Found atSign: ${info.atSign}, domain: ${info.rootDomain}");
+        }
         var info = atSignInfo.firstWhere(
           (item) => item.atSign == atSign,
           orElse: () => AtsignInformation(atSign: atSign, rootDomain: rootDomain),
         );
         rootDomain = info.rootDomain;
+        print("Debug: Using domain '$rootDomain' for atSign '$atSign'");
       } catch (e) {
         // If we can't read the information file, use the default domain
         print("Could not read atSign information file for root domain, using default: $e");
@@ -87,11 +92,15 @@ Future<Map<String, AtsignInformation>> getAtsignEntries() async {
 
 /// Save atSign information after successful onboarding
 Future<bool> saveAtsignInformation(AtsignInformation info) async {
+  print("DEBUG: saveAtsignInformation called with: $info");
   var f = await _getAtsignInformationFile();
+  print("DEBUG: Got information file: ${f?.path}");
   final List<AtsignInformation> atSignInfo;
   try {
     atSignInfo = await _getAtsignInformationFromFile(f);
+    print("DEBUG: Read ${atSignInfo.length} existing entries from file");
   } catch (e) {
+    print("DEBUG: Error reading existing entries: $e");
     // We only end up here if we failed to create, get, or read the file
     // we don't want to overwrite it in that scenario, so return false
     //
@@ -100,7 +109,10 @@ Future<bool> saveAtsignInformation(AtsignInformation info) async {
     // as possible
     return false;
   }
-  if (f == null) return false;
+  if (f == null) {
+    print("DEBUG: Information file is null, returning false");
+    return false;
+  }
 
   // Replace the existing entry with the new one if it exists
   bool found = false;
@@ -108,17 +120,22 @@ Future<bool> saveAtsignInformation(AtsignInformation info) async {
     if (atSignInfo[i].atSign == info.atSign) {
       found = true;
       atSignInfo[i] = info;
+      print("DEBUG: Updated existing entry for ${info.atSign}");
     }
   }
   // Otherwise add it as a new entry
   if (!found) {
     atSignInfo.add(info);
+    print("DEBUG: Added new entry for ${info.atSign}");
   }
   try {
-    f.writeAsString(jsonEncode(atSignInfo.map((e) => e.toJson()).toList()), mode: FileMode.writeOnly, flush: true);
+    final jsonString = jsonEncode(atSignInfo.map((e) => e.toJson()).toList());
+    print("DEBUG: Writing JSON to file: $jsonString");
+    await f.writeAsString(jsonString, mode: FileMode.writeOnly, flush: true);
+    print("DEBUG: Successfully wrote to file");
     return true;
   } catch (e) {
-    print("Failed to save AtSign information : ${e.toString()}");
+    print("DEBUG: Failed to save AtSign information: ${e.toString()}");
     return false;
   }
 }

@@ -39,6 +39,7 @@ class AtTalkService {
     String atSign, {
     bool forceEphemeral = false,
     bool cleanupExisting = true,
+    String? rootDomain,
   }) async {
     // Normalize atSign (remove @ if present, we'll add it back consistently)
     final normalizedAtSign = atSign.startsWith('@')
@@ -99,7 +100,7 @@ class AtTalkService {
 
     // Create AtClientPreference with atSign-specific paths
     final preference = AtClientPreference()
-      ..rootDomain = _atClientPreference?.rootDomain ?? 'root.atsign.org'
+      ..rootDomain = rootDomain ?? _atClientPreference?.rootDomain ?? 'root.atsign.org'
       ..namespace = AtTalkEnv
           .namespace // Always use current namespace from AtTalkEnv
       ..hiveStoragePath = storagePath
@@ -111,6 +112,7 @@ class AtTalkService {
     print('AtClient preferences configured for $fullAtSign:');
     print('   hiveStoragePath: $storagePath');
     print('   commitLogPath: $commitLogPath');
+    print('   rootDomain: ${preference.rootDomain}');
     print('   usingEphemeral: $usingEphemeral');
 
     // Update the global preference

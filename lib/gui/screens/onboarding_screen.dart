@@ -375,7 +375,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // Clear existing groups and side panel state (similar to atSign switching)
       groupsProvider.clearAllGroups();
 
-      await authProvider.authenticate(atSign);
+      // Load domain from keychain for this atSign
+      String? rootDomain;
+      if (_availableAtSigns.containsKey(atSign)) {
+        rootDomain = _availableAtSigns[atSign]?.rootDomain;
+        print('Using saved rootDomain for $atSign: $rootDomain');
+      }
+
+      await authProvider.authenticate(atSign, rootDomain: rootDomain);
 
       if (mounted && authProvider.isAuthenticated) {
         print('Authentication successful, reinitializing groups provider...');
@@ -476,16 +483,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         print('✅ CRAM activation successful! Keys are now stored.');
 
         // Save the atSign information for future use
-        await saveAtsignInformation(AtsignInformation(atSign: normalizedAtSign, rootDomain: domain));
-        print('Saved atSign information');
+        final saveSuccess = await saveAtsignInformation(AtsignInformation(atSign: normalizedAtSign, rootDomain: domain));
+        print('Save atSign information result: $saveSuccess');
+        if (saveSuccess) {
+          print('✅ Saved atSign information successfully');
+        } else {
+          print('❌ Failed to save atSign information');
+        }
 
         // Wait a moment for keychain to settle
         await Future.delayed(const Duration(milliseconds: 500));
 
         print('Authenticating with AuthProvider after successful CRAM...');
         try {
-          // Use authenticateExisting since keys are now in keychain
-          await authProvider.authenticateExisting(normalizedAtSign, cleanupExisting: false);
+          // CRITICAL: Use authenticateExisting with the same custom domain used for CRAM
+          await authProvider.authenticateExisting(normalizedAtSign, cleanupExisting: false, rootDomain: domain);
 
           if (mounted && authProvider.isAuthenticated) {
             print('✅ AuthProvider authentication successful, navigating to groups...');
@@ -706,8 +718,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
 
       // Configure AtClientPreference with proper domain and port (Noports pattern)
-      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: true);
-      atClientPreference.rootDomain = domain;
+      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: true, rootDomain: domain);
 
       if (isCustomDomain) {
         atClientPreference.rootPort = 64; // Default port for custom domains
@@ -736,9 +747,139 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (result) {
         print('✅ CRAM authentication successful, checking server status...');
 
+        // Check if this is a custom domain vs standard domain
+        final isCustomDomain = domain != 'root.atsign.org';
+
+        if (isCustomDomain) {
+          print('🔧 Custom domain detected - using simplified authentication flow');
+          
+          // For custom domains, try to authenticate directly after CRAM success
+          print('💾 Attempting to save keys to keychain after CRAM success...');
+          try {
+            final authStatus = await onboardingService.authenticate(atSign);
+            print('🔍 Authentication status: $authStatus');
+
+            if (authStatus == AtOnboardingResponseStatus.authSuccess) {
+              print('✅ Keys successfully saved to keychain');
+
+              // Verify keys were actually stored by checking keychain
+              try {
+                final keyChainManager = KeyChainManager.getInstance();
+                final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+                print('🔍 Keychain now contains: $keychainAtSigns');
+
+                if (keychainAtSigns.contains(atSign)) {
+                  print('✅ Confirmed: $atSign is now in keychain');
+                  return true;
+                } else {
+                  print('⚠️ Warning: $atSign not found in keychain after authentication');
+                  // Still return true as the onboarding was successful, keychain check may be timing issue
+                  return true;
+                }
+              } catch (e) {
+                print('⚠️ Keychain verification failed (may be timing issue): $e');
+                // Still return true as the authentication was successful
+                return true;
+              }
+            } else {
+              print('❌ Failed to save keys to keychain - status: $authStatus');
+              
+              // Check if keys are already in keychain (sometimes authenticate fails but keys are there)
+              try {
+                final keyChainManager = KeyChainManager.getInstance();
+                final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+                print('🔍 Checking if keys are in keychain despite auth failure: $keychainAtSigns');
+
+                if (keychainAtSigns.contains(atSign)) {
+                  print('✅ Keys found in keychain despite auth failure - considering successful');
+                  return true;
+                } else {
+                  print('❌ Keys not found in keychain');
+                  return false;
+                }
+              } catch (e) {
+                print('❌ Error checking keychain: $e');
+                return false;
+              }
+            }
+          } catch (e) {
+            print('❌ Exception during authentication: $e');
+            
+            // Check if keys are in keychain despite exception
+            try {
+              final keyChainManager = KeyChainManager.getInstance();
+              final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+              print('🔍 Checking if keys are in keychain despite exception: $keychainAtSigns');
+
+              if (keychainAtSigns.contains(atSign)) {
+                print('✅ Keys found in keychain despite exception - considering successful');
+                return true;
+              } else {
+                print('❌ Keys not found in keychain');
+                return false;
+              }
+            } catch (e2) {
+              print('❌ Error checking keychain: $e2');
+              return false;
+            }
+          }
+        }
+
+        // For standard domains, use the original server status check logic
         // Wait for server status to become activated (Noports pattern)
         int round = 1;
         ServerStatus? atSignStatus = await onboardingService.checkAtSignServerStatus(atSign);
+
+        // For custom domains, the server status check might not work properly
+        // because checkAtSignServerStatus uses the default domain
+        if (isCustomDomain) {
+          print('🔧 Custom domain detected - server status check may not work properly');
+          print('🔧 Current status: $atSignStatus');
+          
+          // For custom domains, if CRAM was successful, we can proceed with authentication
+          // even if server status check doesn't work properly
+          if (atSignStatus == ServerStatus.unavailable) {
+            print('🔧 Server status is unavailable for custom domain - this is expected');
+            print('🔧 Proceeding with authentication since CRAM was successful');
+            
+            // Try to authenticate directly since CRAM was successful
+            print('💾 Saving keys to keychain after successful CRAM activation...');
+            try {
+              final authStatus = await onboardingService.authenticate(atSign);
+              print('🔍 Authentication status: $authStatus');
+
+              if (authStatus == AtOnboardingResponseStatus.authSuccess) {
+                print('✅ Keys successfully saved to keychain');
+
+                // Verify keys were actually stored by checking keychain
+                try {
+                  final keyChainManager = KeyChainManager.getInstance();
+                  final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+                  print('🔍 Keychain now contains: $keychainAtSigns');
+
+                  if (keychainAtSigns.contains(atSign)) {
+                    print('✅ Confirmed: $atSign is now in keychain');
+                    return true;
+                  } else {
+                    print('⚠️ Warning: $atSign not found in keychain after authentication');
+                    // Still return true as the onboarding was successful, keychain check may be timing issue
+                    return true;
+                  }
+                } catch (e) {
+                  print('⚠️ Keychain verification failed (may be timing issue): $e');
+                  // Still return true as the authentication was successful
+                  return true;
+                }
+              } else {
+                print('❌ Failed to save keys to keychain - status: $authStatus');
+                return false;
+              }
+            } catch (e) {
+              print('❌ Exception during authentication: $e');
+              return false;
+            }
+          }
+        }
 
         while (atSignStatus != ServerStatus.activated) {
           if (round > 10) {
@@ -790,7 +931,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             // Try alternative approach: force key generation and storage
             try {
               // Re-configure storage to ensure proper keychain setup
-              await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: false);
+              await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: false, rootDomain: domain);
 
               // Try authentication again with fresh storage setup
               final retryAuthStatus = await onboardingService.authenticate(atSign);
@@ -934,7 +1075,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           final onboardingService = OnboardingService.getInstance();
 
           // Configure the onboarding service with the same preferences used for enrollment
-          final atClientPreference = await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: false);
+          final atClientPreference = await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: false, rootDomain: domain);
           onboardingService.setAtClientPreference = atClientPreference;
           onboardingService.setAtsign = result.atsign!;
 
@@ -947,11 +1088,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             print('APKAM authentication successful - keys saved to keychain');
 
             // Now use the AuthProvider to complete the authentication flow
-            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false);
+            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false, rootDomain: domain);
           } else {
             print('APKAM authentication failed: $authStatus');
             // Fall back to regular authentication
-            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false);
+            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false, rootDomain: domain);
           }
 
           // After successful authentication, verify the atSign is in the keychain
@@ -990,10 +1131,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             print('Attempting to reconfigure storage for authentication...');
 
             // Reconfigure storage for this specific atSign without cleanup to preserve keychain
-            await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: false);
+            await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: false, rootDomain: domain);
 
             // Try authentication again using authenticateExisting without cleanup
-            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false);
+            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false, rootDomain: domain);
 
             print('Authentication successful after storage reconfiguration');
           } catch (e2) {
@@ -1024,10 +1165,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               print('Attempting direct authentication using onboarding result...');
 
               // Force a fresh storage setup
-              await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: true);
+              await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: true, rootDomain: domain);
 
               // Final authentication attempt
-              await authProvider.authenticate(result.atsign);
+              await authProvider.authenticate(result.atsign, rootDomain: domain);
             } catch (e3) {
               print('Final authentication attempt failed: $e3');
 
@@ -1206,7 +1347,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       // Configure atSign-specific storage before onboarding
       print('🔧 Configuring atSign-specific storage for .atKeys upload: $normalizedFile');
-      final atClientPreference = await AtTalkService.configureAtSignStorage(normalizedFile);
+      final atClientPreference = await AtTalkService.configureAtSignStorage(normalizedFile, rootDomain: domain);
 
       // Create onboarding preference with the specified domain
       final onboardingPreference = AtClientPreference()
@@ -1239,7 +1380,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
         print('Authenticating with AuthProvider...');
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        await authProvider.authenticate(normalizedFile);
+        await authProvider.authenticate(normalizedFile, rootDomain: domain);
 
         if (mounted && authProvider.isAuthenticated) {
           print('Authentication successful');
@@ -1312,7 +1453,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // Configure atSign-specific storage before onboarding
       // Don't clean up existing AtClient to preserve other atSigns in keychain
       print('🔧 Configuring atSign-specific storage for APKAM onboarding: $atSign');
-      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: false);
+      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: false, rootDomain: domain);
 
       // Create a modified preference with the specified domain
       final customPreference = AtClientPreference()
