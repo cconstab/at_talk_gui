@@ -502,6 +502,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           if (mounted && authProvider.isAuthenticated) {
             print('✅ AuthProvider authentication successful, navigating to groups...');
 
+            // Clear old groups data and reinitialize for the new atSign
+            final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+            print('Clearing old groups data and reinitializing for new atSign...');
+            groupsProvider.clearAllGroups();
+            groupsProvider.reinitialize();
+
             // Show backup dialog for CRAM onboarding
             final shouldShowBackup = await _showBackupDialog();
             if (shouldShowBackup == true && mounted) {
@@ -1191,6 +1197,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (mounted && authProvider.isAuthenticated) {
           print('Authentication successful');
 
+          // Clear old groups data and reinitialize for the new atSign
+          final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+          print('Clearing old groups data and reinitializing for new atSign...');
+          groupsProvider.clearAllGroups();
+          groupsProvider.reinitialize();
+
           // Show backup option for APKAM onboarding (no delay needed)
           final shouldShowBackup = await _showBackupDialog();
           if (shouldShowBackup == true && mounted) {
@@ -1384,6 +1396,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
         if (mounted && authProvider.isAuthenticated) {
           print('Authentication successful');
+
+          // Clear old groups data and reinitialize for the new atSign
+          final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+          print('Clearing old groups data and reinitializing for new atSign...');
+          groupsProvider.clearAllGroups();
+          groupsProvider.reinitialize();
 
           // No backup needed for .atKeys flow since the user already has the keys file
           print('Skipping backup dialog for .atKeys flow - user already has backup file');
