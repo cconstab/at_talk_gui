@@ -87,7 +87,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0,
+                      vertical: 16.0,
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -98,13 +101,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         Container(
                           width: 120,
                           height: 120,
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-                          child: const Icon(Icons.chat_bubble_outline, size: 60, color: Color(0xFF2196F3)),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: const Icon(
+                            Icons.chat_bubble_outline,
+                            size: 60,
+                            color: Color(0xFF2196F3),
+                          ),
                         ),
                         const SizedBox(height: 32),
                         const Text(
                           'atTalk',
-                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
@@ -136,7 +150,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.account_circle, color: Color(0xFF2196F3)),
+                                    const Icon(
+                                      Icons.account_circle,
+                                      color: Color(0xFF2196F3),
+                                    ),
                                     const SizedBox(width: 8),
                                     const Text(
                                       'Your atSigns',
@@ -155,12 +172,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   return Container(
                                     margin: const EdgeInsets.only(bottom: 8),
                                     child: ListTile(
-                                      leading: const Icon(Icons.person, color: Color(0xFF2196F3)),
+                                      leading: const Icon(
+                                        Icons.person,
+                                        color: Color(0xFF2196F3),
+                                      ),
                                       title: Text(atSign),
-                                      subtitle: Text('Domain: ${_availableAtSigns[atSign]!.rootDomain}'),
-                                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                                      onTap: () => _loginWithExistingAtSign(atSign),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      subtitle: Text(
+                                        'Domain: ${_availableAtSigns[atSign]!.rootDomain}',
+                                      ),
+                                      trailing: const Icon(
+                                        Icons.arrow_forward_ios,
+                                        size: 16,
+                                      ),
+                                      onTap: () =>
+                                          _loginWithExistingAtSign(atSign),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
                                       tileColor: Colors.grey[50],
                                     ),
                                   );
@@ -181,12 +209,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   width: double.infinity,
                                   height: 56,
                                   child: ElevatedButton.icon(
-                                    onPressed: authProvider.isLoading ? null : _showOnboardingDialog,
+                                    onPressed: authProvider.isLoading
+                                        ? null
+                                        : _showOnboardingDialog,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.white,
                                       foregroundColor: const Color(0xFF2196F3),
                                       elevation: 0,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
                                     ),
                                     icon: authProvider.isLoading
                                         ? const SizedBox(
@@ -194,13 +226,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                             height: 20,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2196F3)),
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    Color(0xFF2196F3),
+                                                  ),
                                             ),
                                           )
-                                        : Icon(_availableAtSigns.isEmpty ? Icons.rocket_launch : Icons.person_add),
+                                        : Icon(
+                                            _availableAtSigns.isEmpty
+                                                ? Icons.rocket_launch
+                                                : Icons.person_add,
+                                          ),
                                     label: Text(
-                                      _availableAtSigns.isEmpty ? 'Get Started' : 'Add New atSign',
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                      _availableAtSigns.isEmpty
+                                          ? 'Get Started'
+                                          : 'Add New atSign',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -209,11 +253,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                                 // Refresh Button
                                 OutlinedButton.icon(
-                                  onPressed: _isLoadingAtSigns ? null : _loadAvailableAtSigns,
+                                  onPressed: _isLoadingAtSigns
+                                      ? null
+                                      : _loadAvailableAtSigns,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.white,
                                     side: const BorderSide(color: Colors.white),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                   icon: _isLoadingAtSigns
                                       ? const SizedBox(
@@ -221,7 +269,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                           height: 16,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Colors.white,
+                                                ),
                                           ),
                                         )
                                       : const Icon(Icons.refresh, size: 18),
@@ -236,7 +287,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.white,
                                     side: const BorderSide(color: Colors.white),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                   icon: const Icon(Icons.key, size: 18),
                                   label: const Text('Manage Keys'),
@@ -255,18 +308,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             decoration: BoxDecoration(
                               color: Colors.red.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.red.withOpacity(0.3)),
+                              border: Border.all(
+                                color: Colors.red.withOpacity(0.3),
+                              ),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(_errorMessage!, style: const TextStyle(color: Colors.red, fontSize: 14)),
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: const TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 14,
+                                    ),
+                                  ),
                                 ),
                                 IconButton(
-                                  onPressed: () => setState(() => _errorMessage = null),
-                                  icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                                  onPressed: () =>
+                                      setState(() => _errorMessage = null),
+                                  icon: const Icon(
+                                    Icons.close,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
                                 ),
                               ],
                             ),
@@ -282,21 +352,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.red.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                                  border: Border.all(
+                                    color: Colors.red.withOpacity(0.3),
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
                                         authProvider.errorMessage!,
-                                        style: const TextStyle(color: Colors.red, fontSize: 14),
+                                        style: const TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 14,
+                                        ),
                                       ),
                                     ),
                                     IconButton(
                                       onPressed: authProvider.clearError,
-                                      icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                                      icon: const Icon(
+                                        Icons.close,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -313,39 +396,69 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Row(
                                 children: [
-                                  Icon(Icons.info_outline, color: Colors.white, size: 20),
+                                  Icon(
+                                    Icons.info_outline,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
                                   SizedBox(width: 8),
                                   Text(
                                     'Need an atSign?',
-                                    style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               const Text(
                                 'Visit atsign.com to get your free atSign.',
-                                style: TextStyle(fontSize: 14, color: Colors.white),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white,
+                                ),
                               ),
                               const SizedBox(height: 12),
                               const Text(
                                 'Already have an atSign? You can use:',
-                                style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                               const SizedBox(height: 6),
-                              _buildInfoItem('📁', '.atKeys file from your device or app'),
-                              _buildInfoItem('📱', 'Authenticator app with OTP verification'),
-                              _buildInfoItem('🆕', 'CRAM secret for new atSigns'),
+                              _buildInfoItem(
+                                '📁',
+                                '.atKeys file from your device or app',
+                              ),
+                              _buildInfoItem(
+                                '📱',
+                                'Authenticator app with OTP verification',
+                              ),
+                              _buildInfoItem(
+                                '🆕',
+                                'CRAM secret for new atSigns',
+                              ),
                               const SizedBox(height: 8),
                               const Text(
                                 'Tip: Save your .atKeys file safely - it is your backup!',
-                                style: TextStyle(fontSize: 12, color: Colors.white70, fontStyle: FontStyle.italic),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white70,
+                                  fontStyle: FontStyle.italic,
+                                ),
                               ),
                             ],
                           ),
@@ -396,16 +509,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         print('Authentication failed');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Authentication failed. Please try again.'), backgroundColor: Colors.red),
+            const SnackBar(
+              content: Text('Authentication failed. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
     } catch (e) {
       print('Exception during authentication: ${e.toString()}');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -426,7 +545,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (parts.length >= 3) {
         final method = parts[0];
         final domain = parts[1];
-        final atSign = parts.sublist(2).join(':'); // In case atSign contains ':'
+        final atSign = parts
+            .sublist(2)
+            .join(':'); // In case atSign contains ':'
 
         if (method == 'onboard') {
           await _startOnboarding(atSign, domain);
@@ -457,7 +578,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     // Ensure atSign has @ prefix for all operations
     final normalizedAtSign = atSign.startsWith('@') ? atSign : '@$atSign';
-    print('Starting CRAM onboarding for: $normalizedAtSign with domain: $domain');
+    print(
+      'Starting CRAM onboarding for: $normalizedAtSign with domain: $domain',
+    );
 
     // First, collect the CRAM secret from the user
     final cramSecret = await _showCramSecretDialog(normalizedAtSign);
@@ -469,21 +592,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     try {
-      print('🚀 Starting CRAM activation for: $normalizedAtSign on domain: $domain');
+      print(
+        '🚀 Starting CRAM activation for: $normalizedAtSign on domain: $domain',
+      );
       print('📋 CRAM activation parameters:');
       print('   - atSign: $normalizedAtSign');
       print('   - domain: $domain');
-      print('   - CRAM secret: ${cramSecret.isNotEmpty ? '[PROVIDED]' : '[EMPTY]'}');
+      print(
+        '   - CRAM secret: ${cramSecret.isNotEmpty ? '[PROVIDED]' : '[EMPTY]'}',
+      );
       print('   - CRAM secret length: ${cramSecret.length}');
 
       // Use onboarding service for CRAM activation - stores keys directly
-      final success = await _performCramActivation(normalizedAtSign, domain, cramSecret.trim());
+      final success = await _performCramActivation(
+        normalizedAtSign,
+        domain,
+        cramSecret.trim(),
+      );
 
       if (success) {
         print('✅ CRAM activation successful! Keys are now stored.');
 
         // Save the atSign information for future use
-        final saveSuccess = await saveAtsignInformation(AtsignInformation(atSign: normalizedAtSign, rootDomain: domain));
+        final saveSuccess = await saveAtsignInformation(
+          AtsignInformation(atSign: normalizedAtSign, rootDomain: domain),
+        );
         print('Save atSign information result: $saveSuccess');
         if (saveSuccess) {
           print('✅ Saved atSign information successfully');
@@ -497,14 +630,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         print('Authenticating with AuthProvider after successful CRAM...');
         try {
           // CRITICAL: Use authenticateExisting with the same custom domain used for CRAM
-          await authProvider.authenticateExisting(normalizedAtSign, cleanupExisting: false, rootDomain: domain);
+          await authProvider.authenticateExisting(
+            normalizedAtSign,
+            cleanupExisting: false,
+            rootDomain: domain,
+          );
 
           if (mounted && authProvider.isAuthenticated) {
-            print('✅ AuthProvider authentication successful, navigating to groups...');
+            print(
+              '✅ AuthProvider authentication successful, navigating to groups...',
+            );
 
             // Clear old groups data and reinitialize for the new atSign
-            final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
-            print('Clearing old groups data and reinitializing for new atSign...');
+            final groupsProvider = Provider.of<GroupsProvider>(
+              context,
+              listen: false,
+            );
+            print(
+              'Clearing old groups data and reinitializing for new atSign...',
+            );
             groupsProvider.clearAllGroups();
             groupsProvider.reinitialize();
 
@@ -519,7 +663,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               return; // Exit early to prevent returning to onboarding screen
             }
           } else {
-            print('⚠️ AuthProvider authentication failed, but CRAM was successful');
+            print(
+              '⚠️ AuthProvider authentication failed, but CRAM was successful',
+            );
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -535,7 +681,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             }
           }
         } catch (e) {
-          print('⚠️ AuthProvider authentication exception after successful CRAM: $e');
+          print(
+            '⚠️ AuthProvider authentication exception after successful CRAM: $e',
+          );
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -575,7 +723,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           }
 
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(failureMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 12)),
+            SnackBar(
+              content: Text(failureMessage),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 12),
+            ),
           );
         }
       }
@@ -602,10 +754,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             errorMessage =
                 'The atSign "$normalizedAtSign" was not found in the atDirectory on domain "$domain". Please verify the atSign exists on this domain.';
           }
-        } else if (e.toString().contains('CRAM') || e.toString().contains('secret')) {
-          errorMessage = 'CRAM authentication failed: Invalid CRAM secret. Please check your credentials.';
-        } else if (e.toString().contains('network') || e.toString().contains('connection')) {
-          errorMessage = 'Network error during CRAM authentication. Please check your connection and try again.';
+        } else if (e.toString().contains('CRAM') ||
+            e.toString().contains('secret')) {
+          errorMessage =
+              'CRAM authentication failed: Invalid CRAM secret. Please check your credentials.';
+        } else if (e.toString().contains('network') ||
+            e.toString().contains('connection')) {
+          errorMessage =
+              'Network error during CRAM authentication. Please check your connection and try again.';
         } else if (isCustomDomain) {
           errorMessage =
               'Custom domain CRAM activation failed.\n\n'
@@ -615,7 +771,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 12)),
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 12),
+          ),
         );
       }
     }
@@ -661,7 +821,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(null), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: () {
                 final secret = cramController.text.trim();
@@ -679,13 +842,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   // Perform CRAM activation using Noports-style implementation for custom domain support
-  Future<bool> _performCramActivation(String atSign, String domain, String cramSecret) async {
+  Future<bool> _performCramActivation(
+    String atSign,
+    String domain,
+    String cramSecret,
+  ) async {
     try {
-      print('🔧 Starting Noports-style CRAM activation: $atSign on domain: $domain');
+      print(
+        '🔧 Starting Noports-style CRAM activation: $atSign on domain: $domain',
+      );
 
       // CRITICAL: Clean up any existing AtClient instances that might interfere
       try {
-        print('🧹 Cleaning up any existing AtClient instances before CRAM activation...');
+        print(
+          '🧹 Cleaning up any existing AtClient instances before CRAM activation...',
+        );
         await AtTalkService.completeAtSignCleanup(atSign);
         print('✅ AtClient cleanup completed');
       } catch (e) {
@@ -703,12 +874,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // Verify the domain can be reached before attempting authentication
         try {
           print('🌐 Verifying custom domain connectivity to $domain:64...');
-          final socket = await Socket.connect(domain, 64, timeout: const Duration(seconds: 5));
+          final socket = await Socket.connect(
+            domain,
+            64,
+            timeout: const Duration(seconds: 5),
+          );
           await socket.close();
           print('✅ Domain $domain:64 is reachable');
         } catch (e) {
           print('⚠️ Domain verification failed: $e');
-          print('   This may indicate the custom domain is not properly configured');
+          print(
+            '   This may indicate the custom domain is not properly configured',
+          );
           return false;
         }
       }
@@ -724,14 +901,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
 
       // Configure AtClientPreference with proper domain and port (Noports pattern)
-      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: true, rootDomain: domain);
+      final atClientPreference = await AtTalkService.configureAtSignStorage(
+        atSign,
+        cleanupExisting: true,
+        rootDomain: domain,
+      );
 
       if (isCustomDomain) {
         atClientPreference.rootPort = 64; // Default port for custom domains
-        print('🔧 Configured custom domain: $domain:${atClientPreference.rootPort}');
+        print(
+          '🔧 Configured custom domain: $domain:${atClientPreference.rootPort}',
+        );
       } else {
         atClientPreference.rootPort = 64; // Standard port
-        print('🔧 Configured standard domain: $domain:${atClientPreference.rootPort}');
+        print(
+          '🔧 Configured standard domain: $domain:${atClientPreference.rootPort}',
+        );
       }
 
       atClientPreference.cramSecret = cramSecret;
@@ -745,10 +930,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       request.rootDomain = atClientPreference.rootDomain;
       request.rootPort = atClientPreference.rootPort;
 
-      print('📡 Request config: domain=${request.rootDomain}, port=${request.rootPort}');
+      print(
+        '📡 Request config: domain=${request.rootDomain}, port=${request.rootPort}',
+      );
 
       // Perform the onboarding using Noports method signature
-      bool result = await onboardingService.onboard(cramSecret: cramSecret, atOnboardingRequest: request);
+      bool result = await onboardingService.onboard(
+        cramSecret: cramSecret,
+        atOnboardingRequest: request,
+      );
 
       if (result) {
         print('✅ CRAM authentication successful, checking server status...');
@@ -757,8 +947,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         final isCustomDomain = domain != 'root.atsign.org';
 
         if (isCustomDomain) {
-          print('🔧 Custom domain detected - using simplified authentication flow');
-          
+          print(
+            '🔧 Custom domain detected - using simplified authentication flow',
+          );
+
           // For custom domains, try to authenticate directly after CRAM success
           print('💾 Attempting to save keys to keychain after CRAM success...');
           try {
@@ -771,33 +963,43 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               // Verify keys were actually stored by checking keychain
               try {
                 final keyChainManager = KeyChainManager.getInstance();
-                final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+                final keychainAtSigns = await keyChainManager
+                    .getAtSignListFromKeychain();
                 print('🔍 Keychain now contains: $keychainAtSigns');
 
                 if (keychainAtSigns.contains(atSign)) {
                   print('✅ Confirmed: $atSign is now in keychain');
                   return true;
                 } else {
-                  print('⚠️ Warning: $atSign not found in keychain after authentication');
+                  print(
+                    '⚠️ Warning: $atSign not found in keychain after authentication',
+                  );
                   // Still return true as the onboarding was successful, keychain check may be timing issue
                   return true;
                 }
               } catch (e) {
-                print('⚠️ Keychain verification failed (may be timing issue): $e');
+                print(
+                  '⚠️ Keychain verification failed (may be timing issue): $e',
+                );
                 // Still return true as the authentication was successful
                 return true;
               }
             } else {
               print('❌ Failed to save keys to keychain - status: $authStatus');
-              
+
               // Check if keys are already in keychain (sometimes authenticate fails but keys are there)
               try {
                 final keyChainManager = KeyChainManager.getInstance();
-                final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
-                print('🔍 Checking if keys are in keychain despite auth failure: $keychainAtSigns');
+                final keychainAtSigns = await keyChainManager
+                    .getAtSignListFromKeychain();
+                print(
+                  '🔍 Checking if keys are in keychain despite auth failure: $keychainAtSigns',
+                );
 
                 if (keychainAtSigns.contains(atSign)) {
-                  print('✅ Keys found in keychain despite auth failure - considering successful');
+                  print(
+                    '✅ Keys found in keychain despite auth failure - considering successful',
+                  );
                   return true;
                 } else {
                   print('❌ Keys not found in keychain');
@@ -810,15 +1012,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             }
           } catch (e) {
             print('❌ Exception during authentication: $e');
-            
+
             // Check if keys are in keychain despite exception
             try {
               final keyChainManager = KeyChainManager.getInstance();
-              final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
-              print('🔍 Checking if keys are in keychain despite exception: $keychainAtSigns');
+              final keychainAtSigns = await keyChainManager
+                  .getAtSignListFromKeychain();
+              print(
+                '🔍 Checking if keys are in keychain despite exception: $keychainAtSigns',
+              );
 
               if (keychainAtSigns.contains(atSign)) {
-                print('✅ Keys found in keychain despite exception - considering successful');
+                print(
+                  '✅ Keys found in keychain despite exception - considering successful',
+                );
                 return true;
               } else {
                 print('❌ Keys not found in keychain');
@@ -834,22 +1041,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // For standard domains, use the original server status check logic
         // Wait for server status to become activated (Noports pattern)
         int round = 1;
-        ServerStatus? atSignStatus = await onboardingService.checkAtSignServerStatus(atSign);
+        ServerStatus? atSignStatus = await onboardingService
+            .checkAtSignServerStatus(atSign);
 
         // For custom domains, the server status check might not work properly
         // because checkAtSignServerStatus uses the default domain
         if (isCustomDomain) {
-          print('🔧 Custom domain detected - server status check may not work properly');
+          print(
+            '🔧 Custom domain detected - server status check may not work properly',
+          );
           print('🔧 Current status: $atSignStatus');
-          
+
           // For custom domains, if CRAM was successful, we can proceed with authentication
           // even if server status check doesn't work properly
           if (atSignStatus == ServerStatus.unavailable) {
-            print('🔧 Server status is unavailable for custom domain - this is expected');
-            print('🔧 Proceeding with authentication since CRAM was successful');
-            
+            print(
+              '🔧 Server status is unavailable for custom domain - this is expected',
+            );
+            print(
+              '🔧 Proceeding with authentication since CRAM was successful',
+            );
+
             // Try to authenticate directly since CRAM was successful
-            print('💾 Saving keys to keychain after successful CRAM activation...');
+            print(
+              '💾 Saving keys to keychain after successful CRAM activation...',
+            );
             try {
               final authStatus = await onboardingService.authenticate(atSign);
               print('🔍 Authentication status: $authStatus');
@@ -860,24 +1076,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 // Verify keys were actually stored by checking keychain
                 try {
                   final keyChainManager = KeyChainManager.getInstance();
-                  final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+                  final keychainAtSigns = await keyChainManager
+                      .getAtSignListFromKeychain();
                   print('🔍 Keychain now contains: $keychainAtSigns');
 
                   if (keychainAtSigns.contains(atSign)) {
                     print('✅ Confirmed: $atSign is now in keychain');
                     return true;
                   } else {
-                    print('⚠️ Warning: $atSign not found in keychain after authentication');
+                    print(
+                      '⚠️ Warning: $atSign not found in keychain after authentication',
+                    );
                     // Still return true as the onboarding was successful, keychain check may be timing issue
                     return true;
                   }
                 } catch (e) {
-                  print('⚠️ Keychain verification failed (may be timing issue): $e');
+                  print(
+                    '⚠️ Keychain verification failed (may be timing issue): $e',
+                  );
                   // Still return true as the authentication was successful
                   return true;
                 }
               } else {
-                print('❌ Failed to save keys to keychain - status: $authStatus');
+                print(
+                  '❌ Failed to save keys to keychain - status: $authStatus',
+                );
                 return false;
               }
             } catch (e) {
@@ -892,10 +1115,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             print('⏰ Server status check timeout after 10 rounds');
             break;
           }
-          print('🔄 Waiting for server activation... round $round, status: $atSignStatus');
+          print(
+            '🔄 Waiting for server activation... round $round, status: $atSignStatus',
+          );
           await Future.delayed(const Duration(seconds: 3));
           round++;
-          atSignStatus = await onboardingService.checkAtSignServerStatus(atSign);
+          atSignStatus = await onboardingService.checkAtSignServerStatus(
+            atSign,
+          );
         }
 
         if (atSignStatus == ServerStatus.teapot) {
@@ -905,7 +1132,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           print('✅ Server activation confirmed');
 
           // Save keys to keychain using authenticate method after successful onboarding
-          print('💾 Saving keys to keychain after successful CRAM activation...');
+          print(
+            '💾 Saving keys to keychain after successful CRAM activation...',
+          );
           final authStatus = await onboardingService.authenticate(atSign);
 
           if (authStatus == AtOnboardingResponseStatus.authSuccess) {
@@ -914,19 +1143,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             // Verify keys were actually stored by checking keychain
             try {
               final keyChainManager = KeyChainManager.getInstance();
-              final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+              final keychainAtSigns = await keyChainManager
+                  .getAtSignListFromKeychain();
               print('🔍 Keychain now contains: $keychainAtSigns');
 
               if (keychainAtSigns.contains(atSign)) {
                 print('✅ Confirmed: $atSign is now in keychain');
                 return true;
               } else {
-                print('⚠️ Warning: $atSign not found in keychain after authentication');
+                print(
+                  '⚠️ Warning: $atSign not found in keychain after authentication',
+                );
                 // Still return true as the onboarding was successful, keychain check may be timing issue
                 return true;
               }
             } catch (e) {
-              print('⚠️ Keychain verification failed (may be timing issue): $e');
+              print(
+                '⚠️ Keychain verification failed (may be timing issue): $e',
+              );
               // Still return true as the authentication was successful
               return true;
             }
@@ -937,13 +1171,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             // Try alternative approach: force key generation and storage
             try {
               // Re-configure storage to ensure proper keychain setup
-              await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: false, rootDomain: domain);
+              await AtTalkService.configureAtSignStorage(
+                atSign,
+                cleanupExisting: false,
+                rootDomain: domain,
+              );
 
               // Try authentication again with fresh storage setup
-              final retryAuthStatus = await onboardingService.authenticate(atSign);
+              final retryAuthStatus = await onboardingService.authenticate(
+                atSign,
+              );
 
               if (retryAuthStatus == AtOnboardingResponseStatus.authSuccess) {
-                print('✅ Retry authentication successful - keys should now be in keychain');
+                print(
+                  '✅ Retry authentication successful - keys should now be in keychain',
+                );
                 return true;
               } else {
                 print('❌ Retry authentication also failed: $retryAuthStatus');
@@ -964,8 +1206,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // For custom domains, provide specific guidance
         if (isCustomDomain) {
           print('💡 If this is a custom domain CRAM activation failure:');
-          print('   This could indicate the at_onboarding_flutter version needs updating');
-          print('   Noports uses a custom git version with custom domain support');
+          print(
+            '   This could indicate the at_onboarding_flutter version needs updating',
+          );
+          print(
+            '   Noports uses a custom git version with custom domain support',
+          );
           print('   Consider upgrading to the Noports fork or newer version');
         }
 
@@ -980,8 +1226,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       if (isCustomDomain && e.toString().contains('atDirectory')) {
         print('💡 Custom domain atDirectory error detected');
-        print('   This indicates at_onboarding_flutter version may need updating');
-        print('   Noports solved this with a custom git version of at_onboarding_flutter');
+        print(
+          '   This indicates at_onboarding_flutter version may need updating',
+        );
+        print(
+          '   Noports solved this with a custom git version of at_onboarding_flutter',
+        );
       }
 
       return false;
@@ -989,7 +1239,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   // Handle onboarding result for CRAM-based APKAM
-  Future<void> _handleOnboardingResult(AtOnboardingResult result, String domain) async {
+  Future<void> _handleOnboardingResult(
+    AtOnboardingResult result,
+    String domain,
+  ) async {
     print('AtOnboarding.onboard result for APKAM: ${result.status}');
 
     switch (result.status) {
@@ -997,8 +1250,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         print('APKAM onboarding successful');
 
         if (result.atsign != null) {
-          await saveAtsignInformation(AtsignInformation(atSign: result.atsign!, rootDomain: domain));
-          print('Saved atSign information');
+          final saveSuccess = await saveAtsignInformation(
+            AtsignInformation(atSign: result.atsign!, rootDomain: domain),
+          );
+          print('Save atSign information result: $saveSuccess');
+          if (saveSuccess) {
+            print('✅ Saved atSign information successfully');
+          } else {
+            print('❌ Failed to save atSign information');
+          }
         }
 
         // Wait a moment for any enrollment to settle
@@ -1015,7 +1275,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               e.toString().contains('ChunkedJsonParser') ||
               e.toString().contains('Invalid JSON') ||
               e.toString().contains('Unexpected character')) {
-            print('Keychain corruption detected immediately after APKAM enrollment');
+            print(
+              'Keychain corruption detected immediately after APKAM enrollment',
+            );
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -1049,11 +1311,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // First, verify that the keychain is not corrupted before attempting authentication
         try {
           final keyChainManager = KeyChainManager.getInstance();
-          final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
-          print('🔍 Before authentication, keychain contains: $keychainAtSigns');
+          final keychainAtSigns = await keyChainManager
+              .getAtSignListFromKeychain();
+          print(
+            '🔍 Before authentication, keychain contains: $keychainAtSigns',
+          );
 
           if (!keychainAtSigns.contains(result.atsign)) {
-            print('⚠️ Newly enrolled atSign not found in keychain immediately after enrollment');
+            print(
+              '⚠️ Newly enrolled atSign not found in keychain immediately after enrollment',
+            );
             // This is expected - the atSign might not be in the keychain yet
           }
         } catch (e) {
@@ -1081,12 +1348,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           final onboardingService = OnboardingService.getInstance();
 
           // Configure the onboarding service with the same preferences used for enrollment
-          final atClientPreference = await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: false, rootDomain: domain);
+          final atClientPreference = await AtTalkService.configureAtSignStorage(
+            result.atsign!,
+            cleanupExisting: false,
+            rootDomain: domain,
+          );
           onboardingService.setAtClientPreference = atClientPreference;
           onboardingService.setAtsign = result.atsign!;
 
           // Authenticate after APKAM enrollment to save keys to keychain
-          final authStatus = await onboardingService.authenticate(result.atsign!);
+          final authStatus = await onboardingService.authenticate(
+            result.atsign!,
+          );
 
           print('APKAM authentication result: $authStatus');
 
@@ -1094,20 +1367,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             print('APKAM authentication successful - keys saved to keychain');
 
             // Now use the AuthProvider to complete the authentication flow
-            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false, rootDomain: domain);
+            await authProvider.authenticateExisting(
+              result.atsign!,
+              cleanupExisting: false,
+              rootDomain: domain,
+            );
           } else {
             print('APKAM authentication failed: $authStatus');
             // Fall back to regular authentication
-            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false, rootDomain: domain);
+            await authProvider.authenticateExisting(
+              result.atsign!,
+              cleanupExisting: false,
+              rootDomain: domain,
+            );
           }
 
           // After successful authentication, verify the atSign is in the keychain
           final keyChainManager = KeyChainManager.getInstance();
-          final keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
+          final keychainAtSigns = await keyChainManager
+              .getAtSignListFromKeychain();
           print('🔍 After authentication, keychain contains: $keychainAtSigns');
 
           if (!keychainAtSigns.contains(result.atsign)) {
-            print('⚠️ atSign not found in keychain after authentication, this may cause issues');
+            print(
+              '⚠️ atSign not found in keychain after authentication, this may cause issues',
+            );
           }
         } catch (e) {
           print('Authentication failed, trying alternative approach: $e');
@@ -1137,10 +1421,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             print('Attempting to reconfigure storage for authentication...');
 
             // Reconfigure storage for this specific atSign without cleanup to preserve keychain
-            await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: false, rootDomain: domain);
+            await AtTalkService.configureAtSignStorage(
+              result.atsign!,
+              cleanupExisting: false,
+              rootDomain: domain,
+            );
 
             // Try authentication again using authenticateExisting without cleanup
-            await authProvider.authenticateExisting(result.atsign!, cleanupExisting: false, rootDomain: domain);
+            await authProvider.authenticateExisting(
+              result.atsign!,
+              cleanupExisting: false,
+              rootDomain: domain,
+            );
 
             print('Authentication successful after storage reconfiguration');
           } catch (e2) {
@@ -1151,7 +1443,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 e2.toString().contains('ChunkedJsonParser') ||
                 e2.toString().contains('Invalid JSON') ||
                 e2.toString().contains('Unexpected character')) {
-              print('Keychain corruption detected in second authentication attempt');
+              print(
+                'Keychain corruption detected in second authentication attempt',
+              );
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -1168,13 +1462,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
             // Last resort: try to use the onboarding result directly
             try {
-              print('Attempting direct authentication using onboarding result...');
+              print(
+                'Attempting direct authentication using onboarding result...',
+              );
 
               // Force a fresh storage setup
-              await AtTalkService.configureAtSignStorage(result.atsign!, cleanupExisting: true, rootDomain: domain);
+              await AtTalkService.configureAtSignStorage(
+                result.atsign!,
+                cleanupExisting: true,
+                rootDomain: domain,
+              );
 
               // Final authentication attempt
-              await authProvider.authenticate(result.atsign, rootDomain: domain);
+              await authProvider.authenticate(
+                result.atsign,
+                rootDomain: domain,
+              );
             } catch (e3) {
               print('Final authentication attempt failed: $e3');
 
@@ -1198,8 +1501,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           print('Authentication successful');
 
           // Clear old groups data and reinitialize for the new atSign
-          final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
-          print('Clearing old groups data and reinitializing for new atSign...');
+          final groupsProvider = Provider.of<GroupsProvider>(
+            context,
+            listen: false,
+          );
+          print(
+            'Clearing old groups data and reinitializing for new atSign...',
+          );
           groupsProvider.clearAllGroups();
           groupsProvider.reinitialize();
 
@@ -1298,7 +1606,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       try {
         keysMap = jsonDecode(fileContents);
       } catch (e) {
-        throw Exception('The selected file is not a valid .atKeys file (invalid JSON)');
+        throw Exception(
+          'The selected file is not a valid .atKeys file (invalid JSON)',
+        );
       }
 
       // Validate required keys are present
@@ -1310,8 +1620,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'selfEncryptionKey',
       ];
       for (String key in requiredKeys) {
-        if (!keysMap.containsKey(key) || keysMap[key] == null || keysMap[key].toString().isEmpty) {
-          throw Exception('The selected .atKeys file is missing required key: $key');
+        if (!keysMap.containsKey(key) ||
+            keysMap[key] == null ||
+            keysMap[key].toString().isEmpty) {
+          throw Exception(
+            'The selected .atKeys file is missing required key: $key',
+          );
         }
       }
 
@@ -1332,7 +1646,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           try {
             final List<String> keyData = fileContents.split(',"@');
             if (keyData.length > 1) {
-              final List<String> params = keyData[1].toString().substring(0, keyData[1].length - 2).split('":"');
+              final List<String> params = keyData[1]
+                  .toString()
+                  .substring(0, keyData[1].length - 2)
+                  .split('":"');
               fileAtSign = "@${params[0]}";
             }
           } catch (e) {
@@ -1347,7 +1664,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       // Normalize both atSigns for comparison
       final normalizedExpected = atSign.startsWith('@') ? atSign : '@$atSign';
-      final normalizedFile = fileAtSign.startsWith('@') ? fileAtSign : '@$fileAtSign';
+      final normalizedFile = fileAtSign.startsWith('@')
+          ? fileAtSign
+          : '@$fileAtSign';
 
       if (normalizedExpected.toLowerCase() != normalizedFile.toLowerCase()) {
         throw Exception(
@@ -1358,8 +1677,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       print('Validated .atKeys file for $normalizedFile');
 
       // Configure atSign-specific storage before onboarding
-      print('🔧 Configuring atSign-specific storage for .atKeys upload: $normalizedFile');
-      final atClientPreference = await AtTalkService.configureAtSignStorage(normalizedFile, rootDomain: domain);
+      print(
+        '🔧 Configuring atSign-specific storage for .atKeys upload: $normalizedFile',
+      );
+      final atClientPreference = await AtTalkService.configureAtSignStorage(
+        normalizedFile,
+        rootDomain: domain,
+      );
 
       // Create onboarding preference with the specified domain
       final onboardingPreference = AtClientPreference()
@@ -1369,16 +1693,135 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ..commitLogPath = atClientPreference.commitLogPath
         ..isLocalStoreRequired = atClientPreference.isLocalStoreRequired;
 
-      // Use the OnboardingService directly for PKAM authentication
-      final onboardingService = OnboardingService.getInstance();
-      onboardingService.setAtClientPreference = onboardingPreference;
+      print('🔧 OnboardingPreference configured with:');
+      print('   rootDomain: ${onboardingPreference.rootDomain}');
+      print('   namespace: ${onboardingPreference.namespace}');
+      print('   hiveStoragePath: ${onboardingPreference.hiveStoragePath}');
+
+      // Create the appropriate OnboardingService for the domain
+      OnboardingService onboardingService;
+
+      if (domain != 'root.atsign.org') {
+        print('🔧 Custom domain detected, forcing OnboardingService reset...');
+
+        // For custom domains, we need to completely reset the singleton state
+        // to avoid inheriting default domain configuration
+        onboardingService = OnboardingService.getInstance();
+
+        // Create a fresh default preference to reset any cached state
+        final resetPreference = AtClientPreference()
+          ..rootDomain = 'root.atsign.org'
+          ..rootPort = 64;
+
+        // Force a reset by setting a default preference first
+        try {
+          onboardingService.setAtClientPreference = resetPreference;
+          await Future.delayed(const Duration(milliseconds: 100));
+          print('🔧 Reset OnboardingService with default preference');
+        } catch (e) {
+          print('🔧 Preference reset attempt: $e');
+        }
+
+        // Now set the custom domain preference
+        onboardingService.setAtClientPreference = onboardingPreference;
+        onboardingService.setAtsign = normalizedFile;
+
+        print('🔧 Reset OnboardingService and configured with:');
+        print(
+          '   rootDomain: ${onboardingService.atClientPreference.rootDomain}',
+        );
+        print(
+          '   namespace: ${onboardingService.atClientPreference.namespace}',
+        );
+        print('   rootPort: ${onboardingService.atClientPreference.rootPort}');
+        print('   atSign: ${normalizedFile}');
+
+        // Double-check the configuration took effect
+        if (onboardingService.atClientPreference.rootDomain != domain) {
+          print(
+            '⚠️ OnboardingService domain configuration still failed after reset!',
+          );
+          print('   Expected: $domain');
+          print(
+            '   Actual: ${onboardingService.atClientPreference.rootDomain}',
+          );
+
+          // Force the configuration again
+          onboardingService.atClientPreference.rootDomain = domain;
+          onboardingService.atClientPreference.rootPort = 64;
+          print(
+            '🔧 Force-updated OnboardingService domain to: ${onboardingService.atClientPreference.rootDomain}',
+          );
+        }
+      } else {
+        print('🔧 Standard domain, using singleton OnboardingService...');
+
+        // For standard domains, use the existing singleton instance
+        onboardingService = OnboardingService.getInstance();
+        onboardingService.setAtClientPreference = onboardingPreference;
+
+        print('🔧 OnboardingService preference verification:');
+        print(
+          '   rootDomain: ${onboardingService.atClientPreference.rootDomain}',
+        );
+        print(
+          '   namespace: ${onboardingService.atClientPreference.namespace}',
+        );
+        print('   rootPort: ${onboardingService.atClientPreference.rootPort}');
+      }
 
       print('Authenticating with PKAM using .atKeys file...');
+      print('🔧 Final check - OnboardingService atClientPreference:');
+      print(
+        '   Root domain: ${onboardingService.atClientPreference.rootDomain}',
+      );
+      print('   Root port: ${onboardingService.atClientPreference.rootPort}');
+
+      // Debug: Check atDirectory lookup before authentication
+      print('🔍 Debug: Checking atDirectory lookup for ${normalizedFile}...');
+      try {
+        // Try to manually check the atDirectory for this atSign
+        final atSignWithoutAt = normalizedFile.substring(1); // Remove @ prefix
+        print(
+          '   Looking up: $atSignWithoutAt in domain: ${onboardingService.atClientPreference.rootDomain}',
+        );
+
+        // Test network connectivity to the custom domain
+        print(
+          '🌐 Testing connectivity to ${onboardingService.atClientPreference.rootDomain}:${onboardingService.atClientPreference.rootPort}...',
+        );
+        try {
+          final socket = await Socket.connect(
+            onboardingService.atClientPreference.rootDomain,
+            onboardingService.atClientPreference.rootPort,
+            timeout: const Duration(seconds: 5),
+          );
+          await socket.close();
+          print(
+            '✅ Successfully connected to ${onboardingService.atClientPreference.rootDomain}:${onboardingService.atClientPreference.rootPort}',
+          );
+        } catch (e) {
+          print(
+            '❌ Failed to connect to ${onboardingService.atClientPreference.rootDomain}:${onboardingService.atClientPreference.rootPort}: $e',
+          );
+        }
+
+        // Note: AtDirectory lookup would be performed here but is not available
+        // in the public API. The authentication will proceed and handle any
+        // atDirectory lookup failures during the actual PKAM authentication.
+        print('🔍 Proceeding with PKAM authentication...');
+      } catch (e) {
+        print('❌ AtDirectory lookup failed: $e');
+        print(
+          '   This could indicate the atSign is not registered in the custom domain',
+        );
+      }
 
       // Authenticate using the file contents (PKAM authentication)
       final authStatus = await onboardingService.authenticate(
         normalizedFile,
-        jsonData: fileContents, // This triggers PKAM authentication instead of CRAM
+        jsonData:
+            fileContents, // This triggers PKAM authentication instead of CRAM
       );
 
       print('PKAM authentication result: $authStatus');
@@ -1387,8 +1830,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         print('PKAM authentication successful for: $normalizedFile');
 
         // Save the atSign information for future use
-        await saveAtsignInformation(AtsignInformation(atSign: normalizedFile, rootDomain: domain));
-        print('Saved atSign information');
+        final saveSuccess = await saveAtsignInformation(
+          AtsignInformation(atSign: normalizedFile, rootDomain: domain),
+        );
+        print('Save atSign information result: $saveSuccess');
+        if (saveSuccess) {
+          print('✅ Saved atSign information successfully');
+        } else {
+          print('❌ Failed to save atSign information');
+        }
 
         print('Authenticating with AuthProvider...');
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -1398,13 +1848,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           print('Authentication successful');
 
           // Clear old groups data and reinitialize for the new atSign
-          final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
-          print('Clearing old groups data and reinitializing for new atSign...');
+          final groupsProvider = Provider.of<GroupsProvider>(
+            context,
+            listen: false,
+          );
+          print(
+            'Clearing old groups data and reinitializing for new atSign...',
+          );
           groupsProvider.clearAllGroups();
           groupsProvider.reinitialize();
 
           // No backup needed for .atKeys flow since the user already has the keys file
-          print('Skipping backup dialog for .atKeys flow - user already has backup file');
+          print(
+            'Skipping backup dialog for .atKeys flow - user already has backup file',
+          );
 
           if (mounted) {
             print('Navigating to groups...');
@@ -1416,7 +1873,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Authentication failed after importing keys. Please try again.'),
+                content: Text(
+                  'Authentication failed after importing keys. Please try again.',
+                ),
                 backgroundColor: Colors.red,
               ),
             );
@@ -1429,13 +1888,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // Provide user-friendly error messages based on status
         switch (authStatus) {
           case AtOnboardingResponseStatus.serverNotReached:
-            errorMessage = 'Could not reach the atSign server. Please check your internet connection and try again.';
+            errorMessage =
+                'Could not reach the atSign server. Please check your internet connection and try again.';
             break;
           case AtOnboardingResponseStatus.authFailed:
-            errorMessage = 'Authentication failed. The .atKeys file may be corrupted or invalid.';
+            errorMessage =
+                'Authentication failed. The .atKeys file may be corrupted or invalid.';
             break;
           case AtOnboardingResponseStatus.timeOut:
-            errorMessage = 'Authentication timed out. Please check your internet connection and try again.';
+            errorMessage =
+                'Authentication timed out. Please check your internet connection and try again.';
             break;
           default:
             errorMessage =
@@ -1444,7 +1906,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 8)),
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 8),
+            ),
           );
         }
       }
@@ -1452,26 +1918,40 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       print('Exception during .atKeys upload: ${e.toString()}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error uploading .atKeys file: ${e.toString()}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error uploading .atKeys file: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
   }
 
   // Start onboarding using authenticator app (APKAM enrollment flow)
-  Future<void> _startAuthenticatorOnboarding(String atSign, String domain) async {
+  Future<void> _startAuthenticatorOnboarding(
+    String atSign,
+    String domain,
+  ) async {
     if (atSign.isEmpty) {
       print('No atSign provided, cannot start authenticator onboarding');
       return;
     }
 
-    print('Starting authenticator/APKAM onboarding for: $atSign with domain: $domain');
+    print(
+      'Starting authenticator/APKAM onboarding for: $atSign with domain: $domain',
+    );
 
     try {
       // Configure atSign-specific storage before onboarding
       // Don't clean up existing AtClient to preserve other atSigns in keychain
-      print('🔧 Configuring atSign-specific storage for APKAM onboarding: $atSign');
-      final atClientPreference = await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: false, rootDomain: domain);
+      print(
+        '🔧 Configuring atSign-specific storage for APKAM onboarding: $atSign',
+      );
+      final atClientPreference = await AtTalkService.configureAtSignStorage(
+        atSign,
+        cleanupExisting: false,
+        rootDomain: domain,
+      );
 
       // Create a modified preference with the specified domain
       final customPreference = AtClientPreference()
@@ -1487,7 +1967,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final result = await showDialog<AtOnboardingResult>(
         context: context,
         barrierDismissible: false,
-        builder: (context) => _ApkamOnboardingDialog(atsign: normalizedAtSign, atClientPreference: customPreference),
+        builder: (context) => _ApkamOnboardingDialog(
+          atsign: normalizedAtSign,
+          atClientPreference: customPreference,
+        ),
       );
 
       if (result != null) {
@@ -1533,7 +2016,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK')),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop();
@@ -1557,7 +2043,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Text(emoji, style: const TextStyle(fontSize: 14)),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(text, style: const TextStyle(fontSize: 14, color: Colors.white)),
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 14, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -1594,8 +2083,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Skip for Now')),
-            ElevatedButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Backup Keys')),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Skip for Now'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Backup Keys'),
+            ),
           ],
         );
       },
@@ -1608,19 +2103,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       print('Starting backup from secure storage for: $atSignToBackup');
 
       // First check if keys are available for backup
-      final keysAvailable = await KeyBackupService.areKeysAvailable(atSignToBackup);
+      final keysAvailable = await KeyBackupService.areKeysAvailable(
+        atSignToBackup,
+      );
       if (!keysAvailable) {
-        print('Keys not yet available for backup, waiting longer for key synchronization...');
+        print(
+          'Keys not yet available for backup, waiting longer for key synchronization...',
+        );
         // Wait progressively longer for keys to be available
         await Future.delayed(const Duration(seconds: 5));
 
         // Check again
-        final keysAvailableAfterWait = await KeyBackupService.areKeysAvailable(atSignToBackup);
+        final keysAvailableAfterWait = await KeyBackupService.areKeysAvailable(
+          atSignToBackup,
+        );
         if (!keysAvailableAfterWait) {
-          print('Keys still not available after extended wait, trying last resort check...');
+          print(
+            'Keys still not available after extended wait, trying last resort check...',
+          );
           await Future.delayed(const Duration(seconds: 3));
 
-          final keysAvailableLastTry = await KeyBackupService.areKeysAvailable(atSignToBackup);
+          final keysAvailableLastTry = await KeyBackupService.areKeysAvailable(
+            atSignToBackup,
+          );
           if (!keysAvailableLastTry) {
             print('Keys not available after multiple attempts');
             if (mounted) {
@@ -1654,7 +2159,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Backup failed or was cancelled'), backgroundColor: Colors.orange),
+            const SnackBar(
+              content: Text('Backup failed or was cancelled'),
+              backgroundColor: Colors.orange,
+            ),
           );
         }
       }
@@ -1712,7 +2220,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
             Text(
               '🔧 Reset Keychain:',
-              style: TextStyle(fontWeight: FontWeight.w500, color: Colors.orange),
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.orange,
+              ),
             ),
             SizedBox(height: 4),
             Text('• Removes corrupted keychain data'),
@@ -1731,7 +2242,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop('cancel'), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('cancel'),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop('reset'),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
@@ -1770,7 +2284,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: ListTile(
                     leading: const Icon(Icons.person, color: Color(0xFF2196F3)),
                     title: Text(atSign),
-                    subtitle: Text('Domain: ${_availableAtSigns[atSign]!.rootDomain}'),
+                    subtitle: Text(
+                      'Domain: ${_availableAtSigns[atSign]!.rootDomain}',
+                    ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => Navigator.of(context).pop(atSign),
                   ),
@@ -1780,7 +2296,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop('__cleanup_all__'),
             style: TextButton.styleFrom(foregroundColor: Colors.orange),
@@ -1816,7 +2335,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         barrierDismissible: false,
         builder: (context) => const AlertDialog(
           content: Row(
-            children: [CircularProgressIndicator(), SizedBox(width: 16), Text('Cleaning up keychain data...')],
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Cleaning up keychain data...'),
+            ],
           ),
         ),
       );
@@ -1855,7 +2378,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // Try multiple approaches to clear corrupted keychain data
         // Method 1: Try to delete known atSigns
         try {
-          final remainingAtSigns = await keyChainManager.getAtSignListFromKeychain();
+          final remainingAtSigns = await keyChainManager
+              .getAtSignListFromKeychain();
           for (final atSign in remainingAtSigns) {
             await keyChainManager.deleteAtSignFromKeychain(atSign);
           }
@@ -1865,7 +2389,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
         // Method 2: Reset any stored client data
         try {
-          await keyChainManager.resetAtSignFromKeychain('*'); // Try wildcard reset
+          await keyChainManager.resetAtSignFromKeychain(
+            '*',
+          ); // Try wildcard reset
         } catch (e) {
           print('Method 2 failed: $e');
         }
@@ -1926,7 +2452,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   // Clear biometric storage for each atSign using the correct BiometricStorage API
   Future<void> _clearBiometricStorageForAtSigns(List<String> atSignList) async {
-    print('🔐 Starting biometric storage cleanup for ${atSignList.length} atSigns...');
+    print(
+      '🔐 Starting biometric storage cleanup for ${atSignList.length} atSigns...',
+    );
 
     try {
       // Check if biometric storage is available on this platform
@@ -1934,13 +2462,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final canAuthenticate = await biometricStorage.canAuthenticate();
 
       if (canAuthenticate != CanAuthenticateResponse.success) {
-        print('Biometric storage not available on this platform: $canAuthenticate');
+        print(
+          'Biometric storage not available on this platform: $canAuthenticate',
+        );
         return;
       }
 
       // Try to delete biometric storage for each atSign using different possible naming patterns
       for (final atSign in atSignList) {
-        final normalizedAtSign = atSign.startsWith('@') ? atSign.substring(1) : atSign;
+        final normalizedAtSign = atSign.startsWith('@')
+            ? atSign.substring(1)
+            : atSign;
 
         // Common naming patterns used by AtSign libraries for biometric storage
         final possibleStorageNames = [
@@ -1960,7 +2492,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             // Try to get and delete using BiometricStorageFile
             final storageFile = await biometricStorage.getStorage(storageName);
             await storageFile.delete();
-            print('✅ Successfully deleted biometric storage file: $storageName');
+            print(
+              '✅ Successfully deleted biometric storage file: $storageName',
+            );
           } catch (e) {
             // This is expected if the storage doesn't exist
             print('Expected: No biometric storage file for $storageName: $e');
@@ -1969,13 +2503,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
 
       // Also try some generic cleanup patterns that might be used
-      final genericPatterns = ['at_client', 'at_auth', 'atsign_keys', 'keychain_data', 'secure_storage'];
+      final genericPatterns = [
+        'at_client',
+        'at_auth',
+        'atsign_keys',
+        'keychain_data',
+        'secure_storage',
+      ];
 
       for (final pattern in genericPatterns) {
         try {
           final storageFile = await biometricStorage.getStorage(pattern);
           await storageFile.delete();
-          print('✅ Successfully deleted generic biometric storage file: $pattern');
+          print(
+            '✅ Successfully deleted generic biometric storage file: $pattern',
+          );
         } catch (e) {
           print('Expected: No generic biometric storage file for $pattern: $e');
         }
@@ -2024,7 +2566,9 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
     super.dispose();
   }
 
-  bool get _isFormValid => _atSignController.text.trim().isNotEmpty && _domainController.text.trim().isNotEmpty;
+  bool get _isFormValid =>
+      _atSignController.text.trim().isNotEmpty &&
+      _domainController.text.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -2043,7 +2587,10 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Enter your atSign:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              const Text(
+                'Enter your atSign:',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
               const SizedBox(height: 16),
 
               TextFormField(
@@ -2105,7 +2652,10 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
 
               const SizedBox(height: 24),
 
-              const Text('Choose your activation method:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              const Text(
+                'Choose your activation method:',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
               const SizedBox(height: 8),
               const Text(
                 'Select the method that matches your situation:',
@@ -2119,9 +2669,17 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                 title: 'New atSign Activation',
                 description: 'Activate a brand new atSign with CRAM secret',
                 color: Colors.blue,
-                enabled: AtTalkEnv.appApiKey != null && AtTalkEnv.appApiKey!.isNotEmpty,
-                warningText: AtTalkEnv.appApiKey == null || AtTalkEnv.appApiKey!.isEmpty ? 'Requires API key' : null,
-                onTap: _isFormValid && AtTalkEnv.appApiKey != null && AtTalkEnv.appApiKey!.isNotEmpty
+                enabled:
+                    AtTalkEnv.appApiKey != null &&
+                    AtTalkEnv.appApiKey!.isNotEmpty,
+                warningText:
+                    AtTalkEnv.appApiKey == null || AtTalkEnv.appApiKey!.isEmpty
+                    ? 'Requires API key'
+                    : null,
+                onTap:
+                    _isFormValid &&
+                        AtTalkEnv.appApiKey != null &&
+                        AtTalkEnv.appApiKey!.isNotEmpty
                     ? () {
                         final atSign = _atSignController.text.startsWith('@')
                             ? _atSignController.text
@@ -2137,7 +2695,8 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
               _buildMethodCard(
                 icon: Icons.file_upload,
                 title: 'Upload .atKeys File',
-                description: 'Use existing .atKeys file from your device or downloads',
+                description:
+                    'Use existing .atKeys file from your device or downloads',
                 color: Colors.green,
                 enabled: true,
                 recommendedText: 'Recommended for existing atSigns',
@@ -2157,7 +2716,8 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
               _buildMethodCard(
                 icon: Icons.smartphone,
                 title: 'Authenticator (APKAM)',
-                description: 'Enroll using OTP from authenticator app or license key (CRAM secret)',
+                description:
+                    'Enroll using OTP from authenticator app or license key (CRAM secret)',
                 color: Colors.orange,
                 enabled: true, // APKAM doesn't require API key
                 onTap: _isFormValid
@@ -2166,7 +2726,9 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                             ? _atSignController.text
                             : '@${_atSignController.text}';
                         final domain = _domainController.text.trim();
-                        Navigator.of(context).pop('authenticator:$domain:$atSign');
+                        Navigator.of(
+                          context,
+                        ).pop('authenticator:$domain:$atSign');
                       }
                     : null,
               ),
@@ -2186,11 +2748,19 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.lightbulb_outline, size: 16, color: Colors.blue),
+                        Icon(
+                          Icons.lightbulb_outline,
+                          size: 16,
+                          color: Colors.blue,
+                        ),
                         SizedBox(width: 4),
                         Text(
                           'Need help choosing?',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
                         ),
                       ],
                     ),
@@ -2212,7 +2782,12 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
           ),
         ),
       ),
-      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel'))],
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
     );
   }
 
@@ -2229,8 +2804,14 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: enabled ? color.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.3)),
-        color: enabled ? color.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.05),
+        border: Border.all(
+          color: enabled
+              ? color.withValues(alpha: 0.3)
+              : Colors.grey.withValues(alpha: 0.3),
+        ),
+        color: enabled
+            ? color.withValues(alpha: 0.05)
+            : Colors.grey.withValues(alpha: 0.05),
       ),
       child: Material(
         color: Colors.transparent,
@@ -2256,25 +2837,43 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(description, style: TextStyle(fontSize: 12, color: enabled ? Colors.black87 : Colors.grey)),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: enabled ? Colors.black87 : Colors.grey,
+                        ),
+                      ),
                       if (recommendedText != null) ...[
                         const SizedBox(height: 4),
                         Text(
                           recommendedText,
-                          style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.green,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                       if (warningText != null) ...[
                         const SizedBox(height: 4),
                         Text(
                           warningText,
-                          style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.orange,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios, size: 16, color: enabled ? color : Colors.grey),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: enabled ? color : Colors.grey,
+                ),
               ],
             ),
           ),
@@ -2289,14 +2888,24 @@ class _ApkamOnboardingDialog extends StatefulWidget {
   final String atsign;
   final AtClientPreference atClientPreference;
 
-  const _ApkamOnboardingDialog({required this.atsign, required this.atClientPreference});
+  const _ApkamOnboardingDialog({
+    required this.atsign,
+    required this.atClientPreference,
+  });
 
   @override
   State<_ApkamOnboardingDialog> createState() => _ApkamOnboardingDialogState();
 }
 
 // Onboarding status enum for APKAM flow
-enum OnboardingStatus { preparing, otpRequired, validatingOtp, pendingApproval, success, denied }
+enum OnboardingStatus {
+  preparing,
+  otpRequired,
+  validatingOtp,
+  pendingApproval,
+  success,
+  denied,
+}
 
 class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
   String get atsign => widget.atsign;
@@ -2396,7 +3005,11 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       if (sentEnrollRequest != null) {
         if (DateTime.now()
                 .toUtc()
-                .difference(DateTime.fromMillisecondsSinceEpoch(sentEnrollRequest.enrollmentSubmissionTimeEpoch))
+                .difference(
+                  DateTime.fromMillisecondsSinceEpoch(
+                    sentEnrollRequest.enrollmentSubmissionTimeEpoch,
+                  ),
+                )
                 .inHours >=
             48) {
           await _setStateOnStatus(EnrollmentStatus.expired);
@@ -2454,7 +3067,9 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
 
     // After approval, we need to authenticate to save keys to keychain
     try {
-      log('APKAM approval received, authenticating to save keys to keychain...');
+      log(
+        'APKAM approval received, authenticating to save keys to keychain...',
+      );
 
       // Use OnboardingService to authenticate after enrollment approval
       final onboardingService = OnboardingService.getInstance();
@@ -2488,7 +3103,9 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
     // Wait for a bit to show the error message
     await Future.delayed(const Duration(milliseconds: 3000));
     if (mounted) {
-      Navigator.of(context).pop(AtOnboardingResult.error(message: 'Enrollment request denied'));
+      Navigator.of(
+        context,
+      ).pop(AtOnboardingResult.error(message: 'Enrollment request denied'));
     }
   }
 
@@ -2528,7 +3145,10 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
     log('About to enroll with $enrollmentRequest');
 
     try {
-      final enrollResponse = await onboardingService.enroll(atsign, enrollmentRequest);
+      final enrollResponse = await onboardingService.enroll(
+        atsign,
+        enrollmentRequest,
+      );
       log('Enroll response: $enrollResponse');
     } on AtException catch (e, st) {
       log('AtException - Error enrolling: $e');
@@ -2548,7 +3168,9 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
             ),
           );
         } else {
-          Navigator.of(context).pop(AtOnboardingResult.error(message: e.message));
+          Navigator.of(
+            context,
+          ).pop(AtOnboardingResult.error(message: e.message));
         }
       }
       return;
@@ -2572,7 +3194,9 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
           );
         } else if (errorStr.contains('AT0011')) {
           log('Invalid OTP');
-          Navigator.of(context).pop(AtOnboardingResult.error(message: 'Invalid OTP'));
+          Navigator.of(
+            context,
+          ).pop(AtOnboardingResult.error(message: 'Invalid OTP'));
         } else if (errorStr.contains('pending enrollment')) {
           Navigator.of(context).pop(
             AtOnboardingResult.error(
@@ -2580,10 +3204,19 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                   'A previous enrollment request for this atSign is still pending.\n\n• Open your authenticator app and check for any pending requests.\n• Approve or deny the request if you see one.\n• If you do not see a pending request, wait 10–15 minutes for it to expire, then try again.\n• If the problem persists, contact atPlatform support to clear the stuck request.',
             ),
           );
-        } else if (errorStr.contains('duplicate') || errorStr.contains('already exists')) {
-          Navigator.of(context).pop(AtOnboardingResult.error(message: 'Device name already exists. Please try again.'));
+        } else if (errorStr.contains('duplicate') ||
+            errorStr.contains('already exists')) {
+          Navigator.of(context).pop(
+            AtOnboardingResult.error(
+              message: 'Device name already exists. Please try again.',
+            ),
+          );
         } else {
-          Navigator.of(context).pop(AtOnboardingResult.error(message: 'Unknown error during enrollment: $errorStr'));
+          Navigator.of(context).pop(
+            AtOnboardingResult.error(
+              message: 'Unknown error during enrollment: $errorStr',
+            ),
+          );
         }
       }
       return;
@@ -2615,7 +3248,9 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
     });
 
     try {
-      log('Starting CRAM authentication with secret: ${cramSecret.isNotEmpty ? 'provided' : 'empty'}');
+      log(
+        'Starting CRAM authentication with secret: ${cramSecret.isNotEmpty ? 'provided' : 'empty'}',
+      );
 
       if (cramSecret.trim().isEmpty) {
         throw Exception('CRAM Secret cannot be null or empty');
@@ -2637,7 +3272,10 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
 
       // For new atSign activation, explicitly pass the CRAM secret to onboard() method
       // This follows the NoPorts pattern for CRAM authentication
-      final onboardResult = await onboardingService.onboard(cramSecret: trimmedCramSecret, atOnboardingRequest: req);
+      final onboardResult = await onboardingService.onboard(
+        cramSecret: trimmedCramSecret,
+        atOnboardingRequest: req,
+      );
 
       log('CRAM onboarding result: $onboardResult');
 
@@ -2646,7 +3284,9 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
 
         // After CRAM onboarding, authenticate to ensure keys are properly saved to keychain
         try {
-          log('Authenticating after CRAM onboarding to save keys to keychain...');
+          log(
+            'Authenticating after CRAM onboarding to save keys to keychain...',
+          );
           final authStatus = await onboardingService.authenticate(atsign);
 
           log('CRAM authentication result: $authStatus');
@@ -2668,8 +3308,11 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       } else {
         log('CRAM onboarding failed');
         if (mounted) {
-          String errorMessage = 'CRAM onboarding failed. Please check your license key and try again.';
-          Navigator.of(context).pop(AtOnboardingResult.error(message: errorMessage));
+          String errorMessage =
+              'CRAM onboarding failed. Please check your license key and try again.';
+          Navigator.of(
+            context,
+          ).pop(AtOnboardingResult.error(message: errorMessage));
         }
       }
     } catch (e) {
@@ -2679,22 +3322,32 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
 
         // Handle specific exception types
         if (e.toString().contains('Keys not found in Keychain manager')) {
-          errorMessage = 'This appears to be a new atSign. Using CRAM secret to generate initial keys...';
+          errorMessage =
+              'This appears to be a new atSign. Using CRAM secret to generate initial keys...';
           // For new atSigns, this is expected - the onboard() method should handle key generation
-          log('Keys not found - this is expected for new atSign activation, continuing with onboard flow');
+          log(
+            'Keys not found - this is expected for new atSign activation, continuing with onboard flow',
+          );
 
           // Don't treat this as an error for new atSigns
           setState(() {
             onboardingStatus = OnboardingStatus.success;
           });
           return;
-        } else if (e.toString().contains('network') || e.toString().contains('connection')) {
-          errorMessage = 'Network error. Please check your internet connection and try again.';
-        } else if (e.toString().contains('CRAM Secret cannot be null or empty')) {
-          errorMessage = 'Invalid CRAM secret. Please check your license key and try again.';
+        } else if (e.toString().contains('network') ||
+            e.toString().contains('connection')) {
+          errorMessage =
+              'Network error. Please check your internet connection and try again.';
+        } else if (e.toString().contains(
+          'CRAM Secret cannot be null or empty',
+        )) {
+          errorMessage =
+              'Invalid CRAM secret. Please check your license key and try again.';
         }
 
-        Navigator.of(context).pop(AtOnboardingResult.error(message: errorMessage));
+        Navigator.of(
+          context,
+        ).pop(AtOnboardingResult.error(message: errorMessage));
       }
     }
   }
@@ -2720,9 +3373,14 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
             OnboardingStatus.preparing => const Column(
               key: Key('preparing'),
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Checking enrollment status...')],
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Checking enrollment status...'),
+              ],
             ),
-            OnboardingStatus.otpRequired || OnboardingStatus.validatingOtp => SingleChildScrollView(
+            OnboardingStatus.otpRequired ||
+            OnboardingStatus.validatingOtp => SingleChildScrollView(
               child: Column(
                 key: const Key('otp'),
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2752,7 +3410,10 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                     children: [
                       const Text(
                         'Choose authentication method:',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       Row(
                         children: [
@@ -2808,7 +3469,13 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
 
                   // OTP input field (shown when OTP is selected)
                   if (!useCramAuth) ...[
-                    const Text('Enter 6-digit OTP:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    const Text(
+                      'Enter 6-digit OTP:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     PinCodeTextField(
                       autoDisposeControllers: false,
@@ -2851,11 +3518,19 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                            Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: Colors.orange,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'Important',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
                             ),
                           ],
                         ),
@@ -2868,7 +3543,10 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                               : '• Make sure $atsign is enrolled in your authenticator app\n'
                                     '• The OTP changes every 30 seconds\n'
                                     '• Enter the current 6-digit code shown in the app',
-                          style: const TextStyle(fontSize: 11, color: Colors.black87),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black87,
+                          ),
                         ),
                       ],
                     ),
@@ -2884,7 +3562,11 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                 SizedBox(height: 16),
                 Text(
                   'Waiting for Approval',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.orange),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange,
+                  ),
                 ),
                 SizedBox(height: 8),
                 Text(
@@ -2903,7 +3585,11 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                 SizedBox(height: 16),
                 Text(
                   'Enrollment Approved!',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.green),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green,
+                  ),
                 ),
                 SizedBox(height: 8),
                 Text(
@@ -2921,10 +3607,18 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
                 SizedBox(height: 16),
                 Text(
                   'Enrollment Denied',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.red),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red,
+                  ),
                 ),
                 SizedBox(height: 8),
-                Text('The enrollment request was denied.', textAlign: TextAlign.center, style: TextStyle(fontSize: 14)),
+                Text(
+                  'The enrollment request was denied.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14),
+                ),
               ],
             ),
           },
@@ -2932,10 +3626,16 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
       ),
       actions: switch (onboardingStatus) {
         OnboardingStatus.preparing => [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
         ],
         OnboardingStatus.otpRequired => [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (useCramAuth) {
@@ -2957,14 +3657,19 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
         ],
         OnboardingStatus.validatingOtp => [],
         OnboardingStatus.pendingApproval => [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
         ],
         OnboardingStatus.success => [
           ElevatedButton(
             onPressed: () async {
               // Complete APKAM enrollment - backup will be handled by the main flow
               if (mounted) {
-                Navigator.of(context).pop(AtOnboardingResult.success(atsign: atsign));
+                Navigator.of(
+                  context,
+                ).pop(AtOnboardingResult.success(atsign: atsign));
               }
             },
             child: const Text('Continue'),
@@ -2973,7 +3678,9 @@ class _ApkamOnboardingDialogState extends State<_ApkamOnboardingDialog> {
         OnboardingStatus.denied => [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(AtOnboardingResult.error(message: 'Enrollment request denied'));
+              Navigator.of(context).pop(
+                AtOnboardingResult.error(message: 'Enrollment request denied'),
+              );
             },
             child: const Text('Close'),
           ),

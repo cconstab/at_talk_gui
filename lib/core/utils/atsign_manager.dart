@@ -19,7 +19,10 @@ class AtsignInformation {
     if (json["atsign"] is! String || json["root-domain"] is! String) {
       return null;
     }
-    return AtsignInformation(atSign: json["atsign"], rootDomain: json["root-domain"]);
+    return AtsignInformation(
+      atSign: json["atsign"],
+      rootDomain: json["root-domain"],
+    );
   }
 
   @override
@@ -46,7 +49,9 @@ Future<Map<String, AtsignInformation>> getAtsignEntries() async {
 
   try {
     var keychainAtSigns = await keyChainManager.getAtSignListFromKeychain();
-    print('Successfully retrieved ${keychainAtSigns.length} atSigns from keychain: $keychainAtSigns');
+    print(
+      'Successfully retrieved ${keychainAtSigns.length} atSigns from keychain: $keychainAtSigns',
+    );
 
     // Use only the keychain as the source of truth for atSign listing
     for (var atSign in keychainAtSigns) {
@@ -54,22 +59,32 @@ Future<Map<String, AtsignInformation>> getAtsignEntries() async {
       var rootDomain = 'root.atsign.org';
       try {
         var atSignInfo = await _getAtsignInformationFromFile();
-        print("Debug: Read ${atSignInfo.length} atSign entries from information file");
+        print(
+          "Debug: Read ${atSignInfo.length} atSign entries from information file",
+        );
         for (var info in atSignInfo) {
-          print("Debug: Found atSign: ${info.atSign}, domain: ${info.rootDomain}");
+          print(
+            "Debug: Found atSign: ${info.atSign}, domain: ${info.rootDomain}",
+          );
         }
         var info = atSignInfo.firstWhere(
           (item) => item.atSign == atSign,
-          orElse: () => AtsignInformation(atSign: atSign, rootDomain: rootDomain),
+          orElse: () =>
+              AtsignInformation(atSign: atSign, rootDomain: rootDomain),
         );
         rootDomain = info.rootDomain;
         print("Debug: Using domain '$rootDomain' for atSign '$atSign'");
       } catch (e) {
         // If we can't read the information file, use the default domain
-        print("Could not read atSign information file for root domain, using default: $e");
+        print(
+          "Could not read atSign information file for root domain, using default: $e",
+        );
       }
 
-      atSignMap[atSign] = AtsignInformation(atSign: atSign, rootDomain: rootDomain);
+      atSignMap[atSign] = AtsignInformation(
+        atSign: atSign,
+        rootDomain: rootDomain,
+      );
     }
   } catch (e) {
     print('Error reading from keychain: $e');
@@ -79,8 +94,12 @@ Future<Map<String, AtsignInformation>> getAtsignEntries() async {
         e.toString().contains('ChunkedJsonParser') ||
         e.toString().contains('Invalid JSON') ||
         e.toString().contains('Unexpected character')) {
-      print('Keychain appears to be corrupted, throwing specific error for UI handling');
-      throw Exception('Keychain data is corrupted. Please use the "Manage Keys" option to clean up corrupted data.');
+      print(
+        'Keychain appears to be corrupted, throwing specific error for UI handling',
+      );
+      throw Exception(
+        'Keychain data is corrupted. Please use the "Manage Keys" option to clean up corrupted data.',
+      );
     }
 
     // For other errors, re-throw to let the UI handle them

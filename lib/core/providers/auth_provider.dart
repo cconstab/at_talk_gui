@@ -48,7 +48,11 @@ class AuthProvider extends ChangeNotifier {
       if (rootDomain != null) {
         print('🌐 Using custom rootDomain: $rootDomain');
       }
-      await AtTalkService.configureAtSignStorage(atSign!, cleanupExisting: false, rootDomain: rootDomain);
+      await AtTalkService.configureAtSignStorage(
+        atSign!,
+        cleanupExisting: false,
+        rootDomain: rootDomain,
+      );
 
       await AtTalkService.instance.onboard(
         atSign: atSign,
@@ -76,7 +80,11 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> authenticateExisting(String atSign, {bool cleanupExisting = true, String? rootDomain}) async {
+  Future<void> authenticateExisting(
+    String atSign, {
+    bool cleanupExisting = true,
+    String? rootDomain,
+  }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -84,11 +92,17 @@ class AuthProvider extends ChangeNotifier {
     try {
       // Configure atSign-specific storage before authentication
       // For namespace changes, cleanup is already handled by changeNamespace()
-      print('🔧 Configuring atSign-specific storage for existing atSign: $atSign (cleanup: $cleanupExisting)');
+      print(
+        '🔧 Configuring atSign-specific storage for existing atSign: $atSign (cleanup: $cleanupExisting)',
+      );
       if (rootDomain != null) {
         print('🌐 Using custom rootDomain: $rootDomain');
       }
-      await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: cleanupExisting, rootDomain: rootDomain);
+      await AtTalkService.configureAtSignStorage(
+        atSign,
+        cleanupExisting: cleanupExisting,
+        rootDomain: rootDomain,
+      );
 
       // Initialize the AtTalkService with the existing atSign
       await AtTalkService.instance.onboard(
@@ -110,7 +124,8 @@ class AuthProvider extends ChangeNotifier {
         },
       );
     } catch (e) {
-      _errorMessage = 'Failed to configure storage or authenticate: ${e.toString()}';
+      _errorMessage =
+          'Failed to configure storage or authenticate: ${e.toString()}';
       _isAuthenticated = false;
       _isLoading = false;
       notifyListeners();

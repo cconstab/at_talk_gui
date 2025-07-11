@@ -100,7 +100,8 @@ class AtTalkService {
 
     // Create AtClientPreference with atSign-specific paths
     final preference = AtClientPreference()
-      ..rootDomain = rootDomain ?? _atClientPreference?.rootDomain ?? 'root.atsign.org'
+      ..rootDomain =
+          rootDomain ?? _atClientPreference?.rootDomain ?? 'root.atsign.org'
       ..namespace = AtTalkEnv
           .namespace // Always use current namespace from AtTalkEnv
       ..hiveStoragePath = storagePath
