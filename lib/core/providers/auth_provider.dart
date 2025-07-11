@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:at_client_mobile/at_client_mobile.dart';
-import 'package:hive/hive.dart';
 import '../services/at_talk_service.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -83,6 +82,11 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Force AtClient reinitialization to ensure clean state for re-authentication
+      // This ensures Hive boxes are properly closed and reopened for fresh message fetching
+      print('🔄 Forcing AtClient reinitialization for re-authentication...');
+      await AtTalkService.forceAtClientReinitialization();
+
       // Configure atSign-specific storage before authentication
       // For namespace changes, cleanup is already handled by changeNamespace()
       print('🔧 Configuring atSign-specific storage for existing atSign: $atSign (cleanup: $cleanupExisting)');
@@ -92,6 +96,7 @@ class AuthProvider extends ChangeNotifier {
       await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: cleanupExisting, rootDomain: rootDomain);
 
       // Initialize the AtTalkService with the existing atSign
+      // This will create a fresh AtClient that can fetch missed messages
       await AtTalkService.instance.onboard(
         atSign: atSign,
         onResult: (success) {
@@ -99,6 +104,7 @@ class AuthProvider extends ChangeNotifier {
           if (success) {
             _currentAtSign = atSign;
             _errorMessage = null;
+            print('✅ Re-authentication successful - AtClient recreated for fresh message sync');
           }
           _isLoading = false;
           notifyListeners();
@@ -130,13 +136,16 @@ class AuthProvider extends ChangeNotifier {
         await AtTalkService.instance.cleanup();
       }
 
-      // 2. Close all Hive database connections to release file handles
+      // 2. Clean up AtClient databases more gracefully
+      // Instead of closing all Hive, let AtClient handle its own cleanup
+      // This prevents issues when re-authenticating with the same atSign
       try {
-        print('  📦 Closing all Hive databases...');
-        await Hive.close();
-        print('  ✅ All Hive databases closed');
+        print('  📦 Allowing AtClient to handle database cleanup...');
+        // AtClient cleanup should handle Hive box management internally
+        // We don't need to forcefully close all Hive databases
+        print('  ✅ Database cleanup handled by AtClient');
       } catch (e) {
-        print('  ⚠️ Error closing Hive databases: $e');
+        print('  ⚠️ Error during database cleanup: $e');
       }
 
       // 3. Reset authentication state

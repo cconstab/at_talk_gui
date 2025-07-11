@@ -492,29 +492,98 @@ class AtTalkService {
 
   /// Start periodic lock file refresh to prove we're still alive
   static void startLockRefresh() {
+    // Stop any existing timer first
+    if (_lockRefreshTimer != null) {
+      print('🔄 Stopping existing lock refresh timer');
+      _lockRefreshTimer!.cancel();
+      _lockRefreshTimer = null;
+    }
+
     if (_currentLockFile != null) {
+      print('🔄 Starting lock refresh timer for: ${_currentLockFile!.split(Platform.isWindows ? '\\' : '/').last}');
+      print('🔄 Timer will fire every 10 seconds');
+
       _lockRefreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+        print('🔄 Lock refresh timer fired - checking lock file');
+
+        // Safety check: if we're no longer initialized, stop the timer
+        if (_instance != null && !_instance!._isInitialized) {
+          print('⚠️ AtTalk service no longer initialized, stopping lock refresh timer');
+          timer.cancel();
+          _lockRefreshTimer = null;
+          _currentLockFile = null;
+          return;
+        }
+
         if (_currentLockFile != null) {
           try {
             final lockFile = File(_currentLockFile!);
             if (await lockFile.exists()) {
+              print(
+                '🔄 Lock file exists, attempting to refresh: ${lockFile.path.split(Platform.isWindows ? '\\' : '/').last}',
+              );
+
               // Touch the lock file to update its modification time
-              await lockFile.setLastModified(DateTime.now());
+              // On Windows, setLastModified might fail due to permissions, so try multiple approaches
+              try {
+                await lockFile.setLastModified(DateTime.now());
+                print(
+                  '🔄 Lock file refreshed successfully: ${lockFile.path.split(Platform.isWindows ? '\\' : '/').last}',
+                );
+              } catch (e) {
+                // Fallback: rewrite the lock file content with updated timestamp
+                print('⚠️ setLastModified failed, using content rewrite approach: $e');
+
+                final lockContent = await lockFile.readAsString();
+                final lockData = jsonDecode(lockContent);
+                lockData['timestamp'] = DateTime.now().toIso8601String();
+                lockData['refreshCount'] = (lockData['refreshCount'] ?? 0) + 1;
+
+                await lockFile.writeAsString(jsonEncode(lockData));
+                print(
+                  '🔄 Lock file refreshed via content rewrite: ${lockFile.path.split(Platform.isWindows ? '\\' : '/').last} (refresh count: ${lockData['refreshCount']})',
+                );
+              }
+            } else {
+              print('⚠️ Lock file no longer exists, stopping refresh timer');
+              timer.cancel();
+              _lockRefreshTimer = null;
+              _currentLockFile = null;
             }
           } catch (e) {
             print('⚠️ Could not refresh lock file: $e');
           }
         } else {
+          print('⚠️ No current lock file, stopping refresh timer');
           timer.cancel();
+          _lockRefreshTimer = null;
         }
       });
+
+      print('🔄 Lock refresh timer created successfully');
+    } else {
+      print('⚠️ No lock file to refresh - _currentLockFile is null');
     }
   }
 
   /// Stop the lock refresh timer
   static void stopLockRefresh() {
-    _lockRefreshTimer?.cancel();
-    _lockRefreshTimer = null;
+    if (_lockRefreshTimer != null) {
+      print('🛑 Stopping lock refresh timer');
+      _lockRefreshTimer!.cancel();
+      _lockRefreshTimer = null;
+      print('✅ Lock refresh timer stopped successfully');
+    } else {
+      print('🛑 No lock refresh timer to stop');
+    }
+  }
+
+  /// Debug method to check lock refresh timer status
+  static void checkLockRefreshStatus() {
+    print('🔍 Lock refresh status check:');
+    print('   _currentLockFile: $_currentLockFile');
+    print('   _lockRefreshTimer: ${_lockRefreshTimer != null ? 'ACTIVE' : 'NULL'}');
+    print('   Timer is active: ${_lockRefreshTimer?.isActive ?? false}');
   }
 
   /// Try to claim storage atomically and create our own lock
@@ -528,10 +597,13 @@ class AtTalkService {
       await commitLogDir.create(recursive: true);
 
       // Check for existing locks first
+      print('🔍 Checking for existing locks in: $storagePath');
       bool hasActiveLocks = await _hasActiveLocks(storagePath);
       if (hasActiveLocks) {
+        print('🔒 Storage already claimed by another process');
         return false; // Storage is already claimed
       }
+      print('✅ No existing locks found, proceeding to claim storage');
 
       // Try to create our own lock file atomically
       final lockFileName = 'at_talk_gui_$instanceId.lock';
@@ -543,6 +615,7 @@ class AtTalkService {
         'pid': pid,
         'timestamp': DateTime.now().toIso8601String(),
         'type': 'at_talk_gui',
+        'refreshCount': 0, // Track how many times this lock has been refreshed
       });
 
       try {
@@ -587,18 +660,25 @@ class AtTalkService {
   static Future<void> releaseStorageLock() async {
     if (_currentLockFile != null) {
       try {
+        print('🔓 Releasing storage lock: ${_currentLockFile!.split(Platform.isWindows ? '\\' : '/').last}');
+
         // Stop the refresh timer
         stopLockRefresh();
 
         final lockFile = File(_currentLockFile!);
         if (await lockFile.exists()) {
           await lockFile.delete();
-          print('🔓 Released storage lock: ${_currentLockFile!.split('/').last}');
+          print('🔓 Released storage lock: ${_currentLockFile!.split(Platform.isWindows ? '\\' : '/').last}');
+        } else {
+          print('⚠️ Lock file no longer exists: ${_currentLockFile!.split(Platform.isWindows ? '\\' : '/').last}');
         }
       } catch (e) {
         print('⚠️ Could not release storage lock: $e');
       }
       _currentLockFile = null;
+      print('✅ Storage lock cleanup completed');
+    } else {
+      print('🔓 No storage lock to release');
     }
   }
 
@@ -615,7 +695,8 @@ class AtTalkService {
       final files = await directory.list().toList();
       for (var file in files) {
         if (file is File && file.path.endsWith('.lock')) {
-          final fileName = file.path.split('/').last;
+          // Fix Windows path handling - use proper path separator
+          final fileName = file.path.split(Platform.isWindows ? '\\' : '/').last;
 
           // Only check OUR app lock files, not Hive's internal lock files
           if (!_isOurAppLockFile(fileName)) {
@@ -662,7 +743,7 @@ class AtTalkService {
       if (lockContent.isEmpty || isStale) {
         // Clean up stale lock
         print(
-          '🧹 Removing stale lock file: ${lockFile.path.split('/').last} (age: ${DateTime.now().difference(lockStat.modified).inSeconds}s)',
+          '🧹 Removing stale lock file: ${lockFile.path.split(Platform.isWindows ? '\\' : '/').last} (age: ${DateTime.now().difference(lockStat.modified).inSeconds}s)',
         );
         try {
           await lockFile.delete();
@@ -677,8 +758,11 @@ class AtTalkService {
         final lockData = jsonDecode(lockContent);
         if (lockData is Map && lockData.containsKey('pid')) {
           final lockPid = lockData['pid'] as int;
+          final refreshCount = lockData['refreshCount'] ?? 0;
+          final fileName = lockFile.path.split(Platform.isWindows ? '\\' : '/').last;
+
           if (!_isProcessRunning(lockPid)) {
-            print('🧹 Removing lock for dead process $lockPid: ${lockFile.path.split('/').last}');
+            print('🧹 Removing lock for dead process $lockPid: $fileName');
             try {
               await lockFile.delete();
             } catch (e) {
@@ -693,11 +777,11 @@ class AtTalkService {
             final processType = lockData['type'] as String?;
             if (processType != null && (processType.contains('at_talk'))) {
               // This is probably a real at_talk process, keep the lock
-              print('🔒 Active at_talk lock detected: ${lockFile.path.split('/').last}');
+              print('🔒 Active at_talk lock detected: $fileName (PID: $lockPid, refreshed $refreshCount times)');
               return true;
             } else {
               // Unknown process type, might be orphaned
-              print('🧹 Removing lock for unknown process type: ${lockFile.path.split('/').last}');
+              print('🧹 Removing lock for unknown process type: $fileName');
               try {
                 await lockFile.delete();
               } catch (e) {
@@ -705,26 +789,36 @@ class AtTalkService {
               }
               return false;
             }
+          } else {
+            // Lock is fresh, show refresh status
+            print('🔒 Fresh at_talk lock: $fileName (PID: $lockPid, refreshed $refreshCount times)');
           }
         }
       } catch (e) {
         // Not JSON or other parsing error, treat as active for safety
       }
 
-      print('🔒 Active lock detected: ${lockFile.path.split('/').last}');
+      print('🔒 Active lock detected: ${lockFile.path.split(Platform.isWindows ? '\\' : '/').last}');
       return true;
     } catch (e) {
-      print('🔒 Cannot read lock file, assuming active: ${lockFile.path.split('/').last}');
+      print('🔒 Cannot read lock file, assuming active: ${lockFile.path.split(Platform.isWindows ? '\\' : '/').last}');
       return true; // Assume active on error
     }
   }
 
   /// Check if a process ID is still running
+  /// Check if a process ID is still running (cross-platform)
   static bool _isProcessRunning(int pid) {
     try {
-      // On Unix-like systems, sending signal 0 checks if process exists
-      Process.runSync('kill', ['-0', pid.toString()]);
-      return true;
+      if (Platform.isWindows) {
+        // On Windows, use tasklist to check if process exists
+        final result = Process.runSync('tasklist', ['/FI', 'PID eq $pid', '/FO', 'CSV']);
+        return result.stdout.toString().contains('$pid');
+      } else {
+        // On Unix-like systems, sending signal 0 checks if process exists
+        Process.runSync('kill', ['-0', pid.toString()]);
+        return true;
+      }
     } catch (e) {
       return false;
     }
@@ -742,22 +836,32 @@ class AtTalkService {
       try {
         print('🧹 Cleaning up AtTalk GUI resources...');
 
-        // Release storage lock first
+        // Release storage lock first (this stops the timer and deletes lock file)
+        print('  🔓 Releasing storage locks and stopping timers...');
         await releaseStorageLock();
 
         final client = atClient;
         if (client != null) {
           print('  📡 Stopping notification subscriptions...');
           client.notificationService.stopAllSubscriptions();
+
+          print('  🗃️ Destroying AtClient and closing Hive connections...');
+          // The AtClient reset will handle closing Hive boxes properly
         }
 
         print('  📱 Resetting AtClient manager...');
         AtClientManager.getInstance().reset();
 
+        // Clear our cached preference to force reconfiguration on re-authentication
+        _atClientPreference = null;
+
         _isInitialized = false;
+        print('✅ AtTalk GUI cleanup completed successfully');
       } catch (e) {
         print('⚠️ GUI cleanup error: $e');
       }
+    } else {
+      print('🧹 AtTalk GUI not initialized, skipping cleanup');
     }
   }
 
@@ -968,6 +1072,76 @@ class AtTalkService {
     } catch (e) {
       print('⚠️ Error during username conflict cleanup: $e');
       rethrow;
+    }
+  }
+
+  /// Manually cleanup any orphaned lock files on app startup
+  /// This helps clean up locks if the app crashed or was force-terminated
+  static Future<void> cleanupOrphanedLocks() async {
+    try {
+      print('🧹 Checking for orphaned lock files...');
+
+      // Get the typical storage paths where lock files might exist
+      final dir = await getApplicationSupportDirectory();
+      final namespaceDirs = ['default.attalk', 'test.attalk'];
+
+      int cleanedCount = 0;
+
+      for (final namespace in namespaceDirs) {
+        final namespacePath = '${dir.path}/.$namespace';
+        final namespaceDir = Directory(namespacePath);
+
+        if (await namespaceDir.exists()) {
+          print('  🔍 Scanning namespace: $namespace');
+
+          await for (final entity in namespaceDir.list(recursive: true)) {
+            if (entity is File && entity.path.endsWith('.lock')) {
+              final fileName = entity.path.split(Platform.isWindows ? '\\' : '/').last;
+
+              // Only check our app lock files
+              if (_isOurAppLockFile(fileName)) {
+                if (!(await _isActiveLock(entity))) {
+                  // This will clean up stale/dead process locks
+                  cleanedCount++;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (cleanedCount > 0) {
+        print('✅ Cleaned up $cleanedCount orphaned lock files');
+      } else {
+        print('✅ No orphaned lock files found');
+      }
+    } catch (e) {
+      print('⚠️ Error during orphaned lock cleanup: $e');
+    }
+  }
+
+  /// Force AtClient reinitialization for cases where re-authentication is needed
+  /// This is useful when logging back in to the same atSign after logout
+  /// It ensures that Hive boxes are properly closed and recreated for fresh message syncing
+  static Future<void> forceAtClientReinitialization() async {
+    try {
+      print('🔄 Forcing AtClient reinitialization...');
+
+      // Reset AtClient manager completely - this destroys the current AtClient
+      // and closes all its Hive database connections
+      AtClientManager.getInstance().reset();
+
+      // Clear any cached preferences to force reconfiguration
+      _atClientPreference = null;
+
+      // Also reset our instance state
+      if (_instance != null) {
+        _instance!._isInitialized = false;
+      }
+
+      print('✅ AtClient reinitialization completed - ready for fresh authentication');
+    } catch (e) {
+      print('⚠️ Error during AtClient reinitialization: $e');
     }
   }
 }
