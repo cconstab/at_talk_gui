@@ -13,7 +13,6 @@ import 'core/providers/groups_provider.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/services/at_talk_service.dart';
 import 'core/utils/at_talk_env.dart';
-import 'core/utils/atsign_manager.dart';
 
 void main(List<String> args) async {
   // Ensure Flutter is initialized
@@ -231,8 +230,6 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initializeApp() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
     // Note: Storage path will be determined when user authenticates with an atSign
     // For now, use a temporary generic path that will be updated during onboarding
     final dir = await getApplicationSupportDirectory();
@@ -265,43 +262,20 @@ class _SplashScreenState extends State<SplashScreen> {
 
     AtTalkService.initialize(atClientPreference);
 
-    // Check if user is already authenticated
+    // Check if user has atSigns available (but don't auto-login)
     final keyChainManager = KeyChainManager.getInstance();
     final atSigns = await keyChainManager.getAtSignListFromKeychain();
 
     if (atSigns.isNotEmpty) {
-      // Load atSign information to get the saved domain
-      try {
-        final atSignEntries = await getAtsignEntries();
-        final firstAtSign = atSigns.first;
-        final atSignInfo = atSignEntries[firstAtSign];
-        final savedDomain = atSignInfo?.rootDomain;
-
-        print('🔑 Auto-authenticating with: $firstAtSign');
-        print('📡 Using saved domain: $savedDomain');
-
-        // Try to authenticate with the first available atSign and its saved domain
-        await authProvider.authenticateExisting(
-          firstAtSign,
-          rootDomain: savedDomain,
-        );
-      } catch (e) {
-        print('⚠️ Failed to load atSign domain info, using default: $e');
-        // Fallback to authentication without domain (will use default)
-        await authProvider.authenticateExisting(atSigns.first);
-      }
-
-      if (mounted) {
-        if (authProvider.isAuthenticated) {
-          Navigator.pushReplacementNamed(context, '/groups');
-        } else {
-          Navigator.pushReplacementNamed(context, '/onboarding');
-        }
-      }
+      print('🔑 Found existing atSigns: $atSigns');
+      print('� Proceeding to onboarding screen for manual selection');
     } else {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/onboarding');
-      }
+      print('📭 No existing atSigns found');
+    }
+
+    // Always go to onboarding screen to let user choose which atSign to use
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/onboarding');
     }
   }
 
