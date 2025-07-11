@@ -484,8 +484,14 @@ class _GroupsListScreenWithSidePanelState extends State<GroupsListScreenWithSide
                           // Clear existing groups and reinitialize for new atSign
                           groupsProvider.clearAllGroups();
 
-                          // Authenticate with the selected atSign
-                          await authProvider.authenticateExisting(atSign, cleanupExisting: true);
+                          // Authenticate with the selected atSign and its domain
+                          final atSignInfo = atSignsInfo[atSign];
+                          final rootDomain = atSignInfo?.rootDomain;
+                          await authProvider.authenticateExisting(
+                            atSign,
+                            cleanupExisting: true,
+                            rootDomain: rootDomain,
+                          );
 
                           // Reinitialize groups provider for the new atSign
                           groupsProvider.reinitialize();

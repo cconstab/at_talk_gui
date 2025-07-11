@@ -1,51 +1,71 @@
-# APKAM Keychain Preservation - FINAL FIX APPLIED
+# CUSTOM DOMAIN ATLOOKUP ISSUE - ROOT CAUSE IDENTIFIED
 
-## The REAL Root Cause (Finally Found!)
+## The AtDirectory Lookup Problem
 
-The issue was **NOT** in the onboarding dialogs as initially thought. The actual problem was in the **`AuthProvider.authenticate()` method** which both .atKeys and APKAM flows use for final authentication.
+The issue is **NOT** in the AtClient preferences (those are working correctly) but in the **AtLookup service** which internally caches domain information and doesn't properly update when switching domains.
 
-### The Problem Code
-**File:** `lib/core/providers/auth_provider.dart` - Line 47
+### Evidence From Logs
 
+```
+🔧 Creating AtAuthService with preferences:
+   rootDomain: vip.ve.atsign.zone  ✅ CORRECT
+
+🔍 AtClient verification after authentication:
+   AtClient rootDomain: vip.ve.atsign.zone  ✅ CORRECT
+   Expected rootDomain: vip.ve.atsign.zone  ✅ CORRECT
+✅ AtClient domain and port configuration is correct
+
+SEVERE|AtLookup|Error in remote verb execution Exception: No entry in atDirectory for juliet
+```
+
+### The Real Problem
+
+1. **AtClient preferences are configured correctly** with custom domain
+2. **Authentication works** with the custom domain
+3. **AtLookup service internally caches the domain** and doesn't update when AtClient switches domains
+4. **SyncService uses AtLookup** for atDirectory operations, so it fails with wrong domain
+
+### Why This Happens
+
+- `@juliet` exists in the `vip.ve.atsign.zone` atDirectory
+- But `AtLookup` is still searching in `root.atsign.org` atDirectory
+- The AtClient's internal `AtLookup` service doesn't automatically update its domain when preferences change
+- This is a **limitation in the atPlatform libraries** where internal services cache domain configuration
+
+### Proposed Solutions
+
+#### Option 1: Force AtClient Recreation (Most Reliable)
 ```dart
-// PROBLEMATIC CODE (Before fix):
-await AtTalkService.configureAtSignStorage(atSign!, cleanupExisting: true);
+// When switching to custom domain, force complete AtClient recreation
+AtClientManager.getInstance().reset();
+// Wait for cleanup
+await Future.delayed(Duration(milliseconds: 1000));
+// Re-authenticate with new domain preferences
+// This forces AtLookup to be recreated with correct domain
 ```
 
-This `cleanupExisting: true` parameter was **wiping the keychain** every time `authenticate()` was called!
-
-### The Fix Applied
-**File:** `lib/core/providers/auth_provider.dart` - Line 47
-
+#### Option 2: AtLookup Service Reset (If Available)
 ```dart
-// FIXED CODE (After fix):
-await AtTalkService.configureAtSignStorage(atSign!, cleanupExisting: false);
+// If AtLookup has reset capability (needs investigation)
+atClient.getRemoteSecondary()?.reset();
 ```
 
-Changed `cleanupExisting: true` to `cleanupExisting: false` to preserve existing atSigns in the keychain.
-
-### Why This Was The Real Issue
-
-1. **Both .atKeys and APKAM flows** call `AuthProvider.authenticate()` at the end
-2. **Every time** `authenticate()` was called, it cleaned up the keychain
-3. **This happened regardless** of whether OnboardingService was called or not
-4. **The onboarding dialog fixes** were addressing symptoms, not the root cause
-
-### Expected Behavior After Fix
-
-**Test Scenario:**
-1. Start with `@cconstab` in keychain
-2. Add `@llama` via APKAM onboarding
-3. **Expected result:** Keychain should contain `[@cconstab, @llama]`
-
-**Debug Output to Watch For:**
+#### Option 3: Custom Domain Pre-check
+```dart
+// Before authentication, verify atSign exists in target domain
+// Fall back to root domain if not found
 ```
-🔧 Configuring atSign-specific storage for: @llama
-# Should see cleanupExisting: false instead of true
-🔍 Keychain BEFORE authentication: [@cconstab]
-✅ Authentication completed using AuthProvider - keychain preserved
-🔍 After authentication, keychain contains: [@cconstab, @llama]
-```
+
+### Current Status
+
+The enhanced AtClient recreation code in `at_talk_service.dart` should handle this, but may need more aggressive cleanup of internal services.
+
+### Test Plan
+
+1. Start with `@llama` (root.atsign.org domain)
+2. Switch to `@juliet` (vip.ve.atsign.zone domain)  
+3. Watch for AtLookup errors in logs
+4. Verify the enhanced recreation logic triggers and fixes the issue
 
 ### Files Modified
 

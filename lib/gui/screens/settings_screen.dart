@@ -310,9 +310,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       authProvider.logout();
       await Future.delayed(const Duration(milliseconds: 500)); // Give time for cleanup
 
-      // Authenticate directly with the known atSign
-      print('🔑 Authenticating with $atSign...');
-      await authProvider.authenticateExisting(atSign);
+      // Authenticate directly with the known atSign with its associated domain
+      final atSignInfo = _availableAtSigns[atSign];
+      final rootDomain = atSignInfo?.rootDomain;
+      print('🔑 Authenticating with $atSign (domain: $rootDomain)...');
+      await authProvider.authenticateExisting(atSign, rootDomain: rootDomain);
 
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog
@@ -506,6 +508,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
     final currentAtSign = authProvider.currentAtSign;
 
+    if (currentAtSign == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No current atSign found. Please authenticate first.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     // Show loading dialog
     showDialog(
       context: context,
@@ -527,22 +541,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         throw Exception('Failed to change namespace');
       }
 
-      // Step 3: If user is authenticated, re-authenticate with new namespace
-      if (currentAtSign != null) {
-        print('🔄 Re-authenticating $currentAtSign with new namespace...');
-        await authProvider.authenticateExisting(currentAtSign, cleanupExisting: false);
+      // Step 3: Re-authenticate with new namespace
+      final atSignInfo = _availableAtSigns[currentAtSign];
+      final rootDomain = atSignInfo?.rootDomain;
+      print('🔄 Re-authenticating $currentAtSign with new namespace (domain: $rootDomain)...');
+      await authProvider.authenticateExisting(currentAtSign, cleanupExisting: false, rootDomain: rootDomain);
 
-        if (!authProvider.isAuthenticated) {
-          throw Exception('Failed to re-authenticate with new namespace');
-        }
-
-        print('✅ Re-authentication successful with new namespace');
-
-        // Step 4: Reinitialize GroupsProvider with new namespace
-        print('🔄 Reinitializing GroupsProvider with new namespace...');
-        groupsProvider.reinitialize();
-        print('✅ GroupsProvider reinitialized with new namespace');
+      if (!authProvider.isAuthenticated) {
+        throw Exception('Failed to re-authenticate with new namespace');
       }
+
+      print('✅ Re-authentication successful with new namespace');
+
+      // Step 4: Reinitialize GroupsProvider with new namespace
+      print('🔄 Reinitializing GroupsProvider with new namespace...');
+      groupsProvider.reinitialize();
+      print('✅ GroupsProvider reinitialized with new namespace');
 
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog

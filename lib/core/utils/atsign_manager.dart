@@ -50,8 +50,8 @@ Future<Map<String, AtsignInformation>> getAtsignEntries() async {
 
     // Use only the keychain as the source of truth for atSign listing
     for (var atSign in keychainAtSigns) {
-      // Try to get root domain from information file, but default to prod if not found
-      var rootDomain = 'prod.atsign.wtf';
+      // Try to get root domain from information file, but default to root.atsign.org if not found
+      var rootDomain = 'root.atsign.org';
       try {
         var atSignInfo = await _getAtsignInformationFromFile();
         var info = atSignInfo.firstWhere(

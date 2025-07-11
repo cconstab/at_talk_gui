@@ -293,7 +293,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     try {
       print('Logging in with existing atSign: $atSign');
-      await authProvider.authenticate(atSign);
+
+      // Get the domain for this atSign
+      final atSignInfo = _availableAtSigns[atSign];
+      final rootDomain = atSignInfo?.rootDomain;
+      print('🌐 Using rootDomain: $rootDomain for atSign: $atSign');
+
+      await authProvider.authenticate(atSign, rootDomain: rootDomain);
 
       if (mounted && authProvider.isAuthenticated) {
         print('Authentication successful, navigating to groups...');
@@ -384,7 +390,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           }
 
           print('Authenticating with AuthProvider...');
-          await authProvider.authenticate(result.atsign);
+          await authProvider.authenticate(result.atsign, rootDomain: AtTalkEnv.rootDomain);
 
           if (mounted && authProvider.isAuthenticated) {
             print('Authentication successful, navigating to groups...');
@@ -543,7 +549,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
           print('Authenticating with AuthProvider...');
           final authProvider = Provider.of<AuthProvider>(context, listen: false);
-          await authProvider.authenticate(result.atsign);
+          await authProvider.authenticate(result.atsign, rootDomain: AtTalkEnv.rootDomain);
 
           if (mounted && authProvider.isAuthenticated) {
             print('Authentication successful, navigating to groups...');

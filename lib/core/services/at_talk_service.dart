@@ -3,6 +3,7 @@ import 'package:at_auth/at_auth.dart';
 import 'package:at_utils/at_logger.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:at_onboarding_cli/at_onboarding_cli.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
@@ -39,20 +40,87 @@ class AtTalkService {
     String atSign, {
     bool forceEphemeral = false,
     bool cleanupExisting = true,
+    String? rootDomain,
   }) async {
     // Normalize atSign (remove @ if present, we'll add it back consistently)
-    final normalizedAtSign = atSign.startsWith('@')
-        ? atSign.substring(1)
-        : atSign;
+    final normalizedAtSign = atSign.startsWith('@') ? atSign.substring(1) : atSign;
     final fullAtSign = '@$normalizedAtSign';
 
-    // Clean up existing AtClient if switching to a different atSign
-    if (cleanupExisting && _instance != null) {
+    // ENHANCED: Check for domain switching or atSign switching
+    bool needsCleanup = false;
+    String cleanupReason = '';
+
+    if (_instance != null) {
+      final currentAtSign = _instance!.currentAtSign;
+      final currentDomain = _atClientPreference?.rootDomain ?? 'root.atsign.org';
+      final newDomain = rootDomain ?? 'root.atsign.org';
+
+      // Check if we're switching atSigns
+      if (currentAtSign != null && currentAtSign != fullAtSign) {
+        needsCleanup = true;
+        cleanupReason = 'switching atSigns ($currentAtSign → $fullAtSign)';
+      }
+
+      // Check if we're switching domains
+      if (currentDomain != newDomain) {
+        needsCleanup = true;
+        if (cleanupReason.isNotEmpty) {
+          cleanupReason += ' and domains ($currentDomain → $newDomain)';
+        } else {
+          cleanupReason = 'switching domains ($currentDomain → $newDomain)';
+        }
+      }
+
+      // FORCE cleanup for any domain switch regardless of cleanupExisting parameter
+      if (currentDomain != newDomain) {
+        needsCleanup = true;
+        cleanupReason += ' [FORCED]';
+      }
+    }
+
+    // Clean up existing AtClient if needed
+    if (needsCleanup) {
+      print('🧹 Enhanced cleanup triggered: needsCleanup=true, reason=\'$cleanupReason\'');
+
+      if (_instance != null) {
+        print('   🗑️ Performing aggressive AtClient cleanup...');
+
+        // Get existing client before cleanup
+        final client = AtClientManager.getInstance().atClient;
+        print('   🔧 Stopping internal AtClient services...');
+
+        try {
+          // Force sync service to stop and clear any cached connections
+          print('      🔄 Stopping sync service...');
+          // Note: stop() method may not be available, using sync reset instead
+          // client.syncService.stop();
+        } catch (e) {
+          print('      ⚠️ Sync service stop error (may be expected): $e');
+        }
+
+        try {
+          // Force notification service to clear all connections
+          print('      🔔 Clearing notification service connections...');
+          client.notificationService.stopAllSubscriptions();
+        } catch (e) {
+          print('      ⚠️ Notification service clear error (may be expected): $e');
+        }
+
+        print('   🗑️ Resetting AtClient manager...');
+        AtClientManager.getInstance().reset();
+
+        // CRITICAL: Add longer delay to ensure all internal components are fully reset
+        print('   ⏳ Waiting 2 seconds for complete service shutdown...');
+        await Future.delayed(Duration(seconds: 2));
+
+        await _instance!.cleanup();
+        print('   ✅ Enhanced cleanup completed');
+      }
+    } else if (cleanupExisting && _instance != null) {
+      // Original logic for when no enhanced cleanup is needed
       final currentAtSign = _instance!.currentAtSign;
       if (currentAtSign != null && currentAtSign != fullAtSign) {
-        print(
-          '🧹 Cleaning up existing AtClient for $currentAtSign before configuring $fullAtSign',
-        );
+        print('🧹 Cleaning up existing AtClient for $currentAtSign before configuring $fullAtSign');
         await _instance!.cleanup();
       }
     }
@@ -99,7 +167,7 @@ class AtTalkService {
 
     // Create AtClientPreference with atSign-specific paths
     final preference = AtClientPreference()
-      ..rootDomain = _atClientPreference?.rootDomain ?? 'root.atsign.org'
+      ..rootDomain = rootDomain ?? _atClientPreference?.rootDomain ?? 'root.atsign.org'
       ..namespace = AtTalkEnv
           .namespace // Always use current namespace from AtTalkEnv
       ..hiveStoragePath = storagePath
@@ -119,11 +187,7 @@ class AtTalkService {
     return preference;
   }
 
-  Future<void> onboard({
-    required String? atSign,
-    required Function(bool) onResult,
-    Function(String)? onError,
-  }) async {
+  Future<void> onboard({required String? atSign, required Function(bool) onResult, Function(String)? onError}) async {
     try {
       if (_atClientPreference == null) {
         throw Exception('AtClientPreference not initialized');
@@ -137,9 +201,7 @@ class AtTalkService {
       final atsignKey = await keyChainManager.readAtsign(name: atSign!);
 
       if (atsignKey == null) {
-        throw Exception(
-          'No keys found for atSign $atSign. Please onboard first.',
-        );
+        throw Exception('No keys found for atSign $atSign. Please onboard first.');
       }
 
       // Use AtAuthService for proper authentication
@@ -147,10 +209,7 @@ class AtTalkService {
       print('   hiveStoragePath: ${_atClientPreference!.hiveStoragePath}');
       print('   commitLogPath: ${_atClientPreference!.commitLogPath}');
 
-      final atAuthService = AtClientMobile.authService(
-        atSign,
-        _atClientPreference!,
-      );
+      final atAuthService = AtClientMobile.authService(atSign, _atClientPreference!);
 
       // Create authentication request
       final atAuthRequest = AtAuthRequest(atSign);
@@ -168,6 +227,70 @@ class AtTalkService {
       // Storage determination is now handled in main.dart during app initialization
       // This catch block only handles authentication errors
       print('Authentication error: $e');
+      onError?.call(e.toString());
+      onResult(false);
+    }
+  }
+
+  /// Full onboarding approach similar to TUI - creates new AtOnboardingService
+  /// This is needed when switching domains to properly reset AtLookup service
+  Future<void> onboardWithFullService({
+    required String? atSign,
+    required Function(bool) onResult,
+    Function(String)? onError,
+    String? rootDomain,
+  }) async {
+    try {
+      if (_atClientPreference == null) {
+        throw Exception('AtClientPreference not initialized');
+      }
+
+      print('🔄 Starting full onboarding service for $atSign (domain: ${rootDomain ?? 'default'})');
+
+      // Check if keys exist in keychain for this atSign
+      final keyChainManager = KeyChainManager.getInstance();
+      final atsignKey = await keyChainManager.readAtsign(name: atSign!);
+
+      if (atsignKey == null) {
+        throw Exception('No keys found for atSign $atSign. Please onboard first.');
+      }
+
+      // Create AtOnboardingPreference similar to TUI approach
+      final onboardingPreference = AtOnboardingPreference()
+        ..hiveStoragePath = _atClientPreference!.hiveStoragePath
+        ..namespace = _atClientPreference!.namespace
+        ..commitLogPath = _atClientPreference!.commitLogPath
+        ..isLocalStoreRequired = true
+        ..monitorHeartbeatInterval = Duration(seconds: 5)
+        ..rootDomain = rootDomain ?? _atClientPreference!.rootDomain
+        ..fetchOfflineNotifications = true
+        ..atKeysFilePath = null; // Will use keychain instead
+
+      print('🔧 Creating AtOnboardingService with preferences:');
+      print('   hiveStoragePath: ${onboardingPreference.hiveStoragePath}');
+      print('   commitLogPath: ${onboardingPreference.commitLogPath}');
+      print('   rootDomain: ${onboardingPreference.rootDomain}');
+      print('   namespace: ${onboardingPreference.namespace}');
+
+      // Create new AtOnboardingService (this is the key difference from the regular onboard method)
+      final onboardingService = AtOnboardingServiceImpl(
+        atSign,
+        onboardingPreference,
+      );
+
+      // Perform full onboarding authentication (this resets all internal services)
+      print('🚀 Performing full onboarding authentication...');
+      final success = await onboardingService.authenticate();
+
+      if (success) {
+        print('✅ Full onboarding completed successfully');
+        _isInitialized = true;
+        onResult(true);
+      } else {
+        throw Exception('Full onboarding authentication failed');
+      }
+    } catch (e) {
+      print('❌ Full onboarding error: $e');
       onError?.call(e.toString());
       onResult(false);
     }
@@ -277,8 +400,7 @@ class AtTalkService {
         'msg': message,
         'isGroup': true,
         'group': groupMembers,
-        'instanceId':
-            groupInstanceId, // Use the passed group session key, not app instance ID
+        'instanceId': groupInstanceId, // Use the passed group session key, not app instance ID
         'from': currentAtSign,
         if (groupName != null && groupName.isNotEmpty) 'groupName': groupName,
       };
@@ -316,9 +438,7 @@ class AtTalkService {
 
       return success;
     } catch (e) {
-      print(
-        'Error sending group message: $e',
-      ); // TODO: Replace with proper logging
+      print('Error sending group message: $e'); // TODO: Replace with proper logging
       return false;
     }
   }
@@ -356,9 +476,7 @@ class AtTalkService {
         ..namespace = _atClientPreference!.namespace
         ..metadata = metaData;
 
-      print(
-        'Sending group rename - key: ${key.toString()}, JSON: $jsonMessage, to: $toAtSign',
-      );
+      print('Sending group rename - key: ${key.toString()}, JSON: $jsonMessage, to: $toAtSign');
 
       final result = await client.notificationService.notify(
         NotificationParams.forUpdate(key, value: jsonMessage),
@@ -367,9 +485,7 @@ class AtTalkService {
       );
 
       bool success = result.atClientException == null;
-      print(
-        'Send group rename result - success: $success, exception: ${result.atClientException}',
-      );
+      print('Send group rename result - success: $success, exception: ${result.atClientException}');
 
       return success;
     } catch (e) {
@@ -411,9 +527,7 @@ class AtTalkService {
         ..namespace = _atClientPreference!.namespace
         ..metadata = metaData;
 
-      print(
-        'Sending group membership change - key: ${key.toString()}, JSON: $jsonMessage, to: $toAtSign',
-      );
+      print('Sending group membership change - key: ${key.toString()}, JSON: $jsonMessage, to: $toAtSign');
 
       final result = await client.notificationService.notify(
         NotificationParams.forUpdate(key, value: jsonMessage),
@@ -422,9 +536,7 @@ class AtTalkService {
       );
 
       bool success = result.atClientException == null;
-      print(
-        'Send group membership change result - success: $success, exception: ${result.atClientException}',
-      );
+      print('Send group membership change result - success: $success, exception: ${result.atClientException}');
 
       return success;
     } catch (e) {
@@ -440,31 +552,21 @@ class AtTalkService {
     }
 
     // Use exact same subscription pattern as TUI app
-    print(
-      '🔄 Setting up message subscription with regex: message.${_atClientPreference!.namespace}@',
-    );
+    print('🔄 Setting up message subscription with regex: message.${_atClientPreference!.namespace}@');
 
     return client.notificationService
-        .subscribe(
-          regex: 'message.${_atClientPreference!.namespace}@',
-          shouldDecrypt: true,
-        )
+        .subscribe(regex: 'message.${_atClientPreference!.namespace}@', shouldDecrypt: true)
         .where((notification) {
           // Filter like TUI app does - exact same logic
           String keyAtsign = notification.key;
           keyAtsign = keyAtsign.replaceAll('${notification.to}:', '');
-          keyAtsign = keyAtsign.replaceAll(
-            '.${_atClientPreference!.namespace}${notification.from}',
-            '',
-          );
+          keyAtsign = keyAtsign.replaceAll('.${_atClientPreference!.namespace}${notification.from}', '');
 
           final isMatch = keyAtsign == 'message';
 
           // Only log when we get a message (regardless of match)
           if (notification.value != null && notification.value!.isNotEmpty) {
-            print(
-              '💬 Incoming notification: from=${notification.from}, to=${notification.to}',
-            );
+            print('💬 Incoming notification: from=${notification.from}, to=${notification.to}');
             if (!isMatch) {
             } else {}
           }
@@ -481,9 +583,7 @@ class AtTalkService {
           String messageText = notification.value ?? '';
 
           // Debug: Show exactly what the TUI would receive
-          print(
-            '📨 Raw notification: from=${notification.from}, to=${notification.to}',
-          );
+          print('📨 Raw notification: from=${notification.from}, to=${notification.to}');
 
           // Try to parse as JSON first (for group messages and TUI compatibility)
           try {
@@ -517,9 +617,7 @@ class AtTalkService {
   }
 
   Stream<String> getMessageStream({required String fromAtSign}) {
-    return getAllMessageStream()
-        .where((data) => data['from'] == fromAtSign)
-        .map((data) => data['message'] ?? '');
+    return getAllMessageStream().where((data) => data['from'] == fromAtSign).map((data) => data['message'] ?? '');
   }
 
   /// Global variable to track our own lock file
@@ -529,9 +627,7 @@ class AtTalkService {
   /// Start periodic lock file refresh to prove we're still alive
   static void startLockRefresh() {
     if (_currentLockFile != null) {
-      _lockRefreshTimer = Timer.periodic(const Duration(seconds: 10), (
-        timer,
-      ) async {
+      _lockRefreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
         if (_currentLockFile != null) {
           try {
             final lockFile = File(_currentLockFile!);
@@ -556,10 +652,7 @@ class AtTalkService {
   }
 
   /// Try to claim storage atomically and create our own lock
-  static Future<bool> tryClaimStorage(
-    String storagePath,
-    String instanceId,
-  ) async {
+  static Future<bool> tryClaimStorage(String storagePath, String instanceId) async {
     try {
       final directory = Directory(storagePath);
 
@@ -594,10 +687,7 @@ class AtTalkService {
 
         // Double-check that we're still the only lock after a brief pause
         await Future.delayed(const Duration(milliseconds: 100));
-        bool hasOtherLocks = await _hasActiveLocks(
-          storagePath,
-          excludeOurLock: lockFileName,
-        );
+        bool hasOtherLocks = await _hasActiveLocks(storagePath, excludeOurLock: lockFileName);
 
         if (hasOtherLocks) {
           // We lost the race - another process claimed storage
@@ -637,9 +727,7 @@ class AtTalkService {
         final lockFile = File(_currentLockFile!);
         if (await lockFile.exists()) {
           await lockFile.delete();
-          print(
-            '🔓 Released storage lock: ${_currentLockFile!.split('/').last}',
-          );
+          print('🔓 Released storage lock: ${_currentLockFile!.split('/').last}');
         }
       } catch (e) {
         print('⚠️ Could not release storage lock: $e');
@@ -649,10 +737,7 @@ class AtTalkService {
   }
 
   /// Check for active lock files, optionally excluding our own
-  static Future<bool> _hasActiveLocks(
-    String storagePath, {
-    String? excludeOurLock,
-  }) async {
+  static Future<bool> _hasActiveLocks(String storagePath, {String? excludeOurLock}) async {
     try {
       final directory = Directory(storagePath);
       if (!await directory.exists()) {
@@ -692,8 +777,7 @@ class AtTalkService {
 
   /// Check if a lock file is one of our app lock files (not a Hive internal lock file)
   static bool _isOurAppLockFile(String fileName) {
-    return fileName.startsWith('at_talk_gui_') ||
-        fileName.startsWith('at_talk_tui_');
+    return fileName.startsWith('at_talk_gui_') || fileName.startsWith('at_talk_tui_');
   }
 
   /// Check if a specific lock file represents an active process
@@ -728,9 +812,7 @@ class AtTalkService {
         if (lockData is Map && lockData.containsKey('pid')) {
           final lockPid = lockData['pid'] as int;
           if (!_isProcessRunning(lockPid)) {
-            print(
-              '🧹 Removing lock for dead process $lockPid: ${lockFile.path.split('/').last}',
-            );
+            print('🧹 Removing lock for dead process $lockPid: ${lockFile.path.split('/').last}');
             try {
               await lockFile.delete();
             } catch (e) {
@@ -745,15 +827,11 @@ class AtTalkService {
             final processType = lockData['type'] as String?;
             if (processType != null && (processType.contains('at_talk'))) {
               // This is probably a real at_talk process, keep the lock
-              print(
-                '🔒 Active at_talk lock detected: ${lockFile.path.split('/').last}',
-              );
+              print('🔒 Active at_talk lock detected: ${lockFile.path.split('/').last}');
               return true;
             } else {
               // Unknown process type, might be orphaned
-              print(
-                '🧹 Removing lock for unknown process type: ${lockFile.path.split('/').last}',
-              );
+              print('🧹 Removing lock for unknown process type: ${lockFile.path.split('/').last}');
               try {
                 await lockFile.delete();
               } catch (e) {
@@ -770,9 +848,7 @@ class AtTalkService {
       print('🔒 Active lock detected: ${lockFile.path.split('/').last}');
       return true;
     } catch (e) {
-      print(
-        '🔒 Cannot read lock file, assuming active: ${lockFile.path.split('/').last}',
-      );
+      print('🔒 Cannot read lock file, assuming active: ${lockFile.path.split('/').last}');
       return true; // Assume active on error
     }
   }
@@ -822,14 +898,9 @@ class AtTalkService {
   /// Change namespace and reinitialize AtClient (like TUI's -n option)
   /// This will switch to a different storage directory and namespace
   /// and completely reinitialize the AtClient with the new namespace
-  Future<bool> changeNamespace(
-    String newNamespace,
-    String? currentAtSign,
-  ) async {
+  Future<bool> changeNamespace(String newNamespace, String? currentAtSign) async {
     try {
-      print(
-        '🔄 Changing namespace from ${AtTalkEnv.namespace} to: $newNamespace',
-      );
+      print('🔄 Changing namespace from ${AtTalkEnv.namespace} to: $newNamespace');
 
       // Clean up current AtClient and stop all subscriptions
       await cleanup();
@@ -840,14 +911,13 @@ class AtTalkService {
 
       // If we have a current atSign, reconfigure storage and re-authenticate
       if (currentAtSign != null) {
-        print(
-          '🔄 Reconfiguring storage for $currentAtSign with new namespace...',
-        );
+        print('🔄 Reconfiguring storage for $currentAtSign with new namespace...');
 
         // Configure new storage with the updated namespace
         final newPreference = await configureAtSignStorage(
           currentAtSign,
           cleanupExisting: false, // Don't cleanup here, we already did it above
+          rootDomain: _atClientPreference?.rootDomain,
         );
 
         // Force complete reinitialization of AtClient with new paths
@@ -862,9 +932,7 @@ class AtTalkService {
         // Debug: verify the namespace is correctly set
         print('🔍 Verifying namespace update:');
         print('   AtTalkEnv.namespace: ${AtTalkEnv.namespace}');
-        print(
-          '   _atClientPreference.namespace: ${_atClientPreference?.namespace}',
-        );
+        print('   _atClientPreference.namespace: ${_atClientPreference?.namespace}');
         print('   Storage path: ${_atClientPreference?.hiveStoragePath}');
 
         print('✅ AtClient reinitialized with new namespace storage');
@@ -878,8 +946,7 @@ class AtTalkService {
       } else {
         // Just update the default preference for future use
         final dir = await getApplicationSupportDirectory();
-        String storagePath =
-            '${dir.path}/.${AtTalkEnv.namespace}/temp_initialization/storage';
+        String storagePath = '${dir.path}/.${AtTalkEnv.namespace}/temp_initialization/storage';
         String commitLogPath = '$storagePath/commitLog';
 
         await Directory(storagePath).create(recursive: true);
@@ -936,10 +1003,7 @@ class AtTalkService {
       final appSupportPath = dir.path;
 
       // List all possible namespace directories
-      final namespaceDirs = [
-        'default.attalk',
-        'test.attalk',
-      ]; // Add more as needed
+      final namespaceDirs = ['default.attalk', 'test.attalk']; // Add more as needed
 
       for (final namespace in namespaceDirs) {
         final namespacePath = '$appSupportPath/.$namespace';
@@ -967,10 +1031,7 @@ class AtTalkService {
           if (legacyPath.endsWith('/keys')) {
             final keyFiles = legacyDir
                 .listSync()
-                .where(
-                  (file) =>
-                      file.path.contains(normalizedAtSign.replaceAll('@', '')),
-                )
+                .where((file) => file.path.contains(normalizedAtSign.replaceAll('@', '')))
                 .toList();
             for (final file in keyFiles) {
               await file.delete();
@@ -986,11 +1047,7 @@ class AtTalkService {
       final tempDir = Directory.systemTemp;
       final tempAtTalkDirs = tempDir
           .listSync()
-          .where(
-            (dir) =>
-                dir.path.contains('at_talk_gui') &&
-                dir.path.contains(normalizedAtSign.replaceAll('@', '')),
-          )
+          .where((dir) => dir.path.contains('at_talk_gui') && dir.path.contains(normalizedAtSign.replaceAll('@', '')))
           .toList();
 
       for (final tempAtTalkDir in tempAtTalkDirs) {
@@ -1013,9 +1070,7 @@ class AtTalkService {
     final normalizedAtSign = atSign.startsWith('@') ? atSign : '@$atSign';
     final usernameOnly = normalizedAtSign.replaceAll('@', '');
 
-    print(
-      '🔧 Special cleanup for potential username conflict: $normalizedAtSign',
-    );
+    print('🔧 Special cleanup for potential username conflict: $normalizedAtSign');
 
     try {
       // First do the complete cleanup

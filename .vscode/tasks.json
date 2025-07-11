@@ -6,7 +6,9 @@
 			"type": "shell",
 			"command": "flutter",
 			"args": [
-				"run"
+				"run",
+				"-d",
+				"windows"
 			],
 			"group": "build",
 			"isBackground": true,

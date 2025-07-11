@@ -13,6 +13,7 @@ import 'core/providers/groups_provider.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/services/at_talk_service.dart';
 import 'core/utils/at_talk_env.dart';
+import 'core/utils/atsign_manager.dart';
 
 void main(List<String> args) async {
   // Ensure Flutter is initialized
@@ -247,12 +248,13 @@ class _SplashScreenState extends State<SplashScreen> {
     AtTalkService.initialize(atClientPreference);
 
     // Check if user is already authenticated
-    final keyChainManager = KeyChainManager.getInstance();
-    final atSigns = await keyChainManager.getAtSignListFromKeychain();
+    final atSignEntries = await getAtsignEntries();
 
-    if (atSigns.isNotEmpty) {
+    if (atSignEntries.isNotEmpty) {
       // Try to authenticate with the first available atSign
-      await authProvider.authenticateExisting(atSigns.first);
+      final firstAtSignInfo = atSignEntries.values.first;
+      print('🔧 Auto-authenticating with: ${firstAtSignInfo.atSign} (domain: ${firstAtSignInfo.rootDomain})');
+      await authProvider.authenticateExisting(firstAtSignInfo.atSign, rootDomain: firstAtSignInfo.rootDomain);
       if (mounted) {
         if (authProvider.isAuthenticated) {
           Navigator.pushReplacementNamed(context, '/groups');

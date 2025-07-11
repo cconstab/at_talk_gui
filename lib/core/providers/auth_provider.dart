@@ -36,7 +36,8 @@ class AuthProvider extends ChangeNotifier {
     return _isAuthenticated;
   }
 
-  Future<void> authenticate(String? atSign) async {
+  Future<void> authenticate(String? atSign, {String? rootDomain}) async {
+    print('🎯 [AUTH_METHOD_1] authenticate() called with atSign: $atSign, rootDomain: $rootDomain');
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -45,7 +46,10 @@ class AuthProvider extends ChangeNotifier {
       // Configure atSign-specific storage before authentication
       // KEYCHAIN PRESERVATION FIX: Don't clean up existing AtClient to preserve other atSigns
       print('🔧 Configuring atSign-specific storage for: $atSign');
-      await AtTalkService.configureAtSignStorage(atSign!, cleanupExisting: false);
+      if (rootDomain != null) {
+        print('🌐 Using custom rootDomain: $rootDomain');
+      }
+      await AtTalkService.configureAtSignStorage(atSign!, cleanupExisting: false, rootDomain: rootDomain);
 
       await AtTalkService.instance.onboard(
         atSign: atSign,
@@ -73,36 +77,88 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> authenticateExisting(String atSign, {bool cleanupExisting = true}) async {
+  Future<void> authenticateExisting(String atSign, {bool cleanupExisting = true, String? rootDomain}) async {
+    print('🎯 [AUTH_METHOD_2] authenticateExisting() called with atSign: $atSign, cleanupExisting: $cleanupExisting, rootDomain: $rootDomain');
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
+      // Check if we need full onboarding BEFORE calling configureAtSignStorage
+      // (because configureAtSignStorage will reset the state)
+      bool needsFullOnboarding = false;
+      final currentAtSign = AtTalkService.instance.currentAtSign;
+      final currentDomain = AtTalkService.instance.atClientPreference?.rootDomain ?? 'root.atsign.org';
+      final newDomain = rootDomain ?? 'root.atsign.org';
+      
+      if (currentAtSign != null && currentAtSign != atSign) {
+        needsFullOnboarding = true;
+        print('🔄 Full onboarding required: switching atSigns ($currentAtSign → $atSign)');
+      } else if (currentDomain != newDomain) {
+        needsFullOnboarding = true;
+        print('🔄 Full onboarding required: switching domains ($currentDomain → $newDomain)');
+      }
+      
+      // Force full onboarding for custom domains to ensure AtLookup service reset
+      if (rootDomain != null && rootDomain != 'root.atsign.org') {
+        needsFullOnboarding = true;
+        print('🔄 Full onboarding forced: custom domain detected ($newDomain)');
+      }
+
       // Configure atSign-specific storage before authentication
       // For namespace changes, cleanup is already handled by changeNamespace()
       print('🔧 Configuring atSign-specific storage for existing atSign: $atSign (cleanup: $cleanupExisting)');
-      await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: cleanupExisting);
+      if (rootDomain != null) {
+        print('🌐 Using custom rootDomain: $rootDomain');
+      }
+      print('🔍 Pre-configure state: needsFullOnboarding=$needsFullOnboarding, currentAtSign=$currentAtSign, currentDomain=$currentDomain, newDomain=$newDomain');
+      await AtTalkService.configureAtSignStorage(atSign, cleanupExisting: cleanupExisting, rootDomain: rootDomain);
 
-      // Initialize the AtTalkService with the existing atSign
-      await AtTalkService.instance.onboard(
-        atSign: atSign,
-        onResult: (success) {
-          _isAuthenticated = success;
-          if (success) {
-            _currentAtSign = atSign;
-            _errorMessage = null;
-          }
-          _isLoading = false;
-          notifyListeners();
-        },
-        onError: (error) {
-          _errorMessage = error;
-          _isAuthenticated = false;
-          _isLoading = false;
-          notifyListeners();
-        },
-      );
+      print('🔍 Post-configure state: needsFullOnboarding=$needsFullOnboarding');
+      if (needsFullOnboarding) {
+        print('🚀 Using full onboarding service to reset AtLookup and all internal components...');
+        // Use full onboarding service like the TUI to properly reset everything
+        await AtTalkService.instance.onboardWithFullService(
+          atSign: atSign,
+          rootDomain: rootDomain,
+          onResult: (success) {
+            _isAuthenticated = success;
+            if (success) {
+              _currentAtSign = atSign;
+              _errorMessage = null;
+            }
+            _isLoading = false;
+            notifyListeners();
+          },
+          onError: (error) {
+            _errorMessage = error;
+            _isAuthenticated = false;
+            _isLoading = false;
+            notifyListeners();
+          },
+        );
+      } else {
+        print('🔧 Using regular authentication (no domain/atSign switch detected)');
+        // Use regular authentication for same atSign and domain
+        await AtTalkService.instance.onboard(
+          atSign: atSign,
+          onResult: (success) {
+            _isAuthenticated = success;
+            if (success) {
+              _currentAtSign = atSign;
+              _errorMessage = null;
+            }
+            _isLoading = false;
+            notifyListeners();
+          },
+          onError: (error) {
+            _errorMessage = error;
+            _isAuthenticated = false;
+            _isLoading = false;
+            notifyListeners();
+          },
+        );
+      }
     } catch (e) {
       _errorMessage = 'Failed to configure storage or authenticate: ${e.toString()}';
       _isAuthenticated = false;
