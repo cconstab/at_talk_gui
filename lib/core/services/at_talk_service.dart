@@ -1,8 +1,8 @@
 import 'package:at_client_mobile/at_client_mobile.dart';
-import 'package:at_auth/at_auth.dart';
 import 'package:at_utils/at_logger.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
@@ -51,6 +51,10 @@ class AtTalkService {
       if (currentAtSign != null && currentAtSign != fullAtSign) {
         print('🧹 Cleaning up existing AtClient for $currentAtSign before configuring $fullAtSign');
         await _instance!.cleanup();
+
+        // Wait a moment for cleanup to complete fully, especially lock file deletion
+        await Future.delayed(const Duration(milliseconds: 500));
+        print('🧹 Cleanup completed, proceeding with $fullAtSign configuration');
       }
     }
 
@@ -63,20 +67,31 @@ class AtTalkService {
     if (!forceEphemeral) {
       // Try persistent storage first with atSign-specific path (matching TUI)
       // Use configurable namespace like TUI's -n option
-      storagePath = '${dir.path}/.${AtTalkEnv.namespace}/$fullAtSign/storage';
-      commitLogPath = '$storagePath/commitLog';
+      storagePath = path.join(dir.path, '.${AtTalkEnv.namespace}', fullAtSign, 'storage');
+      commitLogPath = path.join(storagePath, 'commitLog');
 
       print('Attempting to claim atSign-specific storage: $storagePath');
 
-      final storageClaimed = await tryClaimStorage(storagePath, instanceId);
+      // For atSign switching, be more aggressive about cleaning up stale locks
+      if (cleanupExisting) {
+        print('🧹 Pre-cleaning any stale locks for atSign switching...');
+        await _cleanupStaleLocksForAtSign(storagePath);
+        // Add a small delay to ensure cleanup is complete
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+
+      final storageClaimed = await tryClaimStorage(storagePath, instanceId, isAtSignSwitch: cleanupExisting);
 
       if (!storageClaimed) {
         // Storage claim failed, fall back to ephemeral mode with atSign isolation
         print('⚠️  Could not claim persistent storage for $fullAtSign');
+        print('   Reason: Another process may be using this storage or lock cleanup failed');
+        print('   StoragePath: $storagePath');
         print('   Automatically using ephemeral storage instead...');
         usingEphemeral = true;
       } else {
-        print('Successfully claimed persistent storage for $fullAtSign');
+        print('✅ Successfully claimed persistent storage for $fullAtSign');
+        print('   StoragePath: $storagePath');
       }
     }
 
@@ -84,8 +99,8 @@ class AtTalkService {
       // Create ephemeral storage path with atSign isolation (matching TUI)
       final tempDir = Directory.systemTemp;
       final uuid = const Uuid().v4();
-      storagePath = '${tempDir.path}/at_talk_gui/$fullAtSign/$uuid/storage';
-      commitLogPath = '$storagePath/commitLog';
+      storagePath = path.join(tempDir.path, 'at_talk_gui', fullAtSign, uuid, 'storage');
+      commitLogPath = path.join(storagePath, 'commitLog');
 
       // Ensure ephemeral storage directories exist
       await Directory(storagePath).create(recursive: true);
@@ -128,28 +143,32 @@ class AtTalkService {
 
       // Check if keys exist in keychain for this atSign
       final keyChainManager = KeyChainManager.getInstance();
+      print('🔑 Looking up keys in keychain for atSign: $atSign');
       final atsignKey = await keyChainManager.readAtsign(name: atSign!);
 
       if (atsignKey == null) {
+        print('❌ No keys found in keychain for atSign: $atSign');
         throw Exception('No keys found for atSign $atSign. Please onboard first.');
       }
+      print('✅ Found keys in keychain for atSign: $atSign');
 
-      // Use AtAuthService for proper authentication
-      print('🔧 Creating AtAuthService with preferences:');
+      // Initialize AtClient directly with the keychain keys
+      print('🔧 Initializing AtClient with keychain authentication...');
       print('   hiveStoragePath: ${_atClientPreference!.hiveStoragePath}');
       print('   commitLogPath: ${_atClientPreference!.commitLogPath}');
+      print('   rootDomain: ${_atClientPreference!.rootDomain}');
+      print('   atSign: $atSign');
 
-      final atAuthService = AtClientMobile.authService(atSign, _atClientPreference!);
+      // Set up AtClient with proper configuration
+      await AtClientManager.getInstance().setCurrentAtSign(
+        atSign,
+        _atClientPreference!.namespace,
+        _atClientPreference!,
+      );
 
-      // Create authentication request
-      final atAuthRequest = AtAuthRequest(atSign);
+      print('✅ AtClient initialized successfully for $atSign');
 
-      // Perform authentication
-      final atAuthResponse = await atAuthService.authenticate(atAuthRequest);
-
-      if (!atAuthResponse.isSuccessful) {
-        throw Exception('Authentication failed for $atSign');
-      }
+      print('✅ Authentication successful for $atSign - offline messages should now be available');
 
       _isInitialized = true;
       onResult(true);
@@ -224,6 +243,7 @@ class AtTalkService {
       print('   sharedWith: ${key.sharedWith}');
       print('   namespace: ${key.namespace}');
       print('   Full key: ${key.toString()}');
+      print('   metadata: ${key.metadata.toJson()}');
 
       // Debug: Sending message
       print('📤 Sending 1-on-1 message to $toAtSign');
@@ -500,7 +520,7 @@ class AtTalkService {
     }
 
     if (_currentLockFile != null) {
-      print('🔄 Starting lock refresh timer for: ${_currentLockFile!.split(Platform.isWindows ? '\\' : '/').last}');
+      print('🔄 Starting lock refresh timer for: ${path.basename(_currentLockFile!)}');
       print('🔄 Timer will fire every 10 seconds');
 
       _lockRefreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
@@ -519,17 +539,13 @@ class AtTalkService {
           try {
             final lockFile = File(_currentLockFile!);
             if (await lockFile.exists()) {
-              print(
-                '🔄 Lock file exists, attempting to refresh: ${lockFile.path.split(Platform.isWindows ? '\\' : '/').last}',
-              );
+              print('🔄 Lock file exists, attempting to refresh: ${path.basename(lockFile.path)}');
 
               // Touch the lock file to update its modification time
               // On Windows, setLastModified might fail due to permissions, so try multiple approaches
               try {
                 await lockFile.setLastModified(DateTime.now());
-                print(
-                  '🔄 Lock file refreshed successfully: ${lockFile.path.split(Platform.isWindows ? '\\' : '/').last}',
-                );
+                print('🔄 Lock file refreshed successfully: ${path.basename(lockFile.path)}');
               } catch (e) {
                 // Fallback: rewrite the lock file content with updated timestamp
                 print('⚠️ setLastModified failed, using content rewrite approach: $e');
@@ -541,7 +557,7 @@ class AtTalkService {
 
                 await lockFile.writeAsString(jsonEncode(lockData));
                 print(
-                  '🔄 Lock file refreshed via content rewrite: ${lockFile.path.split(Platform.isWindows ? '\\' : '/').last} (refresh count: ${lockData['refreshCount']})',
+                  '🔄 Lock file refreshed via content rewrite: ${path.basename(lockFile.path)} (refresh count: ${lockData['refreshCount']})',
                 );
               }
             } else {
@@ -587,27 +603,40 @@ class AtTalkService {
   }
 
   /// Try to claim storage atomically and create our own lock
-  static Future<bool> tryClaimStorage(String storagePath, String instanceId) async {
+  static Future<bool> tryClaimStorage(String storagePath, String instanceId, {bool isAtSignSwitch = false}) async {
     try {
       final directory = Directory(storagePath);
 
       // Create directories if they don't exist
       await directory.create(recursive: true);
-      final commitLogDir = Directory('$storagePath/commitLog');
+      final commitLogDir = Directory(path.join(storagePath, 'commitLog'));
       await commitLogDir.create(recursive: true);
 
       // Check for existing locks first
       print('🔍 Checking for existing locks in: $storagePath');
+      print('   isAtSignSwitch: $isAtSignSwitch');
+
+      // Clean up any stale locks for this specific atSign before checking
+      await _cleanupStaleLocksForAtSign(storagePath);
+
+      // For atSign switching, be more aggressive - clean up ANY existing locks for this storage
+      if (isAtSignSwitch) {
+        print('🧹 AtSign switch detected - aggressively cleaning ALL locks for this storage');
+        await _forceCleanAllLocksForStorage(storagePath);
+      }
+
       bool hasActiveLocks = await _hasActiveLocks(storagePath);
       if (hasActiveLocks) {
-        print('🔒 Storage already claimed by another process');
+        print('🔒 Storage already claimed by another active process');
+        // List the active locks for debugging
+        await _debugListActiveLocks(storagePath);
         return false; // Storage is already claimed
       }
       print('✅ No existing locks found, proceeding to claim storage');
 
       // Try to create our own lock file atomically
       final lockFileName = 'at_talk_gui_$instanceId.lock';
-      final lockFile = File('$storagePath/$lockFileName');
+      final lockFile = File(path.join(storagePath, lockFileName));
 
       // Use atomic write to prevent race conditions
       final lockContent = jsonEncode({
@@ -660,7 +689,7 @@ class AtTalkService {
   static Future<void> releaseStorageLock() async {
     if (_currentLockFile != null) {
       try {
-        print('🔓 Releasing storage lock: ${_currentLockFile!.split(Platform.isWindows ? '\\' : '/').last}');
+        print('🔓 Releasing storage lock: ${path.basename(_currentLockFile!)}');
 
         // Stop the refresh timer
         stopLockRefresh();
@@ -682,6 +711,132 @@ class AtTalkService {
     }
   }
 
+  /// Helper method to clean up any stale locks for a specific atSign storage path
+  /// This is useful when switching atSigns to ensure clean storage claiming
+  static Future<void> _cleanupStaleLocksForAtSign(String storagePath) async {
+    try {
+      final directory = Directory(storagePath);
+      if (!await directory.exists()) {
+        return; // No directory means no locks to clean up
+      }
+
+      print('🧹 Scanning for stale locks in: $storagePath');
+
+      final files = await directory.list().toList();
+      int cleanedCount = 0;
+
+      for (var file in files) {
+        if (file is File && file.path.endsWith('.lock')) {
+          final fileName = path.basename(file.path);
+
+          // Only check our app lock files
+          if (_isOurAppLockFile(fileName)) {
+            // Check if this lock is stale/inactive and clean it up
+            if (!(await _isActiveLock(File(file.path)))) {
+              cleanedCount++;
+              print('🗑️ Cleaned up stale lock: $fileName');
+            }
+          }
+        }
+      }
+
+      if (cleanedCount > 0) {
+        print('✅ Cleaned up $cleanedCount stale locks for atSign storage');
+      } else {
+        print('✅ No stale locks found for atSign storage');
+      }
+    } catch (e) {
+      print('⚠️ Error during stale lock cleanup: $e');
+    }
+  }
+
+  /// Force clean ALL locks for a storage directory during atSign switching
+  /// This is more aggressive than normal cleanup and removes even "active" locks
+  /// from our own process to ensure clean switching
+  static Future<void> _forceCleanAllLocksForStorage(String storagePath) async {
+    try {
+      final directory = Directory(storagePath);
+      if (!await directory.exists()) {
+        return;
+      }
+
+      print('🧹 Force cleaning ALL locks in: $storagePath');
+
+      final files = await directory.list().toList();
+      int cleanedCount = 0;
+
+      for (var file in files) {
+        if (file is File && file.path.endsWith('.lock')) {
+          final fileName = path.basename(file.path);
+
+          // Only clean our app lock files, not Hive internal locks
+          if (_isOurAppLockFile(fileName)) {
+            try {
+              await file.delete();
+              cleanedCount++;
+              print('🗑️ Force removed lock: $fileName');
+            } catch (e) {
+              print('⚠️ Could not force remove lock $fileName: $e');
+            }
+          }
+        }
+      }
+
+      if (cleanedCount > 0) {
+        print('✅ Force cleaned $cleanedCount locks for storage switching');
+      } else {
+        print('✅ No locks to force clean');
+      }
+    } catch (e) {
+      print('⚠️ Error during force lock cleanup: $e');
+    }
+  }
+
+  /// Debug method to list all active locks in a storage directory
+  static Future<void> _debugListActiveLocks(String storagePath) async {
+    try {
+      final directory = Directory(storagePath);
+      if (!await directory.exists()) {
+        print('🔍 Debug: Storage directory does not exist: $storagePath');
+        return;
+      }
+
+      print('🔍 Debug: Listing all locks in: $storagePath');
+
+      final files = await directory.list().toList();
+      bool foundLocks = false;
+
+      for (var file in files) {
+        if (file is File && file.path.endsWith('.lock')) {
+          final fileName = path.basename(file.path);
+          foundLocks = true;
+
+          if (_isOurAppLockFile(fileName)) {
+            final isActive = await _isActiveLock(File(file.path));
+            print('   📄 $fileName - ${isActive ? "ACTIVE" : "STALE"}');
+
+            // Show lock content for debugging
+            try {
+              final content = await file.readAsString();
+              final lockData = jsonDecode(content);
+              print('      PID: ${lockData['pid']}, Type: ${lockData['type']}, Timestamp: ${lockData['timestamp']}');
+            } catch (e) {
+              print('      Could not read lock content: $e');
+            }
+          } else {
+            print('   📄 $fileName - HIVE/OTHER (ignored)');
+          }
+        }
+      }
+
+      if (!foundLocks) {
+        print('   ✅ No lock files found');
+      }
+    } catch (e) {
+      print('⚠️ Error during debug lock listing: $e');
+    }
+  }
+
   /// Check for active lock files, optionally excluding our own
   static Future<bool> _hasActiveLocks(String storagePath, {String? excludeOurLock}) async {
     try {
@@ -696,7 +851,7 @@ class AtTalkService {
       for (var file in files) {
         if (file is File && file.path.endsWith('.lock')) {
           // Fix Windows path handling - use proper path separator
-          final fileName = file.path.split(Platform.isWindows ? '\\' : '/').last;
+          final fileName = path.basename(file.path);
 
           // Only check OUR app lock files, not Hive's internal lock files
           if (!_isOurAppLockFile(fileName)) {
@@ -759,7 +914,7 @@ class AtTalkService {
         if (lockData is Map && lockData.containsKey('pid')) {
           final lockPid = lockData['pid'] as int;
           final refreshCount = lockData['refreshCount'] ?? 0;
-          final fileName = lockFile.path.split(Platform.isWindows ? '\\' : '/').last;
+          final fileName = path.basename(lockFile.path);
 
           if (!_isProcessRunning(lockPid)) {
             print('🧹 Removing lock for dead process $lockPid: $fileName');
@@ -915,8 +1070,8 @@ class AtTalkService {
       } else {
         // Just update the default preference for future use
         final dir = await getApplicationSupportDirectory();
-        String storagePath = '${dir.path}/.${AtTalkEnv.namespace}/temp_initialization/storage';
-        String commitLogPath = '$storagePath/commitLog';
+        String storagePath = path.join(dir.path, '.${AtTalkEnv.namespace}', 'temp_initialization', 'storage');
+        String commitLogPath = path.join(storagePath, 'commitLog');
 
         await Directory(storagePath).create(recursive: true);
         await Directory(commitLogPath).create(recursive: true);
@@ -975,8 +1130,8 @@ class AtTalkService {
       final namespaceDirs = ['default.attalk', 'test.attalk']; // Add more as needed
 
       for (final namespace in namespaceDirs) {
-        final namespacePath = '$appSupportPath/.$namespace';
-        final atSignPath = '$namespacePath/$normalizedAtSign';
+        final namespacePath = path.join(appSupportPath, '.$namespace');
+        final atSignPath = path.join(namespacePath, normalizedAtSign);
         final atSignDir = Directory(atSignPath);
 
         if (atSignDir.existsSync()) {
@@ -987,9 +1142,9 @@ class AtTalkService {
 
       // 4. Clean up any legacy storage directories that might exist
       final legacyPaths = [
-        '$appSupportPath/$normalizedAtSign', // Direct atSign folder
-        '$appSupportPath/.ai6bh/$normalizedAtSign', // Old namespace
-        '$appSupportPath/keys', // Legacy key storage
+        path.join(appSupportPath, normalizedAtSign), // Direct atSign folder
+        path.join(appSupportPath, '.ai6bh', normalizedAtSign), // Old namespace
+        path.join(appSupportPath, 'keys'), // Legacy key storage
       ];
 
       for (final legacyPath in legacyPaths) {
@@ -997,7 +1152,7 @@ class AtTalkService {
         if (legacyDir.existsSync()) {
           print('🗑️ Removing legacy directory: $legacyPath');
           // For keys directory, only remove files related to this atSign
-          if (legacyPath.endsWith('/keys')) {
+          if (legacyPath.endsWith(path.join('', 'keys'))) {
             final keyFiles = legacyDir
                 .listSync()
                 .where((file) => file.path.contains(normalizedAtSign.replaceAll('@', '')))
@@ -1050,11 +1205,11 @@ class AtTalkService {
 
       // Check for directories that might be created with username variations
       final possibleConflictPaths = [
-        '${dir.path}/$usernameOnly', // Direct username folder
-        '${dir.path}/.default.attalk/$usernameOnly', // Without @ prefix
-        '${dir.path}/.test.attalk/$usernameOnly', // Without @ prefix in test namespace
-        '/tmp/at_talk_gui/$usernameOnly', // Temp without @ prefix
-        '/tmp/at_talk_gui/$normalizedAtSign', // Temp with @ prefix
+        path.join(dir.path, usernameOnly), // Direct username folder
+        path.join(dir.path, '.default.attalk', usernameOnly), // Without @ prefix
+        path.join(dir.path, '.test.attalk', usernameOnly), // Without @ prefix in test namespace
+        path.join(Directory.systemTemp.path, 'at_talk_gui', usernameOnly), // Temp without @ prefix
+        path.join(Directory.systemTemp.path, 'at_talk_gui', normalizedAtSign), // Temp with @ prefix
       ];
 
       for (final conflictPath in possibleConflictPaths) {
@@ -1096,7 +1251,7 @@ class AtTalkService {
 
           await for (final entity in namespaceDir.list(recursive: true)) {
             if (entity is File && entity.path.endsWith('.lock')) {
-              final fileName = entity.path.split(Platform.isWindows ? '\\' : '/').last;
+              final fileName = path.basename(entity.path);
 
               // Only check our app lock files
               if (_isOurAppLockFile(fileName)) {
