@@ -10,8 +10,17 @@ class AtTalkEnv {
 
   // API Key for getting free atSigns (required for production)
   // Note: This should be obtained from https://my.atsign.com and stored securely
-  // For staging/testing, this can be null
-  static const String? appApiKey = null; // Replace with actual API key when using Production
+  // Can be set via environment variable AT_TALK_API_KEY or hardcoded below
+  static String? get appApiKey {
+    // First try environment variable
+    const envApiKey = String.fromEnvironment('AT_TALK_API_KEY');
+    if (envApiKey.isNotEmpty) {
+      return envApiKey;
+    }
+
+    // Fall back to hardcoded value (replace with your actual API key)
+    return "da11d9fa-166b-493e-b10b-54a3c2a3d0d9"; // Set to null for staging/testing, or replace with actual API key
+  }
 
   // App namespace - configurable like TUI's -n option
   static String _namespace = 'default.attalk';

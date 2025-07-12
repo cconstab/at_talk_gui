@@ -213,8 +213,6 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initializeApp() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
     // Note: Storage path will be determined when user authenticates with an atSign
     // For now, use a temporary generic path that will be updated during onboarding
     final dir = await getApplicationSupportDirectory();
@@ -246,24 +244,20 @@ class _SplashScreenState extends State<SplashScreen> {
 
     AtTalkService.initialize(atClientPreference);
 
-    // Check if user is already authenticated
+    // Check if user has atSigns available (but don't auto-login)
     final keyChainManager = KeyChainManager.getInstance();
     final atSigns = await keyChainManager.getAtSignListFromKeychain();
 
     if (atSigns.isNotEmpty) {
-      // Try to authenticate with the first available atSign
-      await authProvider.authenticateExisting(atSigns.first);
-      if (mounted) {
-        if (authProvider.isAuthenticated) {
-          Navigator.pushReplacementNamed(context, '/groups');
-        } else {
-          Navigator.pushReplacementNamed(context, '/onboarding');
-        }
-      }
+      print('🔑 Found existing atSigns: $atSigns');
+      print('� Proceeding to onboarding screen for manual selection');
     } else {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/onboarding');
-      }
+      print('📭 No existing atSigns found');
+    }
+
+    // Always go to onboarding screen to let user choose which atSign to use
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/onboarding');
     }
   }
 

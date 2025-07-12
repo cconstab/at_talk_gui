@@ -93,10 +93,10 @@ packages:
     dependency: "direct main"
     description:
       name: at_commons
-      sha256: "2b86d4e8b80fddcbec87be20270ec8c9dfb11aab25c29cfd1b082b328c39f92a"
+      sha256: "9e7568b90efd8643ad34a3536211757d66596cb65477cfc9f2accf4ac7b0b399"
       url: "https://pub.dev"
     source: hosted
-    version: "5.4.0"
+    version: "5.4.1"
   at_contact:
     dependency: "direct main"
     description:
@@ -140,11 +140,12 @@ packages:
   at_onboarding_flutter:
     dependency: "direct main"
     description:
-      name: at_onboarding_flutter
-      sha256: "100bd157647bc8f76596b43b03658bb923a19119373bf64ae2d2cf7525f97ab1"
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.1.12"
+      path: "packages/at_onboarding_flutter"
+      ref: "1e244eb5f522d31d9d0eb3c67990d7d6bd612446"
+      resolved-ref: "1e244eb5f522d31d9d0eb3c67990d7d6bd612446"
+      url: "https://github.com/atsign-foundation/at_widgets.git"
+    source: git
+    version: "6.1.10"
   at_persistence_secondary_server:
     dependency: transitive
     description:
@@ -194,7 +195,7 @@ packages:
     source: hosted
     version: "3.2.0"
   biometric_storage:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: biometric_storage
       sha256: "2cc569f2dbab39950812a6ae7fefa28c7d1c1eb07d2035c88f5e27da09022f5f"
@@ -317,10 +318,10 @@ packages:
     dependency: "direct main"
     description:
       name: device_info_plus
-      sha256: "98f28b42168cc509abc92f88518882fd58061ea372d7999aecc424345c7bff6a"
+      sha256: "306b78788d1bb569edb7c55d622953c2414ca12445b41c9117963e03afc5c513"
       url: "https://pub.dev"
     source: hosted
-    version: "11.5.0"
+    version: "11.3.3"
   device_info_plus_platform_interface:
     dependency: transitive
     description:
@@ -389,10 +390,10 @@ packages:
     dependency: "direct main"
     description:
       name: file_picker
-      sha256: "09b474c0c8117484b80cbebc043801ff91e05cfbd2874d512825c899e1754694"
+      sha256: "1375f8685ca6f0412effecc2db834757e9d0e3e055468053e563794b0755cdcd"
       url: "https://pub.dev"
     source: hosted
-    version: "9.2.3"
+    version: "8.1.1"
   fixnum:
     dependency: transitive
     description:
@@ -422,6 +423,11 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.0.0"
+  flutter_localizations:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
