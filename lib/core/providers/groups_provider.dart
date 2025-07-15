@@ -4,6 +4,7 @@ import 'dart:async';
 import '../models/group.dart';
 import '../models/chat_message.dart';
 import '../services/at_talk_service.dart';
+import '../services/file_transfer_service.dart';
 
 class GroupsProvider extends ChangeNotifier {
   final Map<String, Group> _groups = {};
@@ -300,6 +301,77 @@ class GroupsProvider extends ChangeNotifier {
     return allSuccess;
   }
 
+  /// Send a file message to a group
+  Future<bool> sendFileMessage(String groupId, String filePath, String? caption) async {
+    final group = _groups[groupId];
+    if (group == null) {
+      print('❌ Group not found: $groupId');
+      return false;
+    }
+
+    final currentAtSign = AtTalkService.instance.currentAtSign;
+    if (currentAtSign == null) {
+      print('❌ No current atSign available');
+      return false;
+    }
+
+    try {
+      print('📤 Starting file upload: $filePath');
+      
+      // Upload file and get the attachment
+      final attachment = await FileTransferService.instance.uploadFile(filePath);
+      if (attachment == null) {
+        print('❌ Failed to upload file: $filePath');
+        return false;
+      }
+
+      print('✅ File uploaded, sending to ${group.members.length} recipients');
+
+      // Send file message to all group members
+      final recipients = group.members.toList();
+      bool allSuccess = true;
+
+      for (String recipient in recipients) {
+        try {
+          final success = await FileTransferService.instance.sendFileMessage(
+            toAtSign: recipient,
+            attachment: attachment,
+            caption: caption,
+            groupMembers: group.members.toList(),
+          );
+          if (!success) {
+            print('❌ Failed to send to recipient: $recipient');
+            allSuccess = false;
+          } else {
+            print('✅ Sent successfully to: $recipient');
+          }
+        } catch (e) {
+          print('❌ Error sending to $recipient: $e');
+          allSuccess = false;
+        }
+      }
+
+      if (allSuccess) {
+        print('✅ File message sent successfully to group $groupId');
+      } else {
+        print('⚠️ Some file message deliveries failed for group $groupId');
+      }
+
+      return allSuccess;
+    } catch (e) {
+      print('❌ Error sending file message: $e');
+      
+      // Log the specific error for debugging
+      if (e.toString().contains('File too large')) {
+        print('❌ File size exceeded limit');
+      } else if (e.toString().contains('AtClient not initialized')) {
+        print('❌ AtClient connection issue');
+      }
+      
+      return false;
+    }
+  }
+
   void _subscribeToMessages() {
     print('🔄 GroupsProvider subscribing to messages...');
 
@@ -307,7 +379,7 @@ class GroupsProvider extends ChangeNotifier {
     _messageSubscription?.cancel();
 
     try {
-      _messageSubscription = AtTalkService.instance.getAllMessageStream().listen((messageData) {
+      _messageSubscription = AtTalkService.instance.getAllMessageStream().listen((messageData) async {
         final fromAtSign = messageData['from'] ?? '';
         final message = messageData['message'] ?? '';
         final rawValue = messageData['rawValue'] ?? '';
@@ -348,6 +420,10 @@ class GroupsProvider extends ChangeNotifier {
                 return;
               }
               _handleGroupMembershipChange(jsonData);
+              return;
+            } else if (messageType == 'file') {
+              // Handle file message - download if needed
+              await _handleFileMessage(jsonData, fromAtSign);
               return;
             }
 
@@ -1036,122 +1112,57 @@ class GroupsProvider extends ChangeNotifier {
       final instanceId = jsonData['instanceId'] as String?;
       final fromAtSign = jsonData['from'] as String?;
 
-      print('DEBUG: Handling group membership change:');
+      print('🔄 Handling group membership change:');
       print('  - newMembers: $newMembers');
       print('  - groupName: $groupName');
       print('  - instanceId: $instanceId');
       print('  - fromAtSign: $fromAtSign');
-      print('  - Current groups: ${_groups.keys.toList()}');
-      print('  - Current group details:');
-      for (final entry in _groups.entries) {
-        print('    * ${entry.key}: members=${entry.value.members}');
-      }
 
       if (newMembers.isEmpty) return;
 
       String? groupId;
       Group? existingGroup;
 
-      // Try to find group by instance ID first (this is the most reliable)
+      // Try to find group by instance ID first
       if (instanceId != null && _groups.containsKey(instanceId)) {
         groupId = instanceId;
         existingGroup = _groups[instanceId];
-        print('DEBUG: Found group by instanceId: $instanceId');
+        print('✅ Found group by instanceId: $instanceId');
       } else {
-        // For TUI compatibility, we need more sophisticated group matching
-        // The key insight: when members are removed, we need to find the group that
-        // currently contains ALL the new members PLUS some additional members
+        // Look for group with matching members
         final newMembersSet = newMembers.toSet();
-
-        print('DEBUG: Looking for group to update with new members: $newMembersSet');
-
-        // Strategy 1: Find a group that contains all new members as a subset
-        // and has MORE members (indicating we're removing some)
-        Group? bestMatch;
-        int smallestSizeDifference = 999;
-
-        for (final group in _groups.values) {
-          final groupMembers = group.members;
-          print('DEBUG: Checking group ${group.id} with members: $groupMembers');
-
-          // Check if this group contains all the new members (subset)
-          final containsAllNewMembers = newMembersSet.every((member) => groupMembers.contains(member));
-
-          if (containsAllNewMembers) {
-            final sizeDifference = groupMembers.length - newMembersSet.length;
-            print('DEBUG: Group ${group.id} contains all new members, size difference: $sizeDifference');
-
-            // Prefer the group with the smallest positive size difference
-            // (closest match for member removal)
-            if (sizeDifference >= 0 && sizeDifference < smallestSizeDifference) {
-              bestMatch = group;
-              smallestSizeDifference = sizeDifference;
-              print('DEBUG: New best match: ${group.id} (difference: $sizeDifference)');
-            }
+        
+        for (final entry in _groups.entries) {
+          final group = entry.value;
+          final groupMembersSet = group.members.toSet();
+          
+          // Check if this group contains all new members as a subset
+          if (newMembersSet.every((member) => groupMembersSet.contains(member))) {
+            existingGroup = group;
+            groupId = entry.key;
+            print('✅ Found group by member match: $groupId');
+            break;
           }
-        }
-
-        if (bestMatch != null) {
-          existingGroup = bestMatch;
-          groupId = bestMatch.id;
-          print('DEBUG: Found group to update by best subset match: ${bestMatch.id}');
         }
       }
 
       if (existingGroup != null && groupId != null) {
-        final oldMembers = existingGroup.members;
+        // Update existing group
+        final oldMembers = existingGroup.members.toSet();
         final newMembersSet = newMembers.toSet();
 
-        print('DEBUG: Updating existing group:');
-        print('  - Group ID: $groupId');
-        print('  - Old members: $oldMembers');
-        print('  - New members: $newMembersSet');
-
-        // CRITICAL: Apply TUI-compatible safeguards to prevent conversation overwrites
-        // Don't allow individual chats (2 participants) to overwrite group chats (3+ participants)
-        bool shouldAllowUpdate = true;
-
-        if (oldMembers.length >= 3 && newMembersSet.length == 2) {
-          // Trying to convert group chat to individual chat - this is the overwrite bug!
-          shouldAllowUpdate = false;
-          print('🚫 TUI SAFEGUARD: Preventing individual chat from overwriting group chat');
-          print('   Existing group: $groupId (${oldMembers.length} members): $oldMembers');
-          print('   Attempted update: (${newMembersSet.length} members): $newMembersSet');
-          print('   This membership change will be ignored to preserve the original group');
-        } else if (oldMembers.length == 2 && newMembersSet.length >= 3) {
-          // Trying to convert individual chat to group chat - this could also be problematic
-          shouldAllowUpdate = false;
-          print('🚫 TUI SAFEGUARD: Preventing group chat from overwriting individual chat');
-          print('   Existing group: $groupId (${oldMembers.length} members): $oldMembers');
-          print('   Attempted update: (${newMembersSet.length} members): $newMembersSet');
-          print('   This membership change will be ignored to preserve the original conversation');
-        } else {
-          print('✅ Membership change allowed: ${oldMembers.length} → ${newMembersSet.length} participants');
-        }
-
-        if (shouldAllowUpdate) {
-          // Update the group
-          _groups[groupId] = existingGroup.copyWith(members: newMembersSet, name: groupName);
-        } else {
-          // Instead of updating the existing group, create a new one for the new conversation
-          print('🆕 Creating separate conversation to preserve both groups');
-          final newGroupId = _generateTUICompatibleGroupId(newMembersSet, forceUniqueForGroup: true);
-
-          createOrUpdateGroup(newMembersSet, instanceId: newGroupId, name: groupName);
-
-          print('✅ Created separate group: $newGroupId to preserve original: $groupId');
-          return; // Exit early to avoid the member change system messages
-        }
-
-        // Use the actual sender's atSign (like TUI format) instead of 'System'
-        final currentAtSign = AtTalkService.instance.currentAtSign;
-        final isFromCurrentUser = currentAtSign != null && fromAtSign == currentAtSign;
+        // Update the group
+        _groups[groupId] = existingGroup.copyWith(
+          members: newMembersSet, 
+          name: groupName,
+        );
 
         // Add system messages for member changes
+        final currentAtSign = AtTalkService.instance.currentAtSign;
+        final isFromCurrentUser = currentAtSign != null && fromAtSign == currentAtSign;
+        
         final added = newMembersSet.difference(oldMembers);
         final removed = oldMembers.difference(newMembersSet);
-
-        print('DEBUG: Member changes - Added: $added, Removed: $removed');
 
         for (final member in added) {
           final systemMessage = ChatMessage(
@@ -1174,64 +1185,21 @@ class GroupsProvider extends ChangeNotifier {
         }
 
         notifyListeners();
-        print('DEBUG: Group $groupId membership updated successfully: +${added.length}, -${removed.length}');
+        print('✅ Updated group $groupId membership');
       } else {
-        // Create new group if not found - but apply safeguards first
-        print('DEBUG: No existing group found! Creating new group...');
-        print('  - Attempted instanceId: $instanceId');
-        print('  - Attempted member matching failed');
-
-        // CRITICAL: Before creating a new group, check if we have an existing group that would conflict
-        // This prevents creating individual chats when group chats already exist with overlapping members
-        final newMembersSet = newMembers.toSet();
-        bool shouldCreateNew = true;
-
-        // Check if any existing group has these exact members
-        for (final existingGroup in _groups.values) {
-          if (existingGroup.members.length == newMembersSet.length &&
-              existingGroup.members.containsAll(newMembersSet)) {
-            // Exact match found - don't create duplicate
-            shouldCreateNew = false;
-            print('🚫 Exact match found, not creating duplicate: ${existingGroup.id}');
-            break;
-          }
-        }
-
-        // Additional check: if we're trying to create a 2-person group, make sure we don't have
-        // a 3+ person group with the same participants that would be overwritten
-        if (shouldCreateNew && newMembersSet.length == 2) {
-          for (final existingGroup in _groups.values) {
-            if (existingGroup.members.length >= 3 && existingGroup.members.containsAll(newMembersSet)) {
-              print(
-                '🚫 TUI SAFEGUARD: Not creating 2-person group that could conflict with existing ${existingGroup.members.length}-person group',
-              );
-              print(
-                '   Existing group: ${existingGroup.id} (${existingGroup.members.length} members): ${existingGroup.members}',
-              );
-              print('   Would-be new group: (${newMembersSet.length} members): $newMembersSet');
-              shouldCreateNew = false;
-              break;
-            }
-          }
-        }
-
-        if (shouldCreateNew) {
-          print('  - This might cause TUI to see a duplicate group!');
-          final newGroupId = instanceId ?? _generateGroupId(newMembers.toSet());
-          _groups[newGroupId] = Group(
-            id: newGroupId,
-            members: newMembers.toSet(),
-            lastMessageTime: DateTime.now(),
-            name: groupName,
-          );
-          notifyListeners();
-          print('DEBUG: Created new group $newGroupId with ${newMembers.length} members (this may be a duplicate!)');
-        } else {
-          print('🛡️ Group creation skipped due to TUI safeguards - preserving existing conversations');
-        }
+        // Create new group
+        final newGroupId = instanceId ?? _generateGroupId(newMembers.toSet());
+        _groups[newGroupId] = Group(
+          id: newGroupId,
+          members: newMembers.toSet(),
+          lastMessageTime: DateTime.now(),
+          name: groupName,
+        );
+        notifyListeners();
+        print('✅ Created new group $newGroupId');
       }
     } catch (e) {
-      print('Error handling group membership change: $e');
+      print('❌ Error handling group membership change: $e');
     }
   }
 
@@ -1381,4 +1349,293 @@ class GroupsProvider extends ChangeNotifier {
     print('   Consolidated to ${allMessages.length} total messages in $canonicalGroupId');
     notifyListeners();
   }
+
+  /// Handle incoming file message notifications
+  Future<void> _handleFileMessage(Map<String, dynamic> jsonData, String fromAtSign) async {
+    try {
+      print('📎 Processing file message from $fromAtSign');
+      
+      final fileId = jsonData['fileId'] as String?;
+      final fileName = jsonData['fileName'] as String?;
+      final fileSize = jsonData['fileSize'] as int?;
+      final fileType = jsonData['attachmentType'] as String?;
+      final fileMimeType = jsonData['mimeType'] as String?;
+      final groupMembers = (jsonData['group'] as List<dynamic>?)?.cast<String>();
+      final groupName = jsonData['groupName'] as String?;
+      final messageText = jsonData['msg'] as String? ?? '';
+
+      if (fileId == null || fileName == null) {
+        print('⚠️ Invalid file message: missing fileId or fileName');
+        return;
+      }
+
+      // Get current atSign for filtering
+      final currentAtSign = AtTalkService.instance.currentAtSign;
+      if (currentAtSign == null) {
+        print('❌ No current atSign - cannot process file message');
+        return;
+      }
+
+      // Determine group/session for this file message
+      String groupId;
+      Set<String> members = {};
+
+      if (groupMembers != null) {
+        members = groupMembers.toSet();
+        // Use TUI-compatible session finding logic
+        if (members.length == 1 && members.first == currentAtSign) {
+          // Self-chat session
+          groupId = currentAtSign;
+        } else {
+          // All groups: use comma-separated sorted list
+          final sortedParticipants = members.toList()..sort();
+          groupId = sortedParticipants.join(',');
+        }
+      } else {
+        // Fallback to 1-on-1 conversation
+        members = {fromAtSign, currentAtSign};
+        final sortedParticipants = members.toList()..sort();
+        groupId = sortedParticipants.join(',');
+      }
+
+      // Ensure group exists
+      final canonicalGroupId = _getOrCreateCanonicalGroup(groupId, fromAtSign, currentAtSign);
+      if (canonicalGroupId != groupId) {
+        print('🔀 Using canonical group for file message: $canonicalGroupId (was: $groupId)');
+        groupId = canonicalGroupId;
+      }
+
+      // Ensure the group exists in our groups map
+      if (!_groups.containsKey(groupId)) {
+        _groups[groupId] = Group(
+          id: groupId,
+          members: members,
+          lastMessageTime: DateTime.now(),
+          name: groupName,
+        );
+      }
+
+      // Determine attachment type
+      AttachmentType attachmentType = AttachmentType.other;
+      if (fileType != null) {
+        switch (fileType.toLowerCase()) {
+          case 'image':
+            attachmentType = AttachmentType.image;
+            break;
+          case 'document':
+            attachmentType = AttachmentType.document;
+            break;
+          case 'audio':
+            attachmentType = AttachmentType.audio;
+            break;
+          case 'video':
+            attachmentType = AttachmentType.video;
+            break;
+          default:
+            attachmentType = AttachmentType.other;
+        }
+      } else if (fileMimeType != null) {
+        attachmentType = _getAttachmentTypeFromMimeType(fileMimeType);
+      }
+
+      // Create attachment metadata
+      final attachment = MessageAttachment(
+        id: fileId,
+        originalFileName: fileName,
+        type: attachmentType,
+        sizeInBytes: fileSize ?? 0,
+        mimeType: fileMimeType,
+        localPath: null, // Will be set after download
+        thumbnailPath: null, // Will be set if thumbnail exists
+        isDownloaded: false,
+        downloadProgress: 0.0, // Start with 0% download progress
+      );
+
+      // Create chat message with attachment
+      final chatMessage = ChatMessage(
+        text: messageText.isNotEmpty ? messageText : 'Sent an attachment',
+        fromAtSign: fromAtSign,
+        timestamp: DateTime.now(),
+        isFromMe: fromAtSign == currentAtSign,
+        attachments: [attachment],
+      );
+
+      print('📨 Adding file message to group $groupId: ${attachment.originalFileName}');
+      
+      // Add message to group
+      addMessageToGroup(groupId, chatMessage);
+
+      // Start downloading the file in the background for preview/thumbnail generation
+      autoDownloadFileAttachment(groupId, chatMessage.id, attachment, fromAtSign);
+
+    } catch (e) {
+      print('❌ Error handling file message: $e');
+    }
+  }
+
+  /// Determine attachment type from MIME type
+  AttachmentType _getAttachmentTypeFromMimeType(String mimeType) {
+    if (mimeType.startsWith('image/')) {
+      return AttachmentType.image;
+    } else if (mimeType.startsWith('audio/')) {
+      return AttachmentType.audio;
+    } else if (mimeType.startsWith('video/')) {
+      return AttachmentType.video;
+    } else if (mimeType.startsWith('application/pdf') ||
+               mimeType.startsWith('application/msword') ||
+               mimeType.startsWith('application/vnd.openxmlformats-officedocument') ||
+               mimeType.startsWith('text/')) {
+      return AttachmentType.document;
+    } else {
+      return AttachmentType.other;
+    }
+  }
+
+  /// Download file attachment with user-selected save location
+  Future<void> downloadFileAttachment(
+    String groupId,
+    String messageId,
+    MessageAttachment attachment,
+    String fromAtSign,
+  ) async {
+    try {
+      print('📥 Starting user download for ${attachment.originalFileName}');
+      
+      // Set download progress to indicate download is starting
+      _updateFileDownloadProgress(groupId, messageId, attachment.id, 0.1);
+      
+      // Download the file using the user-selected save dialog
+      final filePath = await FileTransferService.instance.downloadFile(
+        attachment.id,
+        attachment.originalFileName,
+      );
+
+      if (filePath != null) {
+        print('✅ Downloaded ${attachment.originalFileName} to $filePath');
+        
+        // Update the attachment with the downloaded file path
+        _updateFileAttachmentPath(groupId, messageId, attachment.id, filePath);
+      } else {
+        print('❌ User cancelled download or failed to download ${attachment.originalFileName}');
+        _updateFileDownloadProgress(groupId, messageId, attachment.id, 0.0); // Reset to show download button again
+      }
+    } catch (e) {
+      print('❌ Error downloading file attachment: $e');
+      _updateFileDownloadProgress(groupId, messageId, attachment.id, -1.0); // -1 indicates error
+    }
+  }
+
+  /// Auto-download file attachment to app directory for previews/thumbnails
+  Future<void> autoDownloadFileAttachment(
+    String groupId,
+    String messageId,
+    MessageAttachment attachment,
+    String fromAtSign,
+  ) async {
+    try {
+      print('📥 Starting auto-download for ${attachment.originalFileName}');
+      
+      // Set download progress to indicate download is starting
+      _updateFileDownloadProgress(groupId, messageId, attachment.id, 0.1);
+      
+      // Download the file automatically to app directory
+      final filePath = await FileTransferService.instance.downloadFileToAppDirectory(
+        attachment.id,
+        attachment.originalFileName,
+      );
+
+      if (filePath != null) {
+        print('✅ Auto-downloaded ${attachment.originalFileName} to $filePath');
+        
+        // Update the attachment with the downloaded file path
+        _updateFileAttachmentPath(groupId, messageId, attachment.id, filePath);
+      } else {
+        print('❌ Failed to auto-download ${attachment.originalFileName}');
+        _updateFileDownloadProgress(groupId, messageId, attachment.id, -1.0); // -1 indicates error
+      }
+    } catch (e) {
+      print('❌ Error auto-downloading file attachment: $e');
+      _updateFileDownloadProgress(groupId, messageId, attachment.id, -1.0); // -1 indicates error
+    }
+  }
+
+  /// Update download progress for a file attachment
+  void _updateFileDownloadProgress(String groupId, String messageId, String attachmentId, double progress) {
+    final messages = _groupMessages[groupId];
+    if (messages == null) return;
+
+    final messageIndex = messages.indexWhere((msg) => msg.id == messageId);
+    if (messageIndex == -1) return;
+
+    final message = messages[messageIndex];
+    final attachmentIndex = message.attachments.indexWhere((att) => att.id == attachmentId);
+    if (attachmentIndex == -1) return;
+
+    // Create updated attachment with new progress
+    final attachment = message.attachments[attachmentIndex];
+    final updatedAttachment = attachment.copyWith(downloadProgress: progress);
+
+    // Create updated attachments list
+    final updatedAttachments = List<MessageAttachment>.from(message.attachments);
+    updatedAttachments[attachmentIndex] = updatedAttachment;
+
+    // Create updated message
+    final updatedMessage = ChatMessage(
+      id: message.id,
+      text: message.text,
+      fromAtSign: message.fromAtSign,
+      timestamp: message.timestamp,
+      isFromMe: message.isFromMe,
+      attachments: updatedAttachments,
+    );
+
+    // Replace the message
+    messages[messageIndex] = updatedMessage;
+    notifyListeners();
+  }
+
+  /// Update file path for a downloaded attachment
+  void _updateFileAttachmentPath(String groupId, String messageId, String attachmentId, String filePath) {
+    final messages = _groupMessages[groupId];
+    if (messages == null) return;
+
+    final messageIndex = messages.indexWhere((msg) => msg.id == messageId);
+    if (messageIndex == -1) return;
+
+    final message = messages[messageIndex];
+    final attachmentIndex = message.attachments.indexWhere((att) => att.id == attachmentId);
+    if (attachmentIndex == -1) return;
+
+    // Create updated attachment with file path and thumbnail path
+    final attachment = message.attachments[attachmentIndex];
+    
+    // Get thumbnail path if it exists
+    final thumbnailPath = FileTransferService.instance.getThumbnailPath(attachmentId);
+    
+    final updatedAttachment = attachment.copyWith(
+      localPath: filePath,
+      thumbnailPath: thumbnailPath,
+      isDownloaded: true,
+      downloadProgress: 1.0,
+    );
+
+    // Create updated attachments list
+    final updatedAttachments = List<MessageAttachment>.from(message.attachments);
+    updatedAttachments[attachmentIndex] = updatedAttachment;
+
+    // Create updated message
+    final updatedMessage = ChatMessage(
+      id: message.id,
+      text: message.text,
+      fromAtSign: message.fromAtSign,
+      timestamp: message.timestamp,
+      isFromMe: message.isFromMe,
+      attachments: updatedAttachments,
+    );
+
+    // Replace the message
+    messages[messageIndex] = updatedMessage;
+    notifyListeners();
+  }
+
 }

@@ -95,6 +95,11 @@ class _GroupsListScreenWithSidePanelState
             icon: const Icon(Icons.group_add),
             tooltip: 'New Group',
           ),
+          IconButton(
+            onPressed: () => Navigator.pushNamed(context, '/settings'),
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'logout') {

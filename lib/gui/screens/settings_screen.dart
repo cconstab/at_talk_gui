@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/groups_provider.dart';
 import '../../core/services/at_talk_service.dart';
+import '../../core/services/display_name_service.dart';
 import '../../core/utils/atsign_manager.dart';
 import '../widgets/key_management_dialog.dart';
 
@@ -16,11 +17,24 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, AtsignInformation> _availableAtSigns = {};
   bool _isLoading = true;
+  String? _currentDisplayName;
 
   @override
   void initState() {
     super.initState();
     _loadAtSignsInfo();
+    _loadCurrentDisplayName();
+  }
+
+  Future<void> _loadCurrentDisplayName() async {
+    try {
+      final displayName = await DisplayNameService.instance.getMyDisplayName();
+      setState(() {
+        _currentDisplayName = displayName;
+      });
+    } catch (e) {
+      print('Error loading display name: $e');
+    }
   }
 
   Future<void> _loadAtSignsInfo() async {
@@ -236,6 +250,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   const SizedBox(height: 16),
 
+                  // Display Name Section
+                  _buildSectionCard(
+                    title: 'Display Name',
+                    icon: Icons.person,
+                    children: [
+                      ListTile(
+                        leading: const Icon(
+                          Icons.edit,
+                          color: Colors.blue,
+                        ),
+                        title: const Text('Set Display Name'),
+                        subtitle: Text(
+                          _currentDisplayName != null
+                              ? 'Current: $_currentDisplayName'
+                              : 'No display name set',
+                        ),
+                        onTap: () => _showDisplayNameDialog(),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
                   // App Configuration Section
                   _buildSectionCard(
                     title: 'App Configuration',
@@ -332,6 +369,132 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           ...children,
         ],
+      ),
+    );
+  }
+
+  void _showDisplayNameDialog() {
+    final controller = TextEditingController(text: _currentDisplayName ?? '');
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Set Display Name'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Set a friendly name that others will see in chats instead of your full AtSign.',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'Display Name',
+                  hintText: 'Enter your display name',
+                  border: OutlineInputBorder(),
+                ),
+                enabled: !isLoading,
+                maxLength: 50,
+                textInputAction: TextInputAction.done,
+              ),
+            ],
+          ),
+          actions: [
+            if (_currentDisplayName != null)
+              TextButton(
+                onPressed: isLoading ? null : () async {
+                  setState(() => isLoading = true);
+                  try {
+                    await DisplayNameService.instance.clearMyDisplayName();
+                    await _loadCurrentDisplayName();
+                    if (mounted) {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Display name cleared'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error clearing display name: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  } finally {
+                    setState(() => isLoading = false);
+                  }
+                },
+                child: const Text('Clear'),
+              ),
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isLoading ? null : () async {
+                final displayName = controller.text.trim();
+                if (displayName.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Display name cannot be empty'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                setState(() => isLoading = true);
+                try {
+                  await DisplayNameService.instance.setMyDisplayName(displayName);
+                  await _loadCurrentDisplayName();
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Display name saved successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error saving display name: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                } finally {
+                  setState(() => isLoading = false);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2196F3),
+                foregroundColor: Colors.white,
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
   }

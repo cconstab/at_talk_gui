@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 import '../../core/providers/groups_provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/at_talk_service.dart';
+import '../../core/services/display_name_service.dart';
+import '../../core/services/file_transfer_service.dart';
 import '../../core/models/group.dart';
 import '../../core/models/chat_message.dart';
 
@@ -327,7 +331,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   itemCount: reversedMessages.length,
                   itemBuilder: (context, index) {
                     final message = reversedMessages[index];
-                    return ChatBubble(message: message);
+                    return ChatBubble(message: message, group: widget.group);
                   },
                 );
               },
@@ -391,15 +395,32 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           horizontal: 20,
                           vertical: 14,
                         ),
-                        prefixIcon: Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Icon(
-                            Icons.chat_bubble_outline_rounded,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant.withOpacity(0.5),
-                            size: 20,
-                          ),
+                        prefixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                                size: 20,
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.attach_file,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                size: 20,
+                              ),
+                              onPressed: _pickAndSendFile,
+                              padding: const EdgeInsets.all(4),
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
                         ),
                       ),
                       style: TextStyle(
@@ -948,12 +969,101 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       }
     }
   }
+
+  void _pickAndSendFile() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles();
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final filePath = file.path;
+
+        if (filePath == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Unable to access the selected file.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        // Show loading indicator
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('Sending ${file.name}...'),
+                ],
+              ),
+              duration: const Duration(seconds: 30),
+            ),
+          );
+        }
+
+        final groupsProvider = Provider.of<GroupsProvider>(
+          context,
+          listen: false,
+        );
+        final success = await groupsProvider.sendFileMessage(
+          widget.group.id,
+          filePath,
+          null, // caption - could be added later with a dialog
+        );
+
+        // Hide loading indicator
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        }
+
+        if (!success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to send ${file.name}. Check file size (max 5MB) and try again.',
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${file.name} sent successfully!'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error picking file: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error selecting file. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 }
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
+  final Group group;
 
-  const ChatBubble({super.key, required this.message});
+  const ChatBubble({super.key, required this.message, required this.group});
 
   @override
   Widget build(BuildContext context) {
@@ -995,25 +1105,54 @@ class ChatBubble extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (!isMe) ...[
-                    Text(
-                      message.fromAtSign.startsWith('@')
-                          ? message.fromAtSign.substring(1) // Remove @ symbol
-                          : message.fromAtSign,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2196F3),
+                    FutureBuilder<String?>(
+                      future: DisplayNameService.instance.getDisplayName(
+                        message.fromAtSign,
                       ),
+                      builder: (context, snapshot) {
+                        final displayName = snapshot.data;
+                        final atSign = message.fromAtSign.startsWith('@')
+                            ? message.fromAtSign.substring(1)
+                            : message.fromAtSign;
+
+                        String displayText;
+                        if (displayName != null && displayName.isNotEmpty) {
+                          // Show "DisplayName (@atsign)" format
+                          displayText = '$displayName (@$atSign)';
+                        } else {
+                          // Just show the atSign without @
+                          displayText = atSign;
+                        }
+
+                        return Text(
+                          displayText,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2196F3),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 4),
                   ],
-                  Text(
-                    message.text,
-                    style: TextStyle(
-                      color: isMe ? Colors.white : Colors.black87,
-                      fontSize: 16,
+                  // Show attachments if any
+                  if (message.attachments.isNotEmpty) ...[
+                    ...message.attachments.map(
+                      (attachment) =>
+                          _buildAttachmentWidget(context, attachment, isMe),
                     ),
-                  ),
+                    if (message.text.isNotEmpty) const SizedBox(height: 8),
+                  ],
+                  // Show text if present
+                  if (message.text.isNotEmpty)
+                    Text(
+                      message.text,
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.black87,
+                        fontSize: 16,
+                      ),
+                    ),
                   const SizedBox(height: 4),
                   Text(
                     timeFormat.format(message.timestamp),
@@ -1038,6 +1177,371 @@ class ChatBubble extends StatelessWidget {
                     .toUpperCase(),
                 style: const TextStyle(fontSize: 12, color: Colors.white),
               ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentWidget(
+    BuildContext context,
+    MessageAttachment attachment,
+    bool isMe,
+  ) {
+    final textColor = isMe ? Colors.white : Colors.black87;
+    final subtextColor = isMe ? Colors.white70 : Colors.grey[600];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isMe
+              ? Colors.white.withOpacity(0.2)
+              : Colors.grey.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image preview for image attachments
+          if (attachment.type == AttachmentType.image) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child:
+                  attachment.thumbnailPath != null &&
+                      File(attachment.thumbnailPath!).existsSync()
+                  ? Image.file(
+                      File(attachment.thumbnailPath!),
+                      width: double.infinity,
+                      height: 200,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        print('❌ Error loading thumbnail: $error');
+                        return _buildImagePreviewFallback(attachment);
+                      },
+                    )
+                  : attachment.localPath != null &&
+                        File(attachment.localPath!).existsSync()
+                  ? Image.file(
+                      File(attachment.localPath!),
+                      width: double.infinity,
+                      height: 200,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        print('❌ Error loading image: $error');
+                        return _buildImagePreviewFallback(attachment);
+                      },
+                    )
+                  : _buildImagePreviewFallback(attachment),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // File info header
+          Row(
+            children: [
+              Icon(
+                _getAttachmentIcon(attachment.type),
+                color: textColor,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  attachment.originalFileName,
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                _formatFileSize(attachment.sizeInBytes),
+                style: TextStyle(color: subtextColor, fontSize: 12),
+              ),
+              const Spacer(),
+              // Show download progress when downloading
+              if (!attachment.isDownloaded &&
+                  attachment.downloadProgress != null &&
+                  attachment.downloadProgress! > 0 &&
+                  attachment.downloadProgress! < 1.0)
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        value: attachment.downloadProgress,
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(textColor),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${((attachment.downloadProgress ?? 0) * 100).toInt()}%',
+                      style: TextStyle(color: subtextColor, fontSize: 11),
+                    ),
+                  ],
+                )
+              // Show open button when downloaded
+              else if (attachment.isDownloaded &&
+                  attachment.localPath != null &&
+                  File(attachment.localPath!).existsSync())
+                Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green, size: 16),
+                    const SizedBox(width: 4),
+                    TextButton.icon(
+                      onPressed: () => _openFile(context, attachment),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: Size.zero,
+                      ),
+                      icon: Icon(
+                        Icons.open_in_new,
+                        size: 14,
+                        color: isMe ? Colors.white : const Color(0xFF2196F3),
+                      ),
+                      label: Text(
+                        'Open',
+                        style: TextStyle(
+                          color: isMe ? Colors.white : const Color(0xFF2196F3),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              // Show download button when not downloaded (especially for receivers)
+              else
+                TextButton.icon(
+                  onPressed: () => _downloadAttachment(context, attachment),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    minimumSize: Size.zero,
+                    backgroundColor: isMe
+                        ? Colors.white.withOpacity(0.1)
+                        : const Color(0xFF2196F3).withOpacity(0.1),
+                  ),
+                  icon: Icon(
+                    Icons.download,
+                    size: 16,
+                    color: isMe ? Colors.white : const Color(0xFF2196F3),
+                  ),
+                  label: Text(
+                    'Download',
+                    style: TextStyle(
+                      color: isMe ? Colors.white : const Color(0xFF2196F3),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getAttachmentIcon(AttachmentType type) {
+    switch (type) {
+      case AttachmentType.image:
+        return Icons.image;
+      case AttachmentType.document:
+        return Icons.description;
+      case AttachmentType.audio:
+        return Icons.audiotrack;
+      case AttachmentType.video:
+        return Icons.videocam;
+      case AttachmentType.other:
+      default:
+        return Icons.attach_file;
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  void _downloadAttachment(
+    BuildContext context,
+    MessageAttachment attachment,
+  ) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Downloading ${attachment.originalFileName}...'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Find the message containing this attachment to get the messageId
+      final groupsProvider = Provider.of<GroupsProvider>(
+        context,
+        listen: false,
+      );
+      final currentGroup = group;
+
+      final messages = groupsProvider.getGroupMessages(currentGroup.id);
+      final message = messages.firstWhere(
+        (msg) => msg.attachments.any((att) => att.id == attachment.id),
+        orElse: () => throw Exception('Message not found'),
+      );
+
+      // Start the download through GroupsProvider which will update the UI state
+      await groupsProvider.downloadFileAttachment(
+        currentGroup.id,
+        message.id,
+        attachment,
+        message.fromAtSign,
+      );
+
+      // Check if download was successful (has a localPath)
+      final updatedMessages = groupsProvider.getGroupMessages(currentGroup.id);
+      final updatedMessage = updatedMessages.firstWhere(
+        (msg) => msg.id == message.id,
+        orElse: () => message,
+      );
+      final updatedAttachment = updatedMessage.attachments.firstWhere(
+        (att) => att.id == attachment.id,
+        orElse: () => attachment,
+      );
+
+      if (updatedAttachment.localPath != null &&
+          updatedAttachment.localPath!.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Downloaded ${attachment.originalFileName}'),
+            backgroundColor: Colors.green,
+            action: SnackBarAction(
+              label: 'Open',
+              onPressed: () {
+                _openFile(context, updatedAttachment);
+              },
+            ),
+          ),
+        );
+      } else {
+        // Download was cancelled or failed
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Download cancelled or failed'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to download ${attachment.originalFileName}: $e',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _openFile(BuildContext context, MessageAttachment attachment) async {
+    try {
+      if (attachment.localPath != null &&
+          File(attachment.localPath!).existsSync()) {
+        // On macOS, use the 'open' command to open the file with default app
+        if (Platform.isMacOS) {
+          await Process.run('open', [attachment.localPath!]);
+        } else if (Platform.isLinux) {
+          await Process.run('xdg-open', [attachment.localPath!]);
+        } else if (Platform.isWindows) {
+          await Process.run('start', [attachment.localPath!], runInShell: true);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('File opening not supported on this platform'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Opening ${attachment.originalFileName}'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('File not found locally. Please download first.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to open ${attachment.originalFileName}: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Widget _buildImagePreviewFallback(MessageAttachment attachment) {
+    return Container(
+      width: double.infinity,
+      height: 200,
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image, color: Colors.grey[600], size: 48),
+          const SizedBox(height: 8),
+          Text(
+            attachment.isDownloaded
+                ? 'Image preview loading...'
+                : 'Download to preview',
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+          if (!attachment.isDownloaded) ...[
+            const SizedBox(height: 8),
+            Text(
+              attachment.originalFileName,
+              style: TextStyle(
+                color: Colors.grey[700],
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ],
