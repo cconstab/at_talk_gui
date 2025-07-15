@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
 import 'dart:async';
+import 'dart:collection';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -12,6 +13,35 @@ import 'package:file_picker/file_picker.dart';
 
 import '../models/chat_message.dart';
 import 'at_talk_service.dart';
+
+/// Simple semaphore implementation for controlling concurrent operations
+class Semaphore {
+  final int maxCount;
+  int _currentCount;
+  final Queue<Completer<void>> _waitQueue = Queue<Completer<void>>();
+
+  Semaphore(this.maxCount) : _currentCount = maxCount;
+
+  Future<void> acquire() async {
+    if (_currentCount > 0) {
+      _currentCount--;
+      return;
+    }
+
+    final completer = Completer<void>();
+    _waitQueue.add(completer);
+    return completer.future;
+  }
+
+  void release() {
+    if (_waitQueue.isNotEmpty) {
+      final completer = _waitQueue.removeFirst();
+      completer.complete();
+    } else {
+      _currentCount++;
+    }
+  }
+}
 
 /// Helper class for reading files in chunks to avoid memory issues
 class ChunkReader implements StreamTransformer<List<int>, Uint8List> {
@@ -47,9 +77,7 @@ class _ChunkTransformer extends StreamTransformerBase<List<int>, Uint8List> {
             _buffer.addAll(data);
 
             while (_buffer.length >= chunkSize) {
-              final chunk = Uint8List.fromList(
-                _buffer.take(chunkSize).toList(),
-              );
+              final chunk = Uint8List.fromList(_buffer.take(chunkSize).toList());
               _buffer.removeRange(0, chunkSize);
               controller.add(chunk);
             }
@@ -73,26 +101,19 @@ class _ChunkTransformer extends StreamTransformerBase<List<int>, Uint8List> {
 
 class FileTransferService {
   static FileTransferService? _instance;
-  static FileTransferService get instance =>
-      _instance ??= FileTransferService._internal();
+  static FileTransferService get instance => _instance ??= FileTransferService._internal();
 
   FileTransferService._internal();
 
-  static const int maxFileSize =
-      5 * 1024 * 1024; // 5MB limit (further reduced for reliability)
-  static const int chunkSize =
-      32 * 1024; // 32KB chunks (smaller for better reliability)
+  static const int maxFileSize = 5 * 1024 * 1024; // 5MB limit (further reduced for reliability)
+  static const int chunkSize = 8 * 1024; // 8KB chunks for sequential processing and better reliability
   static const int thumbnailSize = 300; // 300px max for thumbnails
   static const int maxRetries = 3; // Maximum retries for failed operations
-  static const Duration chunkTimeout = Duration(
-    seconds: 30,
-  ); // Timeout per chunk operation
+  static const Duration chunkTimeout = Duration(seconds: 30); // Timeout per chunk operation
+  static const int maxConcurrentUploads = 3; // Maximum concurrent chunk uploads to avoid overloading atServer
 
   /// Upload a file and return MessageAttachment with progress callback
-  Future<MessageAttachment?> uploadFile(
-    String filePath, [
-    Function(double)? onProgress,
-  ]) async {
+  Future<MessageAttachment?> uploadFile(String filePath, [Function(double)? onProgress]) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
@@ -103,9 +124,7 @@ class FileTransferService {
       if (fileSize > maxFileSize) {
         final maxSizeMB = maxFileSize ~/ (1024 * 1024);
         final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(1);
-        throw Exception(
-          'File too large: ${fileSizeMB}MB (max ${maxSizeMB}MB allowed)',
-        );
+        throw Exception('File too large: ${fileSizeMB}MB (max ${maxSizeMB}MB allowed)');
       }
 
       // Check AtClient health before proceeding
@@ -146,9 +165,7 @@ class FileTransferService {
       });
 
       onProgress?.call(1.0);
-      print(
-        '✅ File uploaded successfully: $fileName (${_formatFileSize(fileSize)})',
-      );
+      print('✅ File uploaded successfully: $fileName (${_formatFileSize(fileSize)})');
       return attachment;
     } catch (e) {
       print('❌ Failed to upload file: $e');
@@ -174,14 +191,10 @@ class FileTransferService {
         'caption': caption ?? '',
         'msg': caption ?? 'Sent a file: ${attachment.originalFileName}',
         'isGroup': groupMembers != null && groupMembers.length > 2,
-        'group':
-            groupMembers ?? [AtTalkService.instance.currentAtSign!, toAtSign],
+        'group': groupMembers ?? [AtTalkService.instance.currentAtSign!, toAtSign],
         'instanceId': groupMembers != null
             ? (groupMembers.toList()..sort()).join(',')
-            : ([
-                AtTalkService.instance.currentAtSign!,
-                toAtSign,
-              ]..sort()).join(','),
+            : ([AtTalkService.instance.currentAtSign!, toAtSign]..sort()).join(','),
         'from': AtTalkService.instance.currentAtSign,
       };
 
@@ -223,12 +236,16 @@ class FileTransferService {
   }
 
   /// Download a file by fileId with user-selected save location
-  Future<String?> downloadFile(String fileId, String fileName) async {
+  Future<String?> downloadFile(
+    String fileId,
+    String fileName, [
+    String? fromAtSign, // Add sender parameter
+  ]) async {
     try {
       print('📥 Downloading file: $fileName');
 
       // First, download the file bytes from atPlatform
-      final fileBytes = await _downloadFileFromAtPlatform(fileId);
+      final fileBytes = await _downloadFileFromAtPlatform(fileId, fromAtSign);
       if (fileBytes == null) {
         throw Exception('Failed to download file chunks');
       }
@@ -263,8 +280,9 @@ class FileTransferService {
   /// Download a file automatically to app directory (for previews, thumbnails, etc.)
   Future<String?> downloadFileToAppDirectory(
     String fileId,
-    String fileName,
-  ) async {
+    String fileName, [
+    String? fromAtSign, // Add sender parameter
+  ]) async {
     try {
       print('📥 Auto-downloading file for preview: $fileName');
 
@@ -279,7 +297,7 @@ class FileTransferService {
       }
 
       // Download file chunks from atPlatform
-      final fileBytes = await _downloadFileFromAtPlatform(fileId);
+      final fileBytes = await _downloadFileFromAtPlatform(fileId, fromAtSign);
       if (fileBytes == null) {
         throw Exception('Failed to download file chunks');
       }
@@ -301,9 +319,7 @@ class FileTransferService {
   /// Get downloads directory
   Future<String> _getDownloadDirectory() async {
     final appDir = await getApplicationDocumentsDirectory();
-    final downloadDir = Directory(
-      path.join(appDir.path, 'AtTalk', 'Downloads'),
-    );
+    final downloadDir = Directory(path.join(appDir.path, 'AtTalk', 'Downloads'));
     if (!await downloadDir.exists()) {
       await downloadDir.create(recursive: true);
     }
@@ -311,11 +327,7 @@ class FileTransferService {
   }
 
   /// Upload file to atPlatform in chunks with retry mechanism and progress callback
-  Future<void> _uploadFileToAtPlatform(
-    File file,
-    String fileId,
-    Function(double) onProgress,
-  ) async {
+  Future<void> _uploadFileToAtPlatform(File file, String fileId, Function(double) onProgress) async {
     final client = AtTalkService.instance.atClient;
     if (client == null) throw Exception('AtClient not initialized');
 
@@ -324,7 +336,7 @@ class FileTransferService {
     final totalChunks = (fileSize / chunkSize).ceil();
 
     print(
-      '📤 Uploading file in $totalChunks chunks of ${_formatFileSize(chunkSize)} each',
+      '📤 Uploading file with controlled concurrency: $totalChunks chunks of ${_formatFileSize(chunkSize)} each with 1-day TTL',
     );
 
     // Upload metadata first with retry
@@ -335,7 +347,8 @@ class FileTransferService {
       ..metadata = (Metadata()
         ..isPublic = false
         ..isEncrypted = true
-        ..namespaceAware = true);
+        ..namespaceAware = true
+        ..ttl = 86400000); // 1 day TTL in milliseconds
 
     final metadata = {
       'fileName': path.basename(file.path),
@@ -345,33 +358,57 @@ class FileTransferService {
       'uploadTimestamp': DateTime.now().millisecondsSinceEpoch,
     };
 
-    // Upload metadata with retry
+    // Upload metadata with retry and push to remote
     await _retryOperation(() async {
-      await client.put(metadataKey, jsonEncode(metadata));
-      print('✅ Uploaded file metadata');
+      await client.put(
+        metadataKey,
+        jsonEncode(metadata),
+        putRequestOptions: PutRequestOptions()..useRemoteAtServer = true,
+      );
+      print('✅ Uploaded file metadata directly to remote atServer');
     }, 'upload metadata');
 
-    // Upload chunks one by one with retry mechanism
+    // Upload chunks with controlled concurrency to avoid overloading atServer
     final fileStream = file.openRead();
-    int chunkIndex = 0;
+    final chunkDataList = <Uint8List>[];
 
-    await for (final chunkData in fileStream.transform(
-      ChunkReader(chunkSize),
-    )) {
-      await _uploadChunkWithRetry(
-        client,
-        fileId,
-        chunkIndex,
-        chunkData,
-        totalChunks,
-      );
-      chunkIndex++;
-
-      // Report progress
-      onProgress(chunkIndex / totalChunks);
+    // First, read all chunks into memory (they're small - 8KB each)
+    await for (final chunkData in fileStream.transform(ChunkReader(chunkSize))) {
+      chunkDataList.add(chunkData);
     }
 
-    print('✅ All chunks uploaded successfully');
+    print('📤 Uploading ${chunkDataList.length} chunks with max $maxConcurrentUploads concurrent uploads...');
+
+    // Create a semaphore to limit concurrent uploads
+    final semaphore = Semaphore(maxConcurrentUploads);
+    final futures = <Future<void>>[];
+
+    // Upload chunks with concurrency control
+    for (int i = 0; i < chunkDataList.length; i++) {
+      final chunkIndex = i;
+      final chunkData = chunkDataList[i];
+
+      final future = semaphore.acquire().then((_) async {
+        try {
+          await _uploadChunkWithRetry(client, fileId, chunkIndex, chunkData, totalChunks);
+        } finally {
+          semaphore.release();
+        }
+      });
+
+      futures.add(future);
+    }
+
+    // Wait for all chunks to complete and update progress
+    int completedChunks = 0;
+    for (final future in futures) {
+      await future;
+      completedChunks++;
+      onProgress(completedChunks / totalChunks);
+    }
+
+    print('✅ All chunks uploaded successfully with controlled concurrency');
+    print('✅ All file data uploaded directly to remote atServer - no sync needed');
   }
 
   /// Upload a single chunk with retry mechanism
@@ -390,21 +427,21 @@ class FileTransferService {
         ..isPublic = false
         ..isEncrypted = true
         ..namespaceAware = true
-        ..isBinary = true);
+        ..isBinary = true
+        ..ttl = 86400000); // 1 day TTL in milliseconds
 
     await _retryOperation(() async {
-      await client.put(chunkKey, chunkData).timeout(chunkTimeout);
+      await client
+          .put(chunkKey, chunkData, putRequestOptions: PutRequestOptions()..useRemoteAtServer = true)
+          .timeout(chunkTimeout);
       print(
-        '📤 Uploaded chunk ${chunkIndex + 1}/$totalChunks (${_formatFileSize(chunkData.length)})',
+        '📤 Uploaded chunk ${chunkIndex + 1}/$totalChunks (${_formatFileSize(chunkData.length)}) directly to remote',
       );
     }, 'upload chunk ${chunkIndex + 1}/$totalChunks');
   }
 
   /// Generic retry mechanism for operations
-  Future<T> _retryOperation<T>(
-    Future<T> Function() operation,
-    String operationName,
-  ) async {
+  Future<T> _retryOperation<T>(Future<T> Function() operation, String operationName) async {
     Exception? lastException;
 
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
@@ -422,13 +459,14 @@ class FileTransferService {
       }
     }
 
-    throw Exception(
-      'Failed $operationName after $maxRetries attempts: $lastException',
-    );
+    throw Exception('Failed $operationName after $maxRetries attempts: $lastException');
   }
 
   /// Download file from atPlatform by reconstructing chunks with retry mechanism
-  Future<Uint8List?> _downloadFileFromAtPlatform(String fileId) async {
+  Future<Uint8List?> _downloadFileFromAtPlatform(
+    String fileId, [
+    String? fromAtSign, // Add sender parameter
+  ]) async {
     try {
       final client = AtTalkService.instance.atClient;
       if (client == null) {
@@ -441,11 +479,22 @@ class FileTransferService {
       // Get metadata first with retry
       final metadataKey = AtKey()
         ..key = 'file_meta_$fileId'
-        ..sharedBy = AtTalkService.instance.currentAtSign
+        ..sharedBy = fromAtSign ?? AtTalkService.instance.currentAtSign
         ..namespace = AtTalkService.instance.atClientPreference!.namespace;
 
+      final isRemoteFetch = fromAtSign != null && fromAtSign != AtTalkService.instance.currentAtSign;
+      print(
+        '📥 ${isRemoteFetch ? "Remote" : "Local"} fetch from: ${fromAtSign ?? AtTalkService.instance.currentAtSign}',
+      );
+
       final metadataResult = await _retryOperation(() async {
-        final result = await client.get(metadataKey).timeout(chunkTimeout);
+        // If fromAtSign is provided and different from current user, fetch from remote
+        final result = isRemoteFetch
+            ? await client
+                  .get(metadataKey, getRequestOptions: GetRequestOptions()..bypassCache = true)
+                  .timeout(chunkTimeout)
+            : await client.get(metadataKey).timeout(chunkTimeout);
+
         if (result.value == null) {
           throw Exception('File metadata not found');
         }
@@ -457,19 +506,15 @@ class FileTransferService {
       final expectedSize = metadata['fileSize'] as int;
 
       print(
-        '📥 Downloading file: ${metadata['fileName']} (${_formatFileSize(expectedSize)}) in $totalChunks chunks',
+        '📥 Downloading file: ${metadata['fileName']} (${_formatFileSize(expectedSize)}) in $totalChunks chunks sequentially',
       );
 
-      // Download chunks with retry mechanism
+      // Download chunks sequentially with retry mechanism
       final chunks = <Uint8List>[];
 
       for (int i = 0; i < totalChunks; i++) {
-        final chunkData = await _downloadChunkWithRetry(
-          client,
-          fileId,
-          i,
-          totalChunks,
-        );
+        print('📥 Downloading chunk ${i + 1}/$totalChunks in order...');
+        final chunkData = await _downloadChunkWithRetry(client, fileId, i, totalChunks, fromAtSign);
         chunks.add(chunkData);
       }
 
@@ -480,14 +525,10 @@ class FileTransferService {
       }
 
       final fileBytes = buffer.toBytes();
-      print(
-        '📥 Reconstructed file: ${_formatFileSize(fileBytes.length)} (expected: ${_formatFileSize(expectedSize)})',
-      );
+      print('📥 Reconstructed file: ${_formatFileSize(fileBytes.length)} (expected: ${_formatFileSize(expectedSize)})');
 
       if (fileBytes.length != expectedSize) {
-        throw Exception(
-          'File size mismatch: got ${fileBytes.length}, expected $expectedSize',
-        );
+        throw Exception('File size mismatch: got ${fileBytes.length}, expected $expectedSize');
       }
 
       print('✅ File download completed successfully');
@@ -503,23 +544,34 @@ class FileTransferService {
     AtClient client,
     String fileId,
     int chunkIndex,
-    int totalChunks,
-  ) async {
+    int totalChunks, [
+    String? fromAtSign, // Add sender parameter
+  ]) async {
     final chunkKey = AtKey()
       ..key = 'file_chunk_${fileId}_$chunkIndex'
-      ..sharedBy = AtTalkService.instance.currentAtSign
+      ..sharedBy = fromAtSign ?? AtTalkService.instance.currentAtSign
       ..namespace = AtTalkService.instance.atClientPreference!.namespace;
 
+    final isRemoteFetch = fromAtSign != null && fromAtSign != AtTalkService.instance.currentAtSign;
+    if (chunkIndex == 0) {
+      // Only log once for the first chunk to avoid spam
+      print(
+        '📥 ${isRemoteFetch ? "Remote" : "Local"} chunk fetch from: ${fromAtSign ?? AtTalkService.instance.currentAtSign}',
+      );
+    }
+
     return await _retryOperation(() async {
-      final chunkResult = await client.get(chunkKey).timeout(chunkTimeout);
+      // If fromAtSign is provided and different from current user, fetch from remote
+      final chunkResult = isRemoteFetch
+          ? await client.get(chunkKey, getRequestOptions: GetRequestOptions()..bypassCache = true).timeout(chunkTimeout)
+          : await client.get(chunkKey).timeout(chunkTimeout);
+
       if (chunkResult.value == null) {
         throw Exception('Missing chunk $chunkIndex');
       }
 
       final chunkData = chunkResult.value as Uint8List;
-      print(
-        '📥 Downloaded chunk ${chunkIndex + 1}/$totalChunks (${_formatFileSize(chunkData.length)})',
-      );
+      print('📥 Downloaded chunk ${chunkIndex + 1}/$totalChunks (${_formatFileSize(chunkData.length)})');
       return chunkData;
     }, 'download chunk ${chunkIndex + 1}/$totalChunks');
   }
@@ -545,9 +597,7 @@ class FileTransferService {
       final image = img.decodeImage(imageBytes);
 
       if (image == null) {
-        print(
-          '❌ Failed to decode image - unsupported format or corrupted file: $imagePath',
-        );
+        print('❌ Failed to decode image - unsupported format or corrupted file: $imagePath');
         return null;
       }
 
@@ -576,9 +626,7 @@ class FileTransferService {
 
       await thumbnailFile.writeAsBytes(jpegBytes);
 
-      print(
-        '✅ Thumbnail generated: $thumbnailPath (${_formatFileSize(jpegBytes.length)})',
-      );
+      print('✅ Thumbnail generated: $thumbnailPath (${_formatFileSize(jpegBytes.length)})');
       return thumbnailPath;
     } catch (e) {
       print('❌ Failed to generate thumbnail: $e');
@@ -590,9 +638,7 @@ class FileTransferService {
   /// Get consistent thumbnail directory
   Future<String> _getThumbnailDirectory() async {
     final appDir = await getApplicationDocumentsDirectory();
-    final thumbnailDir = Directory(
-      path.join(appDir.path, 'AtTalk', 'Thumbnails'),
-    );
+    final thumbnailDir = Directory(path.join(appDir.path, 'AtTalk', 'Thumbnails'));
     if (!await thumbnailDir.exists()) {
       await thumbnailDir.create(recursive: true);
     }
@@ -600,10 +646,7 @@ class FileTransferService {
   }
 
   /// Generate thumbnail if needed for downloaded files
-  Future<void> _generateThumbnailIfNeeded(
-    String fileId,
-    String filePath,
-  ) async {
+  Future<void> _generateThumbnailIfNeeded(String fileId, String filePath) async {
     try {
       // Check if it's an image file
       final mimeType = _getMimeType(filePath);
@@ -749,8 +792,7 @@ class FileTransferService {
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
@@ -773,9 +815,7 @@ class FileTransferService {
           ..isEncrypted = true
           ..namespaceAware = true);
 
-      await client
-          .put(testKey, 'health_check_${DateTime.now().millisecondsSinceEpoch}')
-          .timeout(Duration(seconds: 10));
+      await client.put(testKey, 'health_check_${DateTime.now().millisecondsSinceEpoch}').timeout(Duration(seconds: 10));
       print('✅ AtClient health check passed');
       return true;
     } catch (e) {

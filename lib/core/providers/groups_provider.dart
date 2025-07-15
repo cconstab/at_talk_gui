@@ -317,7 +317,7 @@ class GroupsProvider extends ChangeNotifier {
 
     try {
       print('📤 Starting file upload: $filePath');
-      
+
       // Upload file and get the attachment
       final attachment = await FileTransferService.instance.uploadFile(filePath);
       if (attachment == null) {
@@ -360,14 +360,14 @@ class GroupsProvider extends ChangeNotifier {
       return allSuccess;
     } catch (e) {
       print('❌ Error sending file message: $e');
-      
+
       // Log the specific error for debugging
       if (e.toString().contains('File too large')) {
         print('❌ File size exceeded limit');
       } else if (e.toString().contains('AtClient not initialized')) {
         print('❌ AtClient connection issue');
       }
-      
+
       return false;
     }
   }
@@ -1131,11 +1131,11 @@ class GroupsProvider extends ChangeNotifier {
       } else {
         // Look for group with matching members
         final newMembersSet = newMembers.toSet();
-        
+
         for (final entry in _groups.entries) {
           final group = entry.value;
           final groupMembersSet = group.members.toSet();
-          
+
           // Check if this group contains all new members as a subset
           if (newMembersSet.every((member) => groupMembersSet.contains(member))) {
             existingGroup = group;
@@ -1152,15 +1152,12 @@ class GroupsProvider extends ChangeNotifier {
         final newMembersSet = newMembers.toSet();
 
         // Update the group
-        _groups[groupId] = existingGroup.copyWith(
-          members: newMembersSet, 
-          name: groupName,
-        );
+        _groups[groupId] = existingGroup.copyWith(members: newMembersSet, name: groupName);
 
         // Add system messages for member changes
         final currentAtSign = AtTalkService.instance.currentAtSign;
         final isFromCurrentUser = currentAtSign != null && fromAtSign == currentAtSign;
-        
+
         final added = newMembersSet.difference(oldMembers);
         final removed = oldMembers.difference(newMembersSet);
 
@@ -1354,7 +1351,7 @@ class GroupsProvider extends ChangeNotifier {
   Future<void> _handleFileMessage(Map<String, dynamic> jsonData, String fromAtSign) async {
     try {
       print('📎 Processing file message from $fromAtSign');
-      
+
       final fileId = jsonData['fileId'] as String?;
       final fileName = jsonData['fileName'] as String?;
       final fileSize = jsonData['fileSize'] as int?;
@@ -1407,12 +1404,7 @@ class GroupsProvider extends ChangeNotifier {
 
       // Ensure the group exists in our groups map
       if (!_groups.containsKey(groupId)) {
-        _groups[groupId] = Group(
-          id: groupId,
-          members: members,
-          lastMessageTime: DateTime.now(),
-          name: groupName,
-        );
+        _groups[groupId] = Group(id: groupId, members: members, lastMessageTime: DateTime.now(), name: groupName);
       }
 
       // Determine attachment type
@@ -1461,13 +1453,12 @@ class GroupsProvider extends ChangeNotifier {
       );
 
       print('📨 Adding file message to group $groupId: ${attachment.originalFileName}');
-      
+
       // Add message to group
       addMessageToGroup(groupId, chatMessage);
 
       // Start downloading the file in the background for preview/thumbnail generation
       autoDownloadFileAttachment(groupId, chatMessage.id, attachment, fromAtSign);
-
     } catch (e) {
       print('❌ Error handling file message: $e');
     }
@@ -1482,9 +1473,9 @@ class GroupsProvider extends ChangeNotifier {
     } else if (mimeType.startsWith('video/')) {
       return AttachmentType.video;
     } else if (mimeType.startsWith('application/pdf') ||
-               mimeType.startsWith('application/msword') ||
-               mimeType.startsWith('application/vnd.openxmlformats-officedocument') ||
-               mimeType.startsWith('text/')) {
+        mimeType.startsWith('application/msword') ||
+        mimeType.startsWith('application/vnd.openxmlformats-officedocument') ||
+        mimeType.startsWith('text/')) {
       return AttachmentType.document;
     } else {
       return AttachmentType.other;
@@ -1500,19 +1491,20 @@ class GroupsProvider extends ChangeNotifier {
   ) async {
     try {
       print('📥 Starting user download for ${attachment.originalFileName}');
-      
+
       // Set download progress to indicate download is starting
       _updateFileDownloadProgress(groupId, messageId, attachment.id, 0.1);
-      
+
       // Download the file using the user-selected save dialog
       final filePath = await FileTransferService.instance.downloadFile(
         attachment.id,
         attachment.originalFileName,
+        fromAtSign, // Pass the sender's atSign
       );
 
       if (filePath != null) {
         print('✅ Downloaded ${attachment.originalFileName} to $filePath');
-        
+
         // Update the attachment with the downloaded file path
         _updateFileAttachmentPath(groupId, messageId, attachment.id, filePath);
       } else {
@@ -1534,19 +1526,20 @@ class GroupsProvider extends ChangeNotifier {
   ) async {
     try {
       print('📥 Starting auto-download for ${attachment.originalFileName}');
-      
+
       // Set download progress to indicate download is starting
       _updateFileDownloadProgress(groupId, messageId, attachment.id, 0.1);
-      
+
       // Download the file automatically to app directory
       final filePath = await FileTransferService.instance.downloadFileToAppDirectory(
         attachment.id,
         attachment.originalFileName,
+        fromAtSign, // Pass the sender's atSign
       );
 
       if (filePath != null) {
         print('✅ Auto-downloaded ${attachment.originalFileName} to $filePath');
-        
+
         // Update the attachment with the downloaded file path
         _updateFileAttachmentPath(groupId, messageId, attachment.id, filePath);
       } else {
@@ -1608,10 +1601,10 @@ class GroupsProvider extends ChangeNotifier {
 
     // Create updated attachment with file path and thumbnail path
     final attachment = message.attachments[attachmentIndex];
-    
+
     // Get thumbnail path if it exists
     final thumbnailPath = FileTransferService.instance.getThumbnailPath(attachmentId);
-    
+
     final updatedAttachment = attachment.copyWith(
       localPath: filePath,
       thumbnailPath: thumbnailPath,
@@ -1637,5 +1630,4 @@ class GroupsProvider extends ChangeNotifier {
     messages[messageIndex] = updatedMessage;
     notifyListeners();
   }
-
 }
