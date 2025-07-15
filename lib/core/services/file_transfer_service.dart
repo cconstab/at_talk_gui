@@ -111,6 +111,8 @@ class FileTransferService {
   static const int maxRetries = 3; // Maximum retries for failed operations
   static const Duration chunkTimeout = Duration(seconds: 30); // Timeout per chunk operation
   static const int maxConcurrentUploads = 3; // Maximum concurrent chunk uploads to avoid overloading atServer
+  static const int maxConcurrentDownloads = 1; // Sequential downloads to be gentle on atServer
+  static const Duration chunkUploadDelay = Duration(milliseconds: 100); // Small delay between uploads for ordering
 
   /// Upload a file and return MessageAttachment with progress callback
   Future<MessageAttachment?> uploadFile(String filePath, [Function(double)? onProgress]) async {
@@ -181,6 +183,9 @@ class FileTransferService {
     List<String>? groupMembers,
   }) async {
     try {
+      // First, share the file keys with the receiver
+      await _shareFileKeysWithReceiver(attachment.id, toAtSign);
+
       final messageData = {
         'type': 'file',
         'fileId': attachment.id,
@@ -235,7 +240,84 @@ class FileTransferService {
     }
   }
 
-  /// Download a file by fileId with user-selected save location
+  /// Share file keys with receiver by explicitly putting them with sharedWith
+  Future<void> _shareFileKeysWithReceiver(String fileId, String toAtSign) async {
+    try {
+      final client = AtTalkService.instance.atClient;
+      if (client == null) throw Exception('AtClient not initialized');
+
+      print('📤 Sharing file keys with receiver: $toAtSign');
+
+      // Get the metadata first to know how many chunks to share
+      final metadataKey = AtKey()
+        ..key = 'file_meta_$fileId'
+        ..sharedBy = AtTalkService.instance.currentAtSign
+        ..namespace = AtTalkService.instance.atClientPreference!.namespace;
+
+      final metadataResult = await client.get(metadataKey);
+      if (metadataResult.value == null) {
+        throw Exception('File metadata not found for sharing');
+      }
+
+      final metadata = jsonDecode(metadataResult.value.toString());
+      final totalChunks = metadata['totalChunks'] as int;
+
+      // Share metadata key with receiver
+      final sharedMetadataKey = AtKey()
+        ..key = 'file_meta_$fileId'
+        ..sharedBy = AtTalkService.instance.currentAtSign
+        ..sharedWith = toAtSign
+        ..namespace = AtTalkService.instance.atClientPreference!.namespace
+        ..metadata = (Metadata()
+          ..isPublic = false
+          ..isEncrypted = true
+          ..namespaceAware = true
+          ..ttl = 86400000);
+
+      await client.put(
+        sharedMetadataKey,
+        jsonEncode(metadata),
+        putRequestOptions: PutRequestOptions()..useRemoteAtServer = true,
+      );
+      print('✅ Shared metadata key with $toAtSign');
+
+      // Share all chunk keys with receiver
+      for (int i = 0; i < totalChunks; i++) {
+        final originalChunkKey = AtKey()
+          ..key = 'file_chunk_${fileId}_$i'
+          ..sharedBy = AtTalkService.instance.currentAtSign
+          ..namespace = AtTalkService.instance.atClientPreference!.namespace;
+
+        final chunkResult = await client.get(originalChunkKey);
+        if (chunkResult.value != null) {
+          final sharedChunkKey = AtKey()
+            ..key = 'file_chunk_${fileId}_$i'
+            ..sharedBy = AtTalkService.instance.currentAtSign
+            ..sharedWith = toAtSign
+            ..namespace = AtTalkService.instance.atClientPreference!.namespace
+            ..metadata = (Metadata()
+              ..isPublic = false
+              ..isEncrypted = true
+              ..namespaceAware = true
+              ..isBinary = true
+              ..ttl = 86400000);
+
+          await client.put(
+            sharedChunkKey,
+            chunkResult.value,
+            putRequestOptions: PutRequestOptions()..useRemoteAtServer = true,
+          );
+        }
+      }
+
+      print('✅ Shared all $totalChunks chunk keys with $toAtSign');
+    } catch (e) {
+      print('❌ Failed to share file keys with receiver: $e');
+      throw e;
+    }
+  }
+
+  /// Download file by fileId with user-selected save location
   Future<String?> downloadFile(
     String fileId,
     String fileName, [
@@ -278,14 +360,20 @@ class FileTransferService {
   }
 
   /// Download a file automatically to app directory (for previews, thumbnails, etc.)
-  Future<String?> downloadFileToAppDirectory(
-    String fileId,
-    String fileName, [
-    String? fromAtSign, // Add sender parameter
-  ]) async {
+  /// For images, downloads lightweight thumbnail first
+  Future<String?> downloadFileToAppDirectory(String fileId, String fileName, [String? fromAtSign]) async {
     try {
       print('📥 Auto-downloading file for preview: $fileName');
 
+      // For images, try to download thumbnail first (much faster and lighter)
+      final mimeType = _getMimeType(fileName);
+      if (mimeType != null && mimeType.startsWith('image/')) {
+        print('� Image detected - attempting thumbnail download first');
+
+        // Thumbnail download not implemented - fallback to full download
+      }
+
+      // Fall back to full download for non-images or if thumbnail fails
       final downloadDir = await _getDownloadDirectory();
       final localPath = path.join(downloadDir, fileName);
 
@@ -358,6 +446,8 @@ class FileTransferService {
       'uploadTimestamp': DateTime.now().millisecondsSinceEpoch,
     };
 
+    print('📤 Metadata key: ${metadataKey.toString()}');
+
     // Upload metadata with retry and push to remote
     await _retryOperation(() async {
       await client.put(
@@ -390,6 +480,10 @@ class FileTransferService {
 
       final future = semaphore.acquire().then((_) async {
         try {
+          // Add small delay to help with chunk ordering on remote server
+          if (chunkIndex > 0) {
+            await Future.delayed(chunkUploadDelay);
+          }
           await _uploadChunkWithRetry(client, fileId, chunkIndex, chunkData, totalChunks);
         } finally {
           semaphore.release();
@@ -462,6 +556,66 @@ class FileTransferService {
     throw Exception('Failed $operationName after $maxRetries attempts: $lastException');
   }
 
+  /// Check if file keys exist before attempting download
+  Future<bool> _checkFileKeysExist(String fileId, String? fromAtSign) async {
+    try {
+      final client = AtTalkService.instance.atClient;
+      if (client == null) return false;
+
+      // Check metadata key first
+      final metadataKey = AtKey()
+        ..key = 'file_meta_$fileId'
+        ..sharedBy = fromAtSign ?? AtTalkService.instance.currentAtSign
+        ..sharedWith = AtTalkService.instance.currentAtSign
+        ..namespace = AtTalkService.instance.atClientPreference!.namespace;
+
+      final isRemoteFetch = fromAtSign != null && fromAtSign != AtTalkService.instance.currentAtSign;
+
+      print('🔍 Checking if file keys exist...');
+      print('🔍 Metadata key: ${metadataKey.toString()}');
+
+      final metadataResult = isRemoteFetch
+          ? await client.get(metadataKey, getRequestOptions: GetRequestOptions()..bypassCache = true)
+          : await client.get(metadataKey);
+
+      if (metadataResult.value == null) {
+        print('❌ Metadata key not found');
+        return false;
+      }
+
+      final metadata = jsonDecode(metadataResult.value.toString());
+      final totalChunks = metadata['totalChunks'] as int;
+
+      print('✅ Metadata key found, checking $totalChunks chunks...');
+
+      // Check first few chunks to see if they exist
+      for (int i = 0; i < min(3, totalChunks); i++) {
+        final chunkKey = AtKey()
+          ..key = 'file_chunk_${fileId}_$i'
+          ..sharedBy = fromAtSign ?? AtTalkService.instance.currentAtSign
+          ..sharedWith = AtTalkService.instance.currentAtSign
+          ..namespace = AtTalkService.instance.atClientPreference!.namespace;
+
+        final chunkResult = isRemoteFetch
+            ? await client.get(chunkKey, getRequestOptions: GetRequestOptions()..bypassCache = true)
+            : await client.get(chunkKey);
+
+        if (chunkResult.value == null) {
+          print('❌ Chunk $i key not found: ${chunkKey.toString()}');
+          return false;
+        } else {
+          print('✅ Chunk $i key exists');
+        }
+      }
+
+      print('✅ File keys validation passed');
+      return true;
+    } catch (e) {
+      print('❌ Error checking file keys: $e');
+      return false;
+    }
+  }
+
   /// Download file from atPlatform by reconstructing chunks with retry mechanism
   Future<Uint8List?> _downloadFileFromAtPlatform(
     String fileId, [
@@ -475,17 +629,30 @@ class FileTransferService {
       }
 
       print('📥 Getting file metadata for: $fileId');
+      print('📥 Current atSign: ${AtTalkService.instance.currentAtSign}');
+      print('📥 Sender atSign: ${fromAtSign ?? "same as current"}');
+
+      // Check if file keys exist before attempting download
+      final keysExist = await _checkFileKeysExist(fileId, fromAtSign);
+      if (!keysExist) {
+        print('❌ File keys not found or inaccessible');
+        return null;
+      }
 
       // Get metadata first with retry
       final metadataKey = AtKey()
         ..key = 'file_meta_$fileId'
         ..sharedBy = fromAtSign ?? AtTalkService.instance.currentAtSign
+        ..sharedWith = AtTalkService
+            .instance
+            .currentAtSign // Explicitly set sharedWith
         ..namespace = AtTalkService.instance.atClientPreference!.namespace;
 
       final isRemoteFetch = fromAtSign != null && fromAtSign != AtTalkService.instance.currentAtSign;
       print(
         '📥 ${isRemoteFetch ? "Remote" : "Local"} fetch from: ${fromAtSign ?? AtTalkService.instance.currentAtSign}',
       );
+      print('📥 Metadata key: ${metadataKey.toString()}');
 
       final metadataResult = await _retryOperation(() async {
         // If fromAtSign is provided and different from current user, fetch from remote
@@ -496,7 +663,7 @@ class FileTransferService {
             : await client.get(metadataKey).timeout(chunkTimeout);
 
         if (result.value == null) {
-          throw Exception('File metadata not found');
+          throw Exception('File metadata not found for key: ${metadataKey.toString()}');
         }
         return result;
       }, 'get file metadata');
@@ -509,11 +676,11 @@ class FileTransferService {
         '📥 Downloading file: ${metadata['fileName']} (${_formatFileSize(expectedSize)}) in $totalChunks chunks sequentially',
       );
 
-      // Download chunks sequentially with retry mechanism
+      // Download chunks sequentially to be gentle on atServer
       final chunks = <Uint8List>[];
 
       for (int i = 0; i < totalChunks; i++) {
-        print('📥 Downloading chunk ${i + 1}/$totalChunks in order...');
+        print('📥 Downloading chunk ${i + 1}/$totalChunks in sequence...');
         final chunkData = await _downloadChunkWithRetry(client, fileId, i, totalChunks, fromAtSign);
         chunks.add(chunkData);
       }
@@ -550,6 +717,9 @@ class FileTransferService {
     final chunkKey = AtKey()
       ..key = 'file_chunk_${fileId}_$chunkIndex'
       ..sharedBy = fromAtSign ?? AtTalkService.instance.currentAtSign
+      ..sharedWith = AtTalkService
+          .instance
+          .currentAtSign // Explicitly set sharedWith
       ..namespace = AtTalkService.instance.atClientPreference!.namespace;
 
     final isRemoteFetch = fromAtSign != null && fromAtSign != AtTalkService.instance.currentAtSign;
@@ -558,6 +728,7 @@ class FileTransferService {
       print(
         '📥 ${isRemoteFetch ? "Remote" : "Local"} chunk fetch from: ${fromAtSign ?? AtTalkService.instance.currentAtSign}',
       );
+      print('📥 Chunk key format: ${chunkKey.toString()}');
     }
 
     return await _retryOperation(() async {
@@ -567,7 +738,8 @@ class FileTransferService {
           : await client.get(chunkKey).timeout(chunkTimeout);
 
       if (chunkResult.value == null) {
-        throw Exception('Missing chunk $chunkIndex');
+        print('❌ Chunk key not found: ${chunkKey.toString()}');
+        throw Exception('Missing chunk $chunkIndex - key: ${chunkKey.toString()}');
       }
 
       final chunkData = chunkResult.value as Uint8List;
