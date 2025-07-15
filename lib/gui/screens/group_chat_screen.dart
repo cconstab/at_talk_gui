@@ -7,7 +7,6 @@ import '../../core/providers/groups_provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/at_talk_service.dart';
 import '../../core/services/display_name_service.dart';
-import '../../core/services/file_transfer_service.dart';
 import '../../core/models/group.dart';
 import '../../core/models/chat_message.dart';
 
@@ -17,13 +16,7 @@ class GroupChatScreen extends StatefulWidget {
   final bool showMenuButton;
   final VoidCallback? onMenuPressed;
 
-  const GroupChatScreen({
-    super.key,
-    required this.group,
-    this.onBack,
-    this.showMenuButton = false,
-    this.onMenuPressed,
-  });
+  const GroupChatScreen({super.key, required this.group, this.onBack, this.showMenuButton = false, this.onMenuPressed});
 
   @override
   State<GroupChatScreen> createState() => _GroupChatScreenState();
@@ -35,8 +28,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   final TextEditingController _addMemberController = TextEditingController();
   final FocusNode _messageFocusNode = FocusNode();
   bool _shouldMaintainFocus = false;
-  GroupsProvider?
-  _groupsProvider; // Store reference to avoid context lookup in dispose
+  GroupsProvider? _groupsProvider; // Store reference to avoid context lookup in dispose
 
   @override
   void initState() {
@@ -77,8 +69,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         title: Consumer<GroupsProvider>(
           builder: (context, groupsProvider, child) {
             // Get the updated group from the provider
-            final updatedGroup =
-                groupsProvider.groups[widget.group.id] ?? widget.group;
+            final updatedGroup = groupsProvider.groups[widget.group.id] ?? widget.group;
 
             return Row(
               children: [
@@ -88,26 +79,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
-                        BoxShadow(
-                          color: Colors.white.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
+                        BoxShadow(color: Colors.white.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2)),
                       ],
                     ),
                     child: CircleAvatar(
                       radius: 18,
                       backgroundColor: Colors.white.withOpacity(0.2),
                       child: Text(
-                        updatedGroup
-                            .getDisplayName(currentAtSign)
-                            .substring(0, 1)
-                            .toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
+                        updatedGroup.getDisplayName(currentAtSign).substring(0, 1).toUpperCase(),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
                       ),
                     ),
                   ),
@@ -147,10 +127,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Theme.of(context).colorScheme.primary,
-                Theme.of(context).colorScheme.primary.withOpacity(0.8),
-              ],
+              colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.primary.withOpacity(0.8)],
             ),
           ),
         ),
@@ -184,15 +161,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 ),
               )
             : null,
-        automaticallyImplyLeading:
-            widget.onBack == null && !widget.showMenuButton,
+        automaticallyImplyLeading: widget.onBack == null && !widget.showMenuButton,
         actions: [
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
             child: IconButton(
               onPressed: _showAddMemberDialog,
               icon: const Icon(Icons.person_add_rounded, size: 20),
@@ -202,10 +175,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           ),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
             child: PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'rename') {
@@ -216,15 +186,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   _showLeaveGroupDialog();
                 }
               },
-              icon: const Icon(
-                Icons.more_vert_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 20),
               padding: const EdgeInsets.all(8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               color: Theme.of(context).colorScheme.surface,
               elevation: 8,
               itemBuilder: (context) => [
@@ -232,16 +196,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   value: 'rename',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.edit_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 20,
-                      ),
+                      Icon(Icons.edit_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
                       const SizedBox(width: 12),
-                      const Text(
-                        'Rename Group',
-                        style: TextStyle(fontWeight: FontWeight.w500),
-                      ),
+                      const Text('Rename Group', style: TextStyle(fontWeight: FontWeight.w500)),
                     ],
                   ),
                 ),
@@ -249,16 +206,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   value: 'info',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 20,
-                      ),
+                      Icon(Icons.info_outline_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
                       const SizedBox(width: 12),
-                      const Text(
-                        'Group Info',
-                        style: TextStyle(fontWeight: FontWeight.w500),
-                      ),
+                      const Text('Group Info', style: TextStyle(fontWeight: FontWeight.w500)),
                     ],
                   ),
                 ),
@@ -266,18 +216,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   value: 'leave',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.exit_to_app_rounded,
-                        color: Colors.red.shade400,
-                        size: 20,
-                      ),
+                      Icon(Icons.exit_to_app_rounded, color: Colors.red.shade400, size: 20),
                       const SizedBox(width: 12),
                       Text(
                         'Leave Group',
-                        style: TextStyle(
-                          color: Colors.red.shade400,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -293,9 +236,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           Expanded(
             child: Consumer<GroupsProvider>(
               builder: (context, groupsProvider, child) {
-                final messages = groupsProvider.getGroupMessages(
-                  widget.group.id,
-                );
+                final messages = groupsProvider.getGroupMessages(widget.group.id);
 
                 // Maintain focus after widget rebuilds due to new messages
                 if (_shouldMaintainFocus && !_messageFocusNode.hasFocus) {
@@ -320,8 +261,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
                 return ListView.builder(
                   controller: _scrollController,
-                  reverse:
-                      true, // This makes the ListView start from the bottom
+                  reverse: true, // This makes the ListView start from the bottom
                   padding: const EdgeInsets.only(
                     left: 16,
                     right: 16,
@@ -368,16 +308,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceVariant.withOpacity(0.4),
+                      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.outline.withOpacity(0.1),
-                        width: 1.5,
-                      ),
+                      border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.1), width: 1.5),
                     ),
                     child: TextField(
                       controller: _messageController,
@@ -385,16 +318,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
                         hintStyle: TextStyle(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
                           fontSize: 15,
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                         prefixIcon: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -402,18 +330,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                               padding: const EdgeInsets.only(left: 8),
                               child: Icon(
                                 Icons.chat_bubble_outline_rounded,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
                                 size: 20,
                               ),
                             ),
                             IconButton(
                               icon: Icon(
                                 Icons.attach_file,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
                                 size: 20,
                               ),
                               onPressed: _pickAndSendFile,
@@ -423,10 +347,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           ],
                         ),
                       ),
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
+                      style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurface),
                       onSubmitted: (text) => _sendMessage(),
                       onTap: () {
                         // User intentionally tapped the text field, ensure focus maintenance is enabled
@@ -449,9 +370,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withOpacity(0.3),
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -464,11 +383,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       borderRadius: BorderRadius.circular(24),
                       child: Container(
                         padding: const EdgeInsets.all(12),
-                        child: const Icon(
-                          Icons.send_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                       ),
                     ),
                   ),
@@ -509,17 +424,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     _messageController.clear();
 
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
-    final success = await groupsProvider.sendMessageToGroup(
-      widget.group.id,
-      text,
-    );
+    final success = await groupsProvider.sendMessageToGroup(widget.group.id, text);
 
     if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to send message. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Failed to send message. Please try again.'), backgroundColor: Colors.red),
       );
     }
 
@@ -548,10 +457,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         title: const Text('Rename Group'),
         content: TextField(
           controller: renameController,
-          decoration: const InputDecoration(
-            labelText: 'Group Name',
-            hintText: 'Enter group name',
-          ),
+          decoration: const InputDecoration(labelText: 'Group Name', hintText: 'Enter group name'),
           autofocus: true,
           maxLength: 50,
         ),
@@ -590,28 +496,19 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   void _renameGroup(String newName) async {
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
 
-    final newGroupId = await groupsProvider.renameGroup(
-      widget.group.id,
-      newName,
-    );
+    final newGroupId = await groupsProvider.renameGroup(widget.group.id, newName);
 
     if (newGroupId != null && mounted) {
       final displayText = newName.isNotEmpty ? newName : 'Unnamed Group';
 
       // In the current architecture, group ID never changes during rename
       // (only display name changes), so we just show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Group renamed to "$displayText"'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Group renamed to "$displayText"'), backgroundColor: Colors.green));
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to rename group. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Failed to rename group. Please try again.'), backgroundColor: Colors.red),
       );
     }
   }
@@ -623,9 +520,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Leave Group'),
-        content: const Text(
-          'Are you sure you want to leave this group? This action cannot be undone.',
-        ),
+        content: const Text('Are you sure you want to leave this group? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () {
@@ -643,10 +538,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               _leaveGroup();
               Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             child: const Text('Leave'),
           ),
         ],
@@ -662,8 +554,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     if (currentUser == null) return;
 
     // Remove current user from group members
-    final updatedMembers = Set<String>.from(widget.group.members)
-      ..remove(currentUser);
+    final updatedMembers = Set<String>.from(widget.group.members)..remove(currentUser);
 
     if (updatedMembers.isEmpty) {
       // If no members left, delete the group entirely
@@ -678,10 +569,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
       if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to leave group. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
+          const SnackBar(content: Text('Failed to leave group. Please try again.'), backgroundColor: Colors.red),
         );
         return;
       }
@@ -689,9 +577,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
     if (mounted) {
       Navigator.pop(context); // Return to groups list
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Left the group')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Left the group')));
     }
   }
 
@@ -704,10 +590,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         title: const Text('Add Member'),
         content: TextField(
           controller: _addMemberController,
-          decoration: const InputDecoration(
-            labelText: 'Enter atSign (e.g., @alice)',
-            hintText: '@alice',
-          ),
+          decoration: const InputDecoration(labelText: 'Enter atSign (e.g., @alice)', hintText: '@alice'),
           autofocus: true,
         ),
         actions: [
@@ -749,22 +632,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
 
     // Ensure atSign starts with @
-    final formattedAtSign = memberAtSign.startsWith('@')
-        ? memberAtSign
-        : '@$memberAtSign';
+    final formattedAtSign = memberAtSign.startsWith('@') ? memberAtSign : '@$memberAtSign';
 
     // Check if member is already in the group
     if (widget.group.members.contains(formattedAtSign)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$formattedAtSign is already in the group')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$formattedAtSign is already in the group')));
       }
       return;
     }
 
-    final updatedMembers = Set<String>.from(widget.group.members)
-      ..add(formattedAtSign);
+    final updatedMembers = Set<String>.from(widget.group.members)..add(formattedAtSign);
 
     // Simply update the existing group with new members
     final success = await groupsProvider.updateGroupMembership(
@@ -775,15 +653,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
     if (mounted) {
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Added $formattedAtSign to the group')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added $formattedAtSign to the group')));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to add $formattedAtSign to the group'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Failed to add $formattedAtSign to the group'), backgroundColor: Colors.red),
         );
       }
     }
@@ -807,10 +680,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Members (${updatedGroup.members.length}):',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+              Text('Members (${updatedGroup.members.length}):', style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               // Make the members list flexible and scrollable
               Expanded(
@@ -826,29 +696,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           CircleAvatar(
                             radius: 12,
                             backgroundColor: Colors.grey[300],
-                            child: Text(
-                              member.substring(1, 2).toUpperCase(),
-                              style: const TextStyle(fontSize: 10),
-                            ),
+                            child: Text(member.substring(1, 2).toUpperCase(), style: const TextStyle(fontSize: 10)),
                           ),
                           const SizedBox(width: 8),
                           Expanded(child: Text(member)),
-                          if (member != currentAtSign &&
-                              updatedGroup.members.length > 2)
+                          if (member != currentAtSign && updatedGroup.members.length > 2)
                             IconButton(
-                              onPressed: () =>
-                                  _showRemoveMemberDialog(member, updatedGroup),
-                              icon: const Icon(
-                                Icons.remove_circle,
-                                color: Colors.red,
-                                size: 20,
-                              ),
+                              onPressed: () => _showRemoveMemberDialog(member, updatedGroup),
+                              icon: const Icon(Icons.remove_circle, color: Colors.red, size: 20),
                               tooltip: 'Remove $member',
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 24,
-                                minHeight: 24,
-                              ),
+                              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                             ),
                         ],
                       ),
@@ -858,14 +716,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               ),
               if (updatedGroup.id.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                const Text(
-                  'Group ID:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  updatedGroup.id,
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                ),
+                const Text('Group ID:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(updatedGroup.id, style: const TextStyle(fontSize: 10, color: Colors.grey)),
               ],
             ],
           ),
@@ -897,10 +749,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           children: [
             Text('Remove $member from the group?'),
             const SizedBox(height: 8),
-            const Text(
-              'This action cannot be undone.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            const Text('This action cannot be undone.', style: TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
         actions: [
@@ -916,10 +765,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               Navigator.pop(context); // Close the group info dialog
               _removeMember(member, group);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             child: const Text('Remove'),
           ),
         ],
@@ -931,16 +777,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
 
     // Remove member from group
-    final updatedMembers = Set<String>.from(group.members)
-      ..remove(memberAtSign);
+    final updatedMembers = Set<String>.from(group.members)..remove(memberAtSign);
 
     if (updatedMembers.length < 2) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Cannot remove member - group must have at least 2 members',
-            ),
+            content: Text('Cannot remove member - group must have at least 2 members'),
             backgroundColor: Colors.red,
           ),
         );
@@ -948,23 +791,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       return;
     }
 
-    final success = await groupsProvider.updateGroupMembership(
-      group.id,
-      updatedMembers.toList(),
-      group.name,
-    );
+    final success = await groupsProvider.updateGroupMembership(group.id, updatedMembers.toList(), group.name);
 
     if (mounted) {
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Removed $memberAtSign from the group')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Removed $memberAtSign from the group')));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to remove $memberAtSign from the group'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Failed to remove $memberAtSign from the group'), backgroundColor: Colors.red),
         );
       }
     }
@@ -981,10 +815,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         if (filePath == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Unable to access the selected file.'),
-                backgroundColor: Colors.red,
-              ),
+              const SnackBar(content: Text('Unable to access the selected file.'), backgroundColor: Colors.red),
             );
           }
           return;
@@ -996,11 +827,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             SnackBar(
               content: Row(
                 children: [
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
+                  const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
                   const SizedBox(width: 12),
                   Text('Sending ${file.name}...'),
                 ],
@@ -1010,10 +837,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           );
         }
 
-        final groupsProvider = Provider.of<GroupsProvider>(
-          context,
-          listen: false,
-        );
+        final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
         final success = await groupsProvider.sendFileMessage(
           widget.group.id,
           filePath,
@@ -1028,9 +852,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         if (!success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                'Failed to send ${file.name}. Check file size (max 5MB) and try again.',
-              ),
+              content: Text('Failed to send ${file.name}. Check file size (max 30MB) and try again.'),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 4),
             ),
@@ -1049,10 +871,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       print('Error picking file: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error selecting file. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
+          const SnackBar(content: Text('Error selecting file. Please try again.'), backgroundColor: Colors.red),
         );
       }
     }
@@ -1073,9 +892,7 @@ class ChatBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: isMe
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           if (!isMe) ...[
             CircleAvatar(
@@ -1093,9 +910,7 @@ class ChatBubble extends StatelessWidget {
           ],
           Flexible(
             child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.7,
-              ),
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: isMe ? const Color(0xFF2196F3) : Colors.grey[200],
@@ -1106,9 +921,7 @@ class ChatBubble extends StatelessWidget {
                 children: [
                   if (!isMe) ...[
                     FutureBuilder<String?>(
-                      future: DisplayNameService.instance.getDisplayName(
-                        message.fromAtSign,
-                      ),
+                      future: DisplayNameService.instance.getDisplayName(message.fromAtSign),
                       builder: (context, snapshot) {
                         final displayName = snapshot.data;
                         final atSign = message.fromAtSign.startsWith('@')
@@ -1126,11 +939,7 @@ class ChatBubble extends StatelessWidget {
 
                         return Text(
                           displayText,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2196F3),
-                          ),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2196F3)),
                         );
                       },
                     ),
@@ -1138,28 +947,16 @@ class ChatBubble extends StatelessWidget {
                   ],
                   // Show attachments if any
                   if (message.attachments.isNotEmpty) ...[
-                    ...message.attachments.map(
-                      (attachment) =>
-                          _buildAttachmentWidget(context, attachment, isMe),
-                    ),
+                    ...message.attachments.map((attachment) => _buildAttachmentWidget(context, attachment, isMe)),
                     if (message.text.isNotEmpty) const SizedBox(height: 8),
                   ],
                   // Show text if present
                   if (message.text.isNotEmpty)
-                    Text(
-                      message.text,
-                      style: TextStyle(
-                        color: isMe ? Colors.white : Colors.black87,
-                        fontSize: 16,
-                      ),
-                    ),
+                    Text(message.text, style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 16)),
                   const SizedBox(height: 4),
                   Text(
                     timeFormat.format(message.timestamp),
-                    style: TextStyle(
-                      color: isMe ? Colors.white70 : Colors.grey[600],
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: isMe ? Colors.white70 : Colors.grey[600], fontSize: 12),
                   ),
                 ],
               ),
@@ -1184,11 +981,7 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildAttachmentWidget(
-    BuildContext context,
-    MessageAttachment attachment,
-    bool isMe,
-  ) {
+  Widget _buildAttachmentWidget(BuildContext context, MessageAttachment attachment, bool isMe) {
     final textColor = isMe ? Colors.white : Colors.black87;
     final subtextColor = isMe ? Colors.white70 : Colors.grey[600];
 
@@ -1198,11 +991,7 @@ class ChatBubble extends StatelessWidget {
       decoration: BoxDecoration(
         color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[100],
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isMe
-              ? Colors.white.withOpacity(0.2)
-              : Colors.grey.withOpacity(0.3),
-        ),
+        border: Border.all(color: isMe ? Colors.white.withOpacity(0.2) : Colors.grey.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1211,9 +1000,7 @@ class ChatBubble extends StatelessWidget {
           if (attachment.type == AttachmentType.image) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child:
-                  attachment.thumbnailPath != null &&
-                      File(attachment.thumbnailPath!).existsSync()
+              child: attachment.thumbnailPath != null && File(attachment.thumbnailPath!).existsSync()
                   ? Image.file(
                       File(attachment.thumbnailPath!),
                       width: double.infinity,
@@ -1224,8 +1011,7 @@ class ChatBubble extends StatelessWidget {
                         return _buildImagePreviewFallback(attachment);
                       },
                     )
-                  : attachment.localPath != null &&
-                        File(attachment.localPath!).existsSync()
+                  : attachment.localPath != null && File(attachment.localPath!).existsSync()
                   ? Image.file(
                       File(attachment.localPath!),
                       width: double.infinity,
@@ -1244,20 +1030,12 @@ class ChatBubble extends StatelessWidget {
           // File info header
           Row(
             children: [
-              Icon(
-                _getAttachmentIcon(attachment.type),
-                color: textColor,
-                size: 20,
-              ),
+              Icon(_getAttachmentIcon(attachment.type), color: textColor, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   attachment.originalFileName,
-                  style: TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: textColor, fontWeight: FontWeight.w500, fontSize: 14),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -1266,10 +1044,7 @@ class ChatBubble extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              Text(
-                _formatFileSize(attachment.sizeInBytes),
-                style: TextStyle(color: subtextColor, fontSize: 12),
-              ),
+              Text(_formatFileSize(attachment.sizeInBytes), style: TextStyle(color: subtextColor, fontSize: 12)),
               const Spacer(),
               // Show download progress when downloading
               if (!attachment.isDownloaded &&
@@ -1305,23 +1080,13 @@ class ChatBubble extends StatelessWidget {
                     TextButton.icon(
                       onPressed: () => _openFile(context, attachment),
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         minimumSize: Size.zero,
                       ),
-                      icon: Icon(
-                        Icons.open_in_new,
-                        size: 14,
-                        color: isMe ? Colors.white : const Color(0xFF2196F3),
-                      ),
+                      icon: Icon(Icons.open_in_new, size: 14, color: isMe ? Colors.white : const Color(0xFF2196F3)),
                       label: Text(
                         'Open',
-                        style: TextStyle(
-                          color: isMe ? Colors.white : const Color(0xFF2196F3),
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: isMe ? Colors.white : const Color(0xFF2196F3), fontSize: 12),
                       ),
                     ),
                   ],
@@ -1331,20 +1096,11 @@ class ChatBubble extends StatelessWidget {
                 TextButton.icon(
                   onPressed: () => _downloadAttachment(context, attachment),
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     minimumSize: Size.zero,
-                    backgroundColor: isMe
-                        ? Colors.white.withOpacity(0.1)
-                        : const Color(0xFF2196F3).withOpacity(0.1),
+                    backgroundColor: isMe ? Colors.white.withOpacity(0.1) : const Color(0xFF2196F3).withOpacity(0.1),
                   ),
-                  icon: Icon(
-                    Icons.download,
-                    size: 16,
-                    color: isMe ? Colors.white : const Color(0xFF2196F3),
-                  ),
+                  icon: Icon(Icons.download, size: 16, color: isMe ? Colors.white : const Color(0xFF2196F3)),
                   label: Text(
                     'Download',
                     style: TextStyle(
@@ -1372,7 +1128,6 @@ class ChatBubble extends StatelessWidget {
       case AttachmentType.video:
         return Icons.videocam;
       case AttachmentType.other:
-      default:
         return Icons.attach_file;
     }
   }
@@ -1380,28 +1135,18 @@ class ChatBubble extends StatelessWidget {
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
-  void _downloadAttachment(
-    BuildContext context,
-    MessageAttachment attachment,
-  ) async {
+  void _downloadAttachment(BuildContext context, MessageAttachment attachment) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Downloading ${attachment.originalFileName}...'),
-          duration: const Duration(seconds: 2),
-        ),
+        SnackBar(content: Text('Downloading ${attachment.originalFileName}...'), duration: const Duration(seconds: 2)),
       );
 
       // Find the message containing this attachment to get the messageId
-      final groupsProvider = Provider.of<GroupsProvider>(
-        context,
-        listen: false,
-      );
+      final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
       final currentGroup = group;
 
       final messages = groupsProvider.getGroupMessages(currentGroup.id);
@@ -1411,26 +1156,17 @@ class ChatBubble extends StatelessWidget {
       );
 
       // Start the download through GroupsProvider which will update the UI state
-      await groupsProvider.downloadFileAttachment(
-        currentGroup.id,
-        message.id,
-        attachment,
-        message.fromAtSign,
-      );
+      await groupsProvider.downloadFileAttachment(currentGroup.id, message.id, attachment, message.fromAtSign);
 
       // Check if download was successful (has a localPath)
       final updatedMessages = groupsProvider.getGroupMessages(currentGroup.id);
-      final updatedMessage = updatedMessages.firstWhere(
-        (msg) => msg.id == message.id,
-        orElse: () => message,
-      );
+      final updatedMessage = updatedMessages.firstWhere((msg) => msg.id == message.id, orElse: () => message);
       final updatedAttachment = updatedMessage.attachments.firstWhere(
         (att) => att.id == attachment.id,
         orElse: () => attachment,
       );
 
-      if (updatedAttachment.localPath != null &&
-          updatedAttachment.localPath!.isNotEmpty) {
+      if (updatedAttachment.localPath != null && updatedAttachment.localPath!.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Downloaded ${attachment.originalFileName}'),
@@ -1445,29 +1181,20 @@ class ChatBubble extends StatelessWidget {
         );
       } else {
         // Download was cancelled or failed
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Download cancelled or failed'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Download cancelled or failed'), backgroundColor: Colors.orange));
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to download ${attachment.originalFileName}: $e',
-          ),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Failed to download ${attachment.originalFileName}: $e'), backgroundColor: Colors.red),
       );
     }
   }
 
   void _openFile(BuildContext context, MessageAttachment attachment) async {
     try {
-      if (attachment.localPath != null &&
-          File(attachment.localPath!).existsSync()) {
+      if (attachment.localPath != null && File(attachment.localPath!).existsSync()) {
         // On macOS, use the 'open' command to open the file with default app
         if (Platform.isMacOS) {
           await Process.run('open', [attachment.localPath!]);
@@ -1477,34 +1204,22 @@ class ChatBubble extends StatelessWidget {
           await Process.run('start', [attachment.localPath!], runInShell: true);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('File opening not supported on this platform'),
-              backgroundColor: Colors.orange,
-            ),
+            SnackBar(content: Text('File opening not supported on this platform'), backgroundColor: Colors.orange),
           );
           return;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Opening ${attachment.originalFileName}'),
-            backgroundColor: Colors.blue,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Opening ${attachment.originalFileName}'), backgroundColor: Colors.blue));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('File not found locally. Please download first.'),
-            backgroundColor: Colors.orange,
-          ),
+          SnackBar(content: Text('File not found locally. Please download first.'), backgroundColor: Colors.orange),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to open ${attachment.originalFileName}: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Failed to open ${attachment.originalFileName}: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -1524,9 +1239,7 @@ class ChatBubble extends StatelessWidget {
           Icon(Icons.image, color: Colors.grey[600], size: 48),
           const SizedBox(height: 8),
           Text(
-            attachment.isDownloaded
-                ? 'Image preview loading...'
-                : 'Download to preview',
+            attachment.isDownloaded ? 'Image preview loading...' : 'Download to preview',
             style: TextStyle(color: Colors.grey[600], fontSize: 12),
             textAlign: TextAlign.center,
           ),
@@ -1534,11 +1247,7 @@ class ChatBubble extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               attachment.originalFileName,
-              style: TextStyle(
-                color: Colors.grey[700],
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(color: Colors.grey[700], fontSize: 11, fontWeight: FontWeight.w500),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,

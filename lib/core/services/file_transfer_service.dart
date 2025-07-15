@@ -105,16 +105,18 @@ class FileTransferService {
 
   FileTransferService._internal();
 
-  static const int maxFileSize = 5 * 1024 * 1024; // 5MB limit (further reduced for reliability)
+  static const int maxFileSize = 30 * 1024 * 1024; // 30MB limit - increased for better usability
   static const int chunkSize = 8 * 1024; // 8KB chunks for sequential processing and better reliability
+  static const int smallFileThreshold = 1024 * 1024; // 1MB - files smaller than this use single chunk
   static const int thumbnailSize = 300; // 300px max for thumbnails
   static const int maxRetries = 3; // Maximum retries for failed operations
   static const Duration chunkTimeout = Duration(seconds: 30); // Timeout per chunk operation
-  static const int maxConcurrentUploads = 3; // Maximum concurrent chunk uploads to avoid overloading atServer
+  static const int maxConcurrentUploads = 5; // Increased for better performance with larger files
   static const int maxConcurrentDownloads = 1; // Sequential downloads to be gentle on atServer
-  static const Duration chunkUploadDelay = Duration(milliseconds: 100); // Small delay between uploads for ordering
+  static const Duration chunkUploadDelay = Duration(milliseconds: 50); // Reduced delay for faster uploads
 
   /// Upload a file and return MessageAttachment with progress callback
+  /// Returns immediately with attachment, upload continues in background
   Future<MessageAttachment?> uploadFile(String filePath, [Function(double)? onProgress]) async {
     try {
       final file = File(filePath);
@@ -153,26 +155,41 @@ class FileTransferService {
         localPath: filePath,
       );
 
-      // Generate thumbnail for images (10% of progress)
+      // Generate thumbnail for images (quick operation)
       if (attachmentType == AttachmentType.image) {
-        onProgress?.call(0.1);
         final thumbnailPath = await _generateThumbnail(filePath, fileId);
         attachment = attachment.copyWith(thumbnailPath: thumbnailPath);
       }
 
-      // Upload file to atPlatform in chunks (90% of progress)
-      await _uploadFileToAtPlatform(file, fileId, (chunkProgress) {
-        final totalProgress = 0.1 + (chunkProgress * 0.9);
-        onProgress?.call(totalProgress);
-      });
+      // Upload file and wait for completion (blocking for file sharing)
+      await _uploadFileToAtPlatform(file, fileId, onProgress ?? (progress) {});
 
-      onProgress?.call(1.0);
-      print('✅ File uploaded successfully: $fileName (${_formatFileSize(fileSize)})');
+      print('✅ File upload completed: $fileName (${_formatFileSize(fileSize)})');
       return attachment;
     } catch (e) {
       print('❌ Failed to upload file: $e');
       return null;
     }
+  }
+
+  // Track upload progress for each file
+  static final Map<String, double> _uploadProgress = {};
+  static final Map<String, bool> _uploadComplete = {};
+
+  /// Get upload progress for a specific file
+  double getUploadProgress(String fileId) {
+    return _uploadProgress[fileId] ?? 0.0;
+  }
+
+  /// Check if upload is complete for a specific file
+  bool isUploadComplete(String fileId) {
+    return _uploadComplete[fileId] ?? false;
+  }
+
+  /// Clear upload tracking for a file
+  void clearUploadTracking(String fileId) {
+    _uploadProgress.remove(fileId);
+    _uploadComplete.remove(fileId);
   }
 
   /// Send a file as a message
@@ -254,7 +271,10 @@ class FileTransferService {
         ..sharedBy = AtTalkService.instance.currentAtSign
         ..namespace = AtTalkService.instance.atClientPreference!.namespace;
 
-      final metadataResult = await client.get(metadataKey);
+      final metadataResult = await client.get(
+        metadataKey,
+        getRequestOptions: GetRequestOptions()..useRemoteAtServer = true,
+      );
       if (metadataResult.value == null) {
         throw Exception('File metadata not found for sharing');
       }
@@ -288,7 +308,10 @@ class FileTransferService {
           ..sharedBy = AtTalkService.instance.currentAtSign
           ..namespace = AtTalkService.instance.atClientPreference!.namespace;
 
-        final chunkResult = await client.get(originalChunkKey);
+        final chunkResult = await client.get(
+          originalChunkKey,
+          getRequestOptions: GetRequestOptions()..useRemoteAtServer = true,
+        );
         if (chunkResult.value != null) {
           final sharedChunkKey = AtKey()
             ..key = 'file_chunk_${fileId}_$i'
@@ -421,10 +444,14 @@ class FileTransferService {
 
     // Read file in chunks to avoid memory issues with large files
     final fileSize = await file.length();
-    final totalChunks = (fileSize / chunkSize).ceil();
+
+    // For small files, use single chunk to avoid chunking overhead
+    final useChunking = fileSize > smallFileThreshold;
+    final effectiveChunkSize = useChunking ? chunkSize : fileSize;
+    final totalChunks = useChunking ? (fileSize / chunkSize).ceil() : 1;
 
     print(
-      '📤 Uploading file with controlled concurrency: $totalChunks chunks of ${_formatFileSize(chunkSize)} each with 1-day TTL',
+      '📤 Uploading ${useChunking ? "chunked" : "single"} file: $totalChunks chunks of ${_formatFileSize(effectiveChunkSize)} each with 1-day TTL',
     );
 
     // Upload metadata first with retry
@@ -444,6 +471,7 @@ class FileTransferService {
       'totalChunks': totalChunks,
       'mimeType': lookupMimeType(file.path),
       'uploadTimestamp': DateTime.now().millisecondsSinceEpoch,
+      'isSmallFile': !useChunking,
     };
 
     print('📤 Metadata key: ${metadataKey.toString()}');
@@ -458,7 +486,22 @@ class FileTransferService {
       print('✅ Uploaded file metadata directly to remote atServer');
     }, 'upload metadata');
 
-    // Upload chunks with controlled concurrency to avoid overloading atServer
+    if (!useChunking) {
+      // Small file: upload as single chunk
+      print('📤 Uploading small file as single chunk...');
+      final fileBytes = await file.readAsBytes();
+      await _uploadChunkWithRetry(client, fileId, 0, fileBytes, 1);
+      onProgress(1.0);
+    } else {
+      // Large file: upload with controlled concurrency
+      await _uploadLargeFileInChunks(client, file, fileId, onProgress);
+    }
+
+    print('✅ All file data uploaded directly to remote atServer - no sync needed');
+  }
+
+  /// Upload large file in chunks with concurrency control
+  Future<void> _uploadLargeFileInChunks(AtClient client, File file, String fileId, Function(double) onProgress) async {
     final fileStream = file.openRead();
     final chunkDataList = <Uint8List>[];
 
@@ -484,7 +527,7 @@ class FileTransferService {
           if (chunkIndex > 0) {
             await Future.delayed(chunkUploadDelay);
           }
-          await _uploadChunkWithRetry(client, fileId, chunkIndex, chunkData, totalChunks);
+          await _uploadChunkWithRetry(client, fileId, chunkIndex, chunkData, chunkDataList.length);
         } finally {
           semaphore.release();
         }
@@ -498,11 +541,10 @@ class FileTransferService {
     for (final future in futures) {
       await future;
       completedChunks++;
-      onProgress(completedChunks / totalChunks);
+      onProgress(completedChunks / chunkDataList.length);
     }
 
     print('✅ All chunks uploaded successfully with controlled concurrency');
-    print('✅ All file data uploaded directly to remote atServer - no sync needed');
   }
 
   /// Upload a single chunk with retry mechanism
@@ -643,9 +685,7 @@ class FileTransferService {
       final metadataKey = AtKey()
         ..key = 'file_meta_$fileId'
         ..sharedBy = fromAtSign ?? AtTalkService.instance.currentAtSign
-        ..sharedWith = AtTalkService
-            .instance
-            .currentAtSign // Explicitly set sharedWith
+        ..sharedWith = AtTalkService.instance.currentAtSign
         ..namespace = AtTalkService.instance.atClientPreference!.namespace;
 
       final isRemoteFetch = fromAtSign != null && fromAtSign != AtTalkService.instance.currentAtSign;
@@ -655,7 +695,6 @@ class FileTransferService {
       print('📥 Metadata key: ${metadataKey.toString()}');
 
       final metadataResult = await _retryOperation(() async {
-        // If fromAtSign is provided and different from current user, fetch from remote
         final result = isRemoteFetch
             ? await client
                   .get(metadataKey, getRequestOptions: GetRequestOptions()..bypassCache = true)
@@ -671,9 +710,10 @@ class FileTransferService {
       final metadata = jsonDecode(metadataResult.value.toString());
       final totalChunks = metadata['totalChunks'] as int;
       final expectedSize = metadata['fileSize'] as int;
+      final isSmallFile = metadata['isSmallFile'] ?? false;
 
       print(
-        '📥 Downloading file: ${metadata['fileName']} (${_formatFileSize(expectedSize)}) in $totalChunks chunks sequentially',
+        '📥 Downloading ${isSmallFile ? "small" : "chunked"} file: ${metadata['fileName']} (${_formatFileSize(expectedSize)}) in $totalChunks chunks',
       );
 
       // Download chunks sequentially to be gentle on atServer
