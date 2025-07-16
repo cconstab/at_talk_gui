@@ -429,7 +429,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
     if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to send message. Please try again.'), backgroundColor: Colors.red),
+        SnackBar(
+          content: const Text('Failed to send message. Please try again.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ),
       );
     }
 
@@ -506,10 +511,20 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       // (only display name changes), so we just show success message
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Group renamed to "$displayText"'), backgroundColor: Colors.green));
+      ).showSnackBar(SnackBar(
+        content: Text('Group renamed to "$displayText"'),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+      ));
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to rename group. Please try again.'), backgroundColor: Colors.red),
+        SnackBar(
+          content: const Text('Failed to rename group. Please try again.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ),
       );
     }
   }
@@ -570,7 +585,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
       if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to leave group. Please try again.'), backgroundColor: Colors.red),
+          SnackBar(
+            content: const Text('Failed to leave group. Please try again.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+          ),
         );
         return;
       }
@@ -578,7 +598,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
     if (mounted) {
       Navigator.pop(context); // Return to groups list
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Left the group')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Left the group'),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+      ));
     }
   }
 
@@ -638,7 +662,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     // Check if member is already in the group
     if (widget.group.members.contains(formattedAtSign)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$formattedAtSign is already in the group')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$formattedAtSign is already in the group'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ));
       }
       return;
     }
@@ -654,10 +682,19 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
     if (mounted) {
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added $formattedAtSign to the group')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Added $formattedAtSign to the group'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add $formattedAtSign to the group'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Failed to add $formattedAtSign to the group'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+          ),
         );
       }
     }
@@ -783,9 +820,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     if (updatedMembers.length < 2) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cannot remove member - group must have at least 2 members'),
+          SnackBar(
+            content: const Text('Cannot remove member - group must have at least 2 members'),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
           ),
         );
       }
@@ -796,10 +835,19 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
     if (mounted) {
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Removed $memberAtSign from the group')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Removed $memberAtSign from the group'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to remove $memberAtSign from the group'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Failed to remove $memberAtSign from the group'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+          ),
         );
       }
     }
@@ -816,7 +864,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         if (filePath == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Unable to access the selected file.'), backgroundColor: Colors.red),
+              SnackBar(
+                content: const Text('Unable to access the selected file.'),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+              ),
             );
           }
           return;
@@ -834,6 +887,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 ],
               ),
               duration: const Duration(seconds: 30),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
             ),
           );
         }
@@ -856,6 +911,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               content: Text('Failed to send ${file.name}. Check file size (max 30MB) and try again.'),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
             ),
           );
         } else if (mounted) {
@@ -864,6 +921,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               content: Text('${file.name} sent successfully!'),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
             ),
           );
         }
@@ -872,7 +931,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       print('Error picking file: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error selecting file. Please try again.'), backgroundColor: Colors.red),
+          SnackBar(
+            content: const Text('Error selecting file. Please try again.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+          ),
         );
       }
     }
@@ -1160,7 +1224,12 @@ class ChatBubble extends StatelessWidget {
   void _downloadAttachment(BuildContext context, MessageAttachment attachment) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Downloading ${attachment.originalFileName}...'), duration: const Duration(seconds: 2)),
+        SnackBar(
+          content: Text('Downloading ${attachment.originalFileName}...'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ),
       );
 
       // Find the message containing this attachment to get the messageId
@@ -1189,6 +1258,8 @@ class ChatBubble extends StatelessWidget {
           SnackBar(
             content: Text('Downloaded ${attachment.originalFileName}'),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
             action: SnackBarAction(
               label: 'Open',
               onPressed: () {
@@ -1201,11 +1272,21 @@ class ChatBubble extends StatelessWidget {
         // Download was cancelled or failed
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Download cancelled or failed'), backgroundColor: Colors.orange));
+        ).showSnackBar(SnackBar(
+          content: const Text('Download cancelled or failed'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ));
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to download ${attachment.originalFileName}: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Failed to download ${attachment.originalFileName}: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ),
       );
     }
   }
@@ -1229,16 +1310,31 @@ class ChatBubble extends StatelessWidget {
         if (savedPath != null) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('File saved to: $savedPath'), backgroundColor: Colors.green));
+          ).showSnackBar(SnackBar(
+            content: Text('File saved to: $savedPath'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+          ));
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('File not found locally. Please download first.'), backgroundColor: Colors.orange),
+          SnackBar(
+            content: const Text('File not found locally. Please download first.'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+          ),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open ${attachment.originalFileName}: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Failed to open ${attachment.originalFileName}: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ),
       );
     }
   }
@@ -1363,17 +1459,32 @@ class ChatBubble extends StatelessWidget {
         if (savedPath != null) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Image saved to: $savedPath'), backgroundColor: Colors.green));
+          ).showSnackBar(SnackBar(
+            content: Text('Image saved to: $savedPath'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+          ));
         }
       } else {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Image not available locally'), backgroundColor: Colors.orange));
+        ).showSnackBar(SnackBar(
+          content: const Text('Image not available locally'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ));
       }
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to save image: $e'), backgroundColor: Colors.red));
+      ).showSnackBar(SnackBar(
+        content: Text('Failed to save image: $e'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+      ));
     }
   }
 
@@ -1389,22 +1500,42 @@ class ChatBubble extends StatelessWidget {
           await Process.run('start', [attachment.localPath!], runInShell: true);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('File opening not supported on this platform'), backgroundColor: Colors.orange),
+            SnackBar(
+              content: const Text('File opening not supported on this platform'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+            ),
           );
           return;
         }
 
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Opening ${attachment.originalFileName}'), backgroundColor: Colors.blue));
+        ).showSnackBar(SnackBar(
+          content: Text('Opening ${attachment.originalFileName}'),
+          backgroundColor: Colors.blue,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('File not found locally. Please download first.'), backgroundColor: Colors.orange),
+          SnackBar(
+            content: const Text('File not found locally. Please download first.'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+          ),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open ${attachment.originalFileName}: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Failed to open ${attachment.originalFileName}: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 120, left: 16, right: 16),
+        ),
       );
     }
   }
