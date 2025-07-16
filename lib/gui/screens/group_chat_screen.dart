@@ -999,31 +999,48 @@ class ChatBubble extends StatelessWidget {
         children: [
           // Image preview for image attachments
           if (attachment.type == AttachmentType.image) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: attachment.thumbnailPath != null && File(attachment.thumbnailPath!).existsSync()
-                  ? Image.file(
-                      File(attachment.thumbnailPath!),
-                      width: double.infinity,
-                      height: 200,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        print('❌ Error loading thumbnail: $error');
-                        return _buildImagePreviewFallback(attachment);
-                      },
-                    )
-                  : attachment.localPath != null && File(attachment.localPath!).existsSync()
-                  ? Image.file(
-                      File(attachment.localPath!),
-                      width: double.infinity,
-                      height: 200,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        print('❌ Error loading image: $error');
-                        return _buildImagePreviewFallback(attachment);
-                      },
-                    )
-                  : _buildImagePreviewFallback(attachment),
+            GestureDetector(
+              onTap: () => _openFile(context, attachment),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child:
+                    // For sender (isFromMe), prioritize full image over thumbnail for better quality
+                    (message.isFromMe && attachment.localPath != null && File(attachment.localPath!).existsSync())
+                    ? Image.file(
+                        File(attachment.localPath!),
+                        width: double.infinity,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          print('❌ Error loading full image: $error');
+                          return _buildImagePreviewFallback(attachment);
+                        },
+                      )
+                    // For receiver or fallback, try thumbnail first, then full image
+                    : attachment.thumbnailPath != null && File(attachment.thumbnailPath!).existsSync()
+                    ? Image.file(
+                        File(attachment.thumbnailPath!),
+                        width: double.infinity,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          print('❌ Error loading thumbnail: $error');
+                          return _buildImagePreviewFallback(attachment);
+                        },
+                      )
+                    : attachment.localPath != null && File(attachment.localPath!).existsSync()
+                    ? Image.file(
+                        File(attachment.localPath!),
+                        width: double.infinity,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          print('❌ Error loading image: $error');
+                          return _buildImagePreviewFallback(attachment);
+                        },
+                      )
+                    : _buildImagePreviewFallback(attachment),
+              ),
             ),
             const SizedBox(height: 8),
           ],
@@ -1208,11 +1225,11 @@ class ChatBubble extends StatelessWidget {
           attachment.localPath!,
           attachment.originalFileName,
         );
-        
+
         if (savedPath != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('File saved to: $savedPath'), backgroundColor: Colors.green),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('File saved to: $savedPath'), backgroundColor: Colors.green));
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1248,11 +1265,7 @@ class ChatBubble extends StatelessWidget {
                       Expanded(
                         child: Text(
                           attachment.originalFileName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -1264,9 +1277,7 @@ class ChatBubble extends StatelessWidget {
                   ),
                 ),
                 // Image preview
-                Flexible(
-                  child: _buildImagePreviewContent(attachment),
-                ),
+                Flexible(child: _buildImagePreviewContent(attachment)),
                 // Action buttons
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -1319,10 +1330,7 @@ class ChatBubble extends StatelessWidget {
                 children: [
                   Icon(Icons.error, color: Colors.red, size: 48),
                   const SizedBox(height: 8),
-                  Text(
-                    'Failed to load image',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  Text('Failed to load image', style: TextStyle(color: Colors.white)),
                 ],
               ),
             );
@@ -1337,10 +1345,7 @@ class ChatBubble extends StatelessWidget {
           children: [
             Icon(Icons.image, color: Colors.grey[400], size: 48),
             const SizedBox(height: 8),
-            Text(
-              'Image not available locally',
-              style: TextStyle(color: Colors.white),
-            ),
+            Text('Image not available locally', style: TextStyle(color: Colors.white)),
           ],
         ),
       );
@@ -1354,21 +1359,21 @@ class ChatBubble extends StatelessWidget {
           attachment.localPath!,
           attachment.originalFileName,
         );
-        
+
         if (savedPath != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Image saved to: $savedPath'), backgroundColor: Colors.green),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Image saved to: $savedPath'), backgroundColor: Colors.green));
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Image not available locally'), backgroundColor: Colors.orange),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Image not available locally'), backgroundColor: Colors.orange));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save image: $e'), backgroundColor: Colors.red),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to save image: $e'), backgroundColor: Colors.red));
     }
   }
 

@@ -1487,13 +1487,13 @@ class GroupsProvider extends ChangeNotifier {
 
       // Duplicate detection for file messages - similar to text messages
       final existingMessages = _groupMessages[groupId] ?? [];
-      
+
       // Check for exact ID match
       if (existingMessages.any((existingMsg) => existingMsg.id == chatMessage.id)) {
         print('⚠️ Duplicate file message detected (same ID): ${chatMessage.id}');
         return;
       }
-      
+
       // For current user's file messages, check for content-based duplicates within 30 seconds
       if (chatMessage.isFromMe) {
         final now = DateTime.now();
@@ -1501,7 +1501,7 @@ class GroupsProvider extends ChangeNotifier {
           final timeDiff = now.difference(msg.timestamp).inSeconds;
           return timeDiff <= 30 && msg.isFromMe;
         }).toList();
-        
+
         // Check if we have an identical file message from the same user recently
         final hasDuplicate = recentMessages.any((msg) {
           // Compare attachments for file messages
@@ -1509,12 +1509,12 @@ class GroupsProvider extends ChangeNotifier {
             final existingAttachment = msg.attachments.first;
             final newAttachment = chatMessage.attachments.first;
             return existingAttachment.id == newAttachment.id &&
-                   existingAttachment.originalFileName == newAttachment.originalFileName &&
-                   existingAttachment.sizeInBytes == newAttachment.sizeInBytes;
+                existingAttachment.originalFileName == newAttachment.originalFileName &&
+                existingAttachment.sizeInBytes == newAttachment.sizeInBytes;
           }
           return false;
         });
-        
+
         if (hasDuplicate) {
           print('⚠️ Duplicate file message detected (same content from current user): ${attachment.originalFileName}');
           return;
