@@ -337,6 +337,13 @@ class GroupsProvider extends ChangeNotifier {
         attachments: [attachment],
       );
 
+      // Use canonical group to ensure consistency with notification handling
+      final canonicalGroupId = _getOrCreateCanonicalGroup(groupId, currentAtSign, currentAtSign);
+      if (canonicalGroupId != groupId) {
+        print('🔀 Using canonical group for immediate FILE message: $canonicalGroupId (was: $groupId)');
+        groupId = canonicalGroupId;
+      }
+
       print(
         '➕ Adding our own FILE message immediately (BEFORE sending): ID=${fileMessage.id}, file="${attachment.originalFileName}", timestamp=${fileMessage.timestamp}',
       );
@@ -1377,7 +1384,6 @@ class GroupsProvider extends ChangeNotifier {
       final fileType = jsonData['attachmentType'] as String?;
       final fileMimeType = jsonData['mimeType'] as String?;
       final groupMembers = (jsonData['group'] as List<dynamic>?)?.cast<String>();
-      final groupName = jsonData['groupName'] as String?;
       final messageText = jsonData['msg'] as String? ?? '';
 
       if (fileId == null || fileName == null) {
@@ -1414,16 +1420,22 @@ class GroupsProvider extends ChangeNotifier {
         groupId = sortedParticipants.join(',');
       }
 
+      // Use the same group finding logic as text messages
+      final existingGroup = _findGroupByMembers(members);
+      if (existingGroup != null) {
+        groupId = existingGroup.id;
+        print('✅ Using existing group for file message: ${existingGroup.id} for members: ${existingGroup.members}');
+      } else {
+        // Create new group only if none exists
+        createOrUpdateGroup(members, instanceId: groupId);
+        print('🆕 Created new group for file message: $groupId for members: $members');
+      }
+
       // Ensure group exists
       final canonicalGroupId = _getOrCreateCanonicalGroup(groupId, fromAtSign, currentAtSign);
       if (canonicalGroupId != groupId) {
         print('🔀 Using canonical group for file message: $canonicalGroupId (was: $groupId)');
         groupId = canonicalGroupId;
-      }
-
-      // Ensure the group exists in our groups map
-      if (!_groups.containsKey(groupId)) {
-        _groups[groupId] = Group(id: groupId, members: members, lastMessageTime: DateTime.now(), name: groupName);
       }
 
       // Determine attachment type
@@ -1472,6 +1484,42 @@ class GroupsProvider extends ChangeNotifier {
       );
 
       print('📨 Adding file message to group $groupId: ${attachment.originalFileName}');
+
+      // Duplicate detection for file messages - similar to text messages
+      final existingMessages = _groupMessages[groupId] ?? [];
+      
+      // Check for exact ID match
+      if (existingMessages.any((existingMsg) => existingMsg.id == chatMessage.id)) {
+        print('⚠️ Duplicate file message detected (same ID): ${chatMessage.id}');
+        return;
+      }
+      
+      // For current user's file messages, check for content-based duplicates within 30 seconds
+      if (chatMessage.isFromMe) {
+        final now = DateTime.now();
+        final recentMessages = existingMessages.where((msg) {
+          final timeDiff = now.difference(msg.timestamp).inSeconds;
+          return timeDiff <= 30 && msg.isFromMe;
+        }).toList();
+        
+        // Check if we have an identical file message from the same user recently
+        final hasDuplicate = recentMessages.any((msg) {
+          // Compare attachments for file messages
+          if (msg.attachments.isNotEmpty && chatMessage.attachments.isNotEmpty) {
+            final existingAttachment = msg.attachments.first;
+            final newAttachment = chatMessage.attachments.first;
+            return existingAttachment.id == newAttachment.id &&
+                   existingAttachment.originalFileName == newAttachment.originalFileName &&
+                   existingAttachment.sizeInBytes == newAttachment.sizeInBytes;
+          }
+          return false;
+        });
+        
+        if (hasDuplicate) {
+          print('⚠️ Duplicate file message detected (same content from current user): ${attachment.originalFileName}');
+          return;
+        }
+      }
 
       // Add message to group
       addMessageToGroup(groupId, chatMessage);
