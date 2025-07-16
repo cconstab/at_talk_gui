@@ -340,6 +340,39 @@ class FileTransferService {
     }
   }
 
+  /// Save an already downloaded file to user-selected location
+  Future<String?> saveFileAs(String localPath, String fileName) async {
+    try {
+      final file = File(localPath);
+      if (!await file.exists()) {
+        throw Exception('Local file does not exist: $localPath');
+      }
+
+      print('💾 Saving file: $fileName');
+
+      // Show save dialog to let user choose where to save the file
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save file',
+        fileName: fileName,
+        type: FileType.any,
+      );
+
+      if (result == null) {
+        print('❌ User cancelled file save');
+        return null;
+      }
+
+      // Copy the file to the user-selected location
+      await file.copy(result);
+
+      print('✅ File saved successfully: $result');
+      return result;
+    } catch (e) {
+      print('❌ Failed to save file: $e');
+      return null;
+    }
+  }
+
   /// Download file by fileId with user-selected save location
   Future<String?> downloadFile(
     String fileId,

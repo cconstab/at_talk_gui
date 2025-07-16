@@ -7,6 +7,7 @@ import '../../core/providers/groups_provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/at_talk_service.dart';
 import '../../core/services/display_name_service.dart';
+import '../../core/services/file_transfer_service.dart';
 import '../../core/models/group.dart';
 import '../../core/models/chat_message.dart';
 
@@ -1193,6 +1194,185 @@ class ChatBubble extends StatelessWidget {
   }
 
   void _openFile(BuildContext context, MessageAttachment attachment) async {
+    try {
+      // For images, show in-app preview
+      if (attachment.type == AttachmentType.image) {
+        _showImagePreview(context, attachment);
+        return;
+      }
+
+      // For non-images, use file picker to let user choose save location
+      if (attachment.localPath != null && File(attachment.localPath!).existsSync()) {
+        // File is already downloaded, use FileTransferService to save it with user's choice
+        final savedPath = await FileTransferService.instance.saveFileAs(
+          attachment.localPath!,
+          attachment.originalFileName,
+        );
+        
+        if (savedPath != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('File saved to: $savedPath'), backgroundColor: Colors.green),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('File not found locally. Please download first.'), backgroundColor: Colors.orange),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open ${attachment.originalFileName}: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showImagePreview(BuildContext context, MessageAttachment attachment) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.black87,
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+              maxHeight: MediaQuery.of(context).size.height * 0.9,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with file name and close button
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          attachment.originalFileName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                // Image preview
+                Flexible(
+                  child: _buildImagePreviewContent(attachment),
+                ),
+                // Action buttons
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          Navigator.of(context).pop();
+                          await _saveImageToFile(context, attachment);
+                        },
+                        icon: const Icon(Icons.save_alt),
+                        label: const Text('Save As...'),
+                      ),
+                      if (attachment.localPath != null)
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            Navigator.of(context).pop();
+                            await _openWithSystemApp(context, attachment);
+                          },
+                          icon: const Icon(Icons.open_in_new),
+                          label: const Text('Open in System App'),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildImagePreviewContent(MessageAttachment attachment) {
+    if (attachment.localPath != null && File(attachment.localPath!).existsSync()) {
+      return InteractiveViewer(
+        panEnabled: true,
+        boundaryMargin: const EdgeInsets.all(20),
+        minScale: 0.5,
+        maxScale: 3.0,
+        child: Image.file(
+          File(attachment.localPath!),
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: 200,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error, color: Colors.red, size: 48),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Failed to load image',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    } else {
+      return Container(
+        height: 200,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image, color: Colors.grey[400], size: 48),
+            const SizedBox(height: 8),
+            Text(
+              'Image not available locally',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> _saveImageToFile(BuildContext context, MessageAttachment attachment) async {
+    try {
+      if (attachment.localPath != null && File(attachment.localPath!).existsSync()) {
+        final savedPath = await FileTransferService.instance.saveFileAs(
+          attachment.localPath!,
+          attachment.originalFileName,
+        );
+        
+        if (savedPath != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Image saved to: $savedPath'), backgroundColor: Colors.green),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Image not available locally'), backgroundColor: Colors.orange),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save image: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _openWithSystemApp(BuildContext context, MessageAttachment attachment) async {
     try {
       if (attachment.localPath != null && File(attachment.localPath!).existsSync()) {
         // On macOS, use the 'open' command to open the file with default app
