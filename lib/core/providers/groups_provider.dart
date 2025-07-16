@@ -327,6 +327,25 @@ class GroupsProvider extends ChangeNotifier {
 
       print('✅ File uploaded, sending to ${group.members.length} recipients');
 
+      // Create and add file message to local GUI immediately for instant feedback
+      final fileMessage = ChatMessage(
+        id: attachment.id, // Use file ID as message ID for consistency
+        text: caption ?? 'Sent a file: ${attachment.originalFileName}',
+        fromAtSign: currentAtSign,
+        timestamp: DateTime.now(),
+        isFromMe: true,
+        attachments: [attachment],
+      );
+
+      print(
+        '➕ Adding our own FILE message immediately (BEFORE sending): ID=${fileMessage.id}, file="${attachment.originalFileName}", timestamp=${fileMessage.timestamp}',
+      );
+      print('   Target groupId: $groupId');
+      print('   Group members: ${group.members}');
+      print('   Current message count before adding: ${_groupMessages[groupId]?.length ?? 0}');
+      addMessageToGroup(groupId, fileMessage);
+      print('Added our own FILE message to chat immediately for instant feedback');
+
       // Send file message to all group members
       final recipients = group.members.toList();
       bool allSuccess = true;
