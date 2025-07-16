@@ -19,7 +19,7 @@ class DisplayNameService {
     try {
       final client = AtTalkService.instance.atClient;
       final currentAtSign = AtTalkService.instance.currentAtSign;
-      
+
       if (client == null || currentAtSign == null) {
         throw Exception('AtClient not initialized');
       }
@@ -41,7 +41,11 @@ class DisplayNameService {
         'version': '1.0',
       };
 
-      await client.put(key, jsonEncode(displayNameData));
+      await client.put(
+        key,
+        jsonEncode(displayNameData),
+        putRequestOptions: PutRequestOptions()..useRemoteAtServer = true,
+      );
 
       // Cache locally
       _memoryCache[currentAtSign] = displayName.trim();
@@ -60,7 +64,7 @@ class DisplayNameService {
     try {
       final client = AtTalkService.instance.atClient;
       final currentAtSign = AtTalkService.instance.currentAtSign;
-      
+
       if (client == null || currentAtSign == null) {
         throw Exception('AtClient not initialized');
       }
@@ -75,7 +79,7 @@ class DisplayNameService {
           ..isEncrypted = false
           ..namespaceAware = true);
 
-      await client.delete(key);
+      await client.delete(key, deleteRequestOptions: DeleteRequestOptions()..useRemoteAtServer = true);
 
       // Clear from caches
       _memoryCache.remove(currentAtSign);
@@ -153,7 +157,7 @@ class DisplayNameService {
   /// Refresh a specific atSign's display name from server
   Future<void> refreshDisplayName(String atSign) async {
     final normalizedAtSign = atSign.startsWith('@') ? atSign : '@$atSign';
-    
+
     // Remove from caches
     _memoryCache.remove(normalizedAtSign);
     try {
@@ -170,11 +174,11 @@ class DisplayNameService {
   /// Get display names for multiple atSigns (batch operation)
   Future<Map<String, String?>> getDisplayNames(List<String> atSigns) async {
     final results = <String, String?>{};
-    
+
     for (final atSign in atSigns) {
       results[atSign] = await getDisplayName(atSign);
     }
-    
+
     return results;
   }
 
@@ -182,7 +186,7 @@ class DisplayNameService {
   Future<String?> getMyDisplayName() async {
     final currentAtSign = AtTalkService.instance.currentAtSign;
     if (currentAtSign == null) return null;
-    
+
     return await getDisplayName(currentAtSign);
   }
 
@@ -197,17 +201,17 @@ class DisplayNameService {
         ..sharedBy = atSign
         ..namespace = 'attalk.profile';
 
-      final result = await client.get(key);
+      final result = await client.get(key, getRequestOptions: GetRequestOptions()..bypassCache = true);
       if (result.value == null) return null;
 
       final data = jsonDecode(result.value.toString());
       final displayName = data['displayName'] as String?;
-      
+
       if (displayName != null && displayName.isNotEmpty) {
         print('📥 Fetched display name for $atSign: $displayName');
         return displayName.trim();
       }
-      
+
       return null;
     } catch (e) {
       // Don't log this as an error since it's normal for users to not have display names set
@@ -250,25 +254,23 @@ class DisplayNameService {
   /// Check if a display name is valid
   bool isValidDisplayName(String displayName) {
     final trimmed = displayName.trim();
-    return trimmed.isNotEmpty && 
-           trimmed.length <= 50 && 
-           !trimmed.contains('@') &&
-           !trimmed.contains('\n') &&
-           !trimmed.contains('\r');
+    return trimmed.isNotEmpty &&
+        trimmed.length <= 50 &&
+        !trimmed.contains('@') &&
+        !trimmed.contains('\n') &&
+        !trimmed.contains('\r');
   }
 
   /// Get suggested display name from atSign
   String getSuggestedDisplayName(String atSign) {
     final withoutAt = atSign.startsWith('@') ? atSign.substring(1) : atSign;
-    
+
     // Split by common separators and capitalize
     final parts = withoutAt.split(RegExp(r'[._-]'));
     if (parts.length > 1) {
-      return parts
-          .map((part) => part.isEmpty ? '' : part[0].toUpperCase() + part.substring(1))
-          .join(' ');
+      return parts.map((part) => part.isEmpty ? '' : part[0].toUpperCase() + part.substring(1)).join(' ');
     }
-    
+
     // Just capitalize first letter
     return withoutAt.isEmpty ? '' : withoutAt[0].toUpperCase() + withoutAt.substring(1);
   }

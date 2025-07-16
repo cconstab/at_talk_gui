@@ -1060,7 +1060,13 @@ class FileTransferService {
           ..isEncrypted = true
           ..namespaceAware = true);
 
-      await client.put(testKey, 'health_check_${DateTime.now().millisecondsSinceEpoch}').timeout(Duration(seconds: 10));
+      await client
+          .put(
+            testKey,
+            'health_check_${DateTime.now().millisecondsSinceEpoch}',
+            putRequestOptions: PutRequestOptions()..useRemoteAtServer = true,
+          )
+          .timeout(Duration(seconds: 10));
       print('✅ AtClient health check passed');
       return true;
     } catch (e) {
